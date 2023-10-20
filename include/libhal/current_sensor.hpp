@@ -25,20 +25,12 @@ class current_sensor
 {
 public:
   /**
-   * @brief current reading from the sensor
-   *
-   *
-   */
-  struct read_t
-  {
-    hal::ampere current = 0.0f;
-  };
-  /**
    * @brief Reads the most up to date current from the sensor
    *
-   * @return result<read_t> - current data
+   * @return hal::ampere - amount of current, in ampere's, read from the current
+   * sensor.
    */
-  [[nodiscard]] result<read_t> read()
+  [[nodiscard]] hal::ampere read()
   {
     return driver_read();
   }
@@ -46,6 +38,6 @@ public:
   virtual ~current_sensor() = default;
 
 private:
-  virtual hal::result<read_t> driver_read() = 0;
+  virtual hal::ampere driver_read() = 0;
 };
 }  // namespace hal

@@ -14,9 +14,8 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
-
-#include "error.hpp"
 
 namespace hal {
 /**
@@ -30,15 +29,6 @@ namespace hal {
 class dac
 {
 public:
-  /**
-   * @brief Feedback from writing a voltage to the dac.
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct write_t
-  {};
-
   /**
    * @brief Set the output voltage of the DAC.
    *
@@ -58,17 +48,16 @@ public:
    *
    * @param p_percentage - value from 0.0f to +1.0f representing the proportion
    * of the output voltage from the Vss to Vcc.
-   * @return result<write_t> - success or failure
    */
-  [[nodiscard]] result<write_t> write(float p_percentage)
+  void write(float p_percentage)
   {
     auto clamped_percentage = std::clamp(p_percentage, 0.0f, 1.0f);
-    return driver_write(clamped_percentage);
+    driver_write(clamped_percentage);
   }
 
   virtual ~dac() = default;
 
 private:
-  virtual result<write_t> driver_write(float p_percentage) = 0;
+  virtual void driver_write(float p_percentage) = 0;
 };
 }  // namespace hal

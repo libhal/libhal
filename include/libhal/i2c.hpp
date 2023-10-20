@@ -16,7 +16,6 @@
 
 #include <span>
 
-#include "error.hpp"
 #include "functional.hpp"
 #include "timeout.hpp"
 #include "units.hpp"
@@ -48,24 +47,15 @@ public:
   };
 
   /**
-   * @brief Feedback from performing a transaction on the i2c bus
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct transaction_t
-  {};
-
-  /**
    * @brief Configure i2c to match the settings supplied
    *
    * @param p_settings - settings to apply to i2c driver
-   * @return status - success or failure
-   * @throws std::errc::invalid_argument if the settings could not be achieved.
+   * @throws hal::operation_not_supported - if the settings could not be
+   * achieved.
    */
-  [[nodiscard]] status configure(const settings& p_settings)
+  void configure(const settings& p_settings)
   {
-    return driver_configure(p_settings);
+    driver_configure(p_settings);
   }
 
   /**
@@ -106,31 +96,33 @@ public:
    * @param p_timeout callable which notifies the i2c driver that it has run out
    * of time to perform the transaction and must stop and return control to the
    * caller.
-   * @return result<transaction_t> - success or failure
-   * @throws std::errc::io_error indicates that the i2c lines were put into an
-   * invalid state during the transaction due to interference, misconfiguration
-   * of the i2c peripheral or the addressed device or something else.
-   * @throws std::errc::no_such_device_or_address indicates that no devices on
+   * @throws hal::timed_out from p_timeout if the transaction exceeds its
+   * deadline.
+   * @throws hal::no_such_device - indicates that no devices on
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
    * respond, broken or many other possible outcomes.
-   * @throws std::errc::timed_out if the transaction exceeded its time allotment
-   * indicated by p_timeout.
+   * @throws hal::resource_unavailable_try_again - if there is another
+   * controller on the bus and it won control of the bus, this transaction is
+   * canceled and this exception is thrown.
+   * @throws hal::io_error - indicates that the i2c lines were put into an
+   * invalid state during the transaction due to interference, misconfiguration,
+   * hardware fault, malfunctioning i2c peripheral or possibly something else.
+   * This tends to present a hardware issue and is usually not recoverable.
    */
-  [[nodiscard]] result<transaction_t> transaction(
-    hal::byte p_address,
-    std::span<const hal::byte> p_data_out,
-    std::span<hal::byte> p_data_in,
-    hal::function_ref<hal::timeout_function> p_timeout)
+  void transaction(hal::byte p_address,
+                   std::span<const hal::byte> p_data_out,
+                   std::span<hal::byte> p_data_in,
+                   hal::function_ref<hal::timeout_function> p_timeout)
   {
-    return driver_transaction(p_address, p_data_out, p_data_in, p_timeout);
+    driver_transaction(p_address, p_data_out, p_data_in, p_timeout);
   }
 
   virtual ~i2c() = default;
 
 private:
-  virtual status driver_configure(const settings& p_settings) = 0;
-  virtual result<transaction_t> driver_transaction(
+  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual void driver_transaction(
     hal::byte p_address,
     std::span<const hal::byte> p_data_out,
     std::span<hal::byte> p_data_in,

@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "error.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -34,32 +33,25 @@ public:
     pin_resistor resistor = pin_resistor::pull_up;
   };
 
-  /// Input pin level reading structure
-  struct level_t
-  {
-    /// Measured state of the pin
-    bool state;
-  };
-
   /**
    * @brief Configure the input pin to match the settings supplied
    *
    * @param p_settings - settings to apply to input pin
-   * @return status - success or failure
-   * @throws std::errc::invalid_argument if the settings could not be achieved.
+   * @throws hal::operation_not_supported - if the settings could not be
+   * achieved.
    */
-  [[nodiscard]] status configure(const settings& p_settings)
+  void configure(const settings& p_settings)
   {
-    return driver_configure(p_settings);
+    driver_configure(p_settings);
   }
 
   /**
    * @brief Read the state of the input pin
    *
-   * @return result<bool> - true indicates HIGH voltage level and false
+   * @return bool - true indicates HIGH voltage level and false
    * indicates LOW voltage level
    */
-  [[nodiscard]] result<level_t> level()
+  [[nodiscard]] bool level()
   {
     return driver_level();
   }
@@ -67,7 +59,7 @@ public:
   virtual ~input_pin() = default;
 
 private:
-  virtual status driver_configure(const settings& p_settings) = 0;
-  virtual result<level_t> driver_level() = 0;
+  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual bool driver_level() = 0;
 };
 }  // namespace hal

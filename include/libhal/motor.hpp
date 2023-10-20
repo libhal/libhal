@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "error.hpp"
-
 namespace hal {
 /**
  * @brief Hardware abstraction for an open loop rotational actuator
@@ -31,15 +29,6 @@ namespace hal {
 class motor
 {
 public:
-  /**
-   * @brief Feedback from setting the motor power
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct power_t
-  {};
-
   /**
    * @brief Apply power to the motor
    *
@@ -68,9 +57,8 @@ public:
    *
    * @param p_power - Percentage of power to apply to the motor from -1.0f to
    * +1.0f, -100% to 100%, respectively.
-   * @return result<power_t> - success or failure
    */
-  [[nodiscard]] result<power_t> power(float p_power)
+  void power(float p_power)
   {
     auto clamped_power = std::clamp(p_power, -1.0f, +1.0f);
     return driver_power(clamped_power);
@@ -79,6 +67,6 @@ public:
   virtual ~motor() = default;
 
 private:
-  virtual result<power_t> driver_power(float p_power) = 0;
+  virtual void driver_power(float p_power) = 0;
 };
 }  // namespace hal

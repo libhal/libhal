@@ -25,25 +25,11 @@ class angular_velocity_sensor
 {
 public:
   /**
-   * @brief angular velocity reading from the sensor
-   *
-   *
-   */
-  struct read_t
-  {
-    /**
-     * @brief The angular velocity in rotations per minute. (Underlying type is
-     * an std::float)
-     *
-     */
-    hal::rpm angular_velocity = 0;
-  };
-  /**
    * @brief Reads the most up to date angular velocity from the sensor
    *
-   * @return result<read_t> - angular velocity data
+   * @return hal::rpm - angular velocity in RPMs
    */
-  [[nodiscard]] result<read_t> read()
+  [[nodiscard]] hal::rpm read()
   {
     return driver_read();
   }
@@ -51,6 +37,6 @@ public:
   virtual ~angular_velocity_sensor() = default;
 
 private:
-  virtual hal::result<read_t> driver_read() = 0;
+  virtual hal::rpm driver_read() = 0;
 };
 }  // namespace hal

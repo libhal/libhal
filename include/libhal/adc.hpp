@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include "error.hpp"
-
 namespace hal {
 /**
  * @brief Analog to Digital Converter (ADC) hardware abstraction interface.
@@ -31,28 +29,16 @@ class adc
 {
 public:
   /**
-   * @brief Result from reading the adc.
-   *
-   */
-  struct read_t
-  {
-    /**
-     * @brief Sample value of the adc
-     *
-     * Is guaranteed by the implementing driver to be between 0.0f and +1.0f.
-     * The value representing the voltage measured by the ADC from Vss (negative
-     * reference) to Vcc (positive reference). For example, if Vss is 0V (gnd)
-     * and Vcc is 5V and this value is 0.5f, then the voltage measured is 2.5V.
-     */
-    float sample;
-  };
-
-  /**
    * @brief Sample the analog to digital converter and return the result
    *
-   * @return result<read_t> - the sampled adc value
+   * Is guaranteed by the implementing driver to be between 0.0f and +1.0f.
+   * The value representing the voltage measured by the ADC from Vss (negative
+   * reference) to Vcc (positive reference). For example, if Vss is 0V (gnd)
+   * and Vcc is 5V and this value is 0.5f, then the voltage measured is 2.5V.
+   *
+   * @return float - the sampled adc value
    */
-  [[nodiscard]] result<read_t> read()
+  [[nodiscard]] float read()
   {
     return driver_read();
   }
@@ -60,6 +46,6 @@ public:
   virtual ~adc() = default;
 
 private:
-  virtual result<read_t> driver_read() = 0;
+  virtual float driver_read() = 0;
 };
 }  // namespace hal

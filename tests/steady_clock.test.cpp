@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <libhal/error.hpp>
 #include <libhal/steady_clock.hpp>
 
 #include <boost/ut.hpp>
@@ -27,14 +28,14 @@ public:
   ~test_steady_clock() override = default;
 
 private:
-  frequency_t driver_frequency() override
+  hertz driver_frequency() override
   {
-    return frequency_t{ .operating_frequency = m_frequency };
+    return m_frequency;
   };
 
-  uptime_t driver_uptime() override
+  std::uint64_t driver_uptime() override
   {
-    return uptime_t{ .ticks = m_uptime };
+    return m_uptime;
   };
 };
 }  // namespace
@@ -47,12 +48,12 @@ void steady_clock_test()
     test_steady_clock test;
 
     // Exercise
-    auto result1 = test.frequency();
-    auto result2 = test.uptime();
+    auto frequency = test.frequency();
+    auto uptime = test.uptime();
 
     // Verify
-    expect(that % test.m_frequency == result1.operating_frequency);
-    expect(that % test.m_uptime == result2.ticks);
+    expect(that % test.m_frequency == frequency);
+    expect(that % test.m_uptime == uptime);
   };
 };
 }  // namespace hal
