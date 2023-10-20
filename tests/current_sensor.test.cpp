@@ -18,19 +18,17 @@
 
 namespace hal {
 namespace {
+
+constexpr auto expected_value = hal::ampere(0.5);
 class test_current_sensor : public hal::current_sensor
 {
 public:
-  bool m_return_error_status{ false };
   ~test_current_sensor() override = default;
 
 private:
-  result<read_t> driver_read() override
+  hal::ampere driver_read() override
   {
-    if (m_return_error_status) {
-      return hal::new_error();
-    }
-    return read_t{};
+    return expected_value;
   }
 };
 }  // namespace
@@ -41,17 +39,9 @@ void current_sensor_test()
   "current sensor interface test"_test = []() {
     test_current_sensor test;
 
-    auto result = test.read();
+    auto sample = test.read();
 
-    expect(bool{ result });
-  };
-  "current sensor errors test"_test = []() {
-    test_current_sensor test;
-    test.m_return_error_status = true;
-
-    auto result = test.read();
-
-    expect(!bool{ result });
+    expect(expected_value == sample);
   };
 }
 

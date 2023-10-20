@@ -16,7 +16,6 @@
 
 #include <chrono>
 
-#include "error.hpp"
 #include "functional.hpp"
 #include "units.hpp"
 
@@ -38,61 +37,12 @@ class timer
 {
 public:
   /**
-   * @brief Error type indicating that the desired time delay is not achievable
-   * with this timer.
-   *
-   * This occurs if the time delay is too large based on the tick period of the
-   * timer.
-   */
-  struct out_of_bounds_error
-  {
-    /// The tick period
-    std::chrono::nanoseconds tick_period;
-    /// The maximum possible delay allowed
-    std::chrono::nanoseconds maximum;
-  };
-
-  /**
-   * @brief Feedback after checking if the timer is running.
-   *
-   */
-  struct is_running_t
-  {
-    /**
-     * @brief Determines if the timer is currently running
-     *
-     * If this value is false, then the timer is not running.
-     * If this value is true, then the timer is currently running and a callback
-     * is scheduled to be executed at some point in the future.
-     *
-     */
-    bool is_running;
-  };
-
-  /**
-   * @brief Feedback from cancelling a timer
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct cancel_t
-  {};
-
-  /**
-   * @brief Feedback from scheduling a timer
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct schedule_t
-  {};
-
-  /**
    * @brief Determine if the timer is currently running
    *
-   * @return result<is_running_t> - information about the timer
+   * @return true - if a callback has been scheduled and has not been invoked
+   * yet, false otherwise.
    */
-  [[nodiscard]] result<is_running_t> is_running()
+  [[nodiscard]] bool is_running()
   {
     return driver_is_running();
   }
@@ -106,12 +56,10 @@ public:
    * the scheduled event's termination. If this call is too close to when the
    * schedule event expires, this function may not complete before the hardware
    * calls the callback.
-   *
-   * @return result<cancel_t> - success or failure
    */
-  [[nodiscard]] result<cancel_t> cancel()
+  void cancel()
   {
-    return driver_cancel();
+    driver_cancel();
   }
 
   /**
@@ -130,24 +78,21 @@ public:
    *
    * @param p_callback - callback function to be called when the timer expires
    * @param p_delay - the amount of time until the timer expires
-   * @return result<schedule_t> - success or failure
-   * @throws out_of_bounds_error - if p_interval is greater than what can be
-   * cannot be achieved
+   * @throws hal::argument_out_of_domain - if p_interval is greater than what
+   * can be cannot be achieved.
    */
-  [[nodiscard]] result<schedule_t> schedule(
-    hal::callback<void(void)> p_callback,
-    hal::time_duration p_delay)
+  void schedule(hal::callback<void(void)> p_callback,
+                hal::time_duration p_delay)
   {
-    return driver_schedule(p_callback, p_delay);
+    driver_schedule(p_callback, p_delay);
   }
 
   virtual ~timer() = default;
 
 private:
-  virtual result<is_running_t> driver_is_running() = 0;
-  virtual result<cancel_t> driver_cancel() = 0;
-  virtual result<schedule_t> driver_schedule(
-    hal::callback<void(void)> p_callback,
-    hal::time_duration p_delay) = 0;
+  virtual bool driver_is_running() = 0;
+  virtual void driver_cancel() = 0;
+  virtual void driver_schedule(hal::callback<void(void)> p_callback,
+                               hal::time_duration p_delay) = 0;
 };
 }  // namespace hal

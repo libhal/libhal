@@ -21,16 +21,12 @@ namespace {
 class test_angular_velocity_sensor : public hal::angular_velocity_sensor
 {
 public:
-  bool m_return_error_status{ false };
   ~test_angular_velocity_sensor() override = default;
 
 private:
-  result<read_t> driver_read() override
+  hal::rpm driver_read() override
   {
-    if (m_return_error_status) {
-      return hal::new_error();
-    }
-    return read_t{};
+    return hal::rpm(5.0);
   }
 };
 }  // namespace
@@ -43,15 +39,7 @@ void angular_velocity_sensor_test()
 
     auto result = test.read();
 
-    expect(bool{ result });
-  };
-  "angular velocity sensor errors test"_test = []() {
-    test_angular_velocity_sensor test;
-    test.m_return_error_status = true;
-
-    auto result = test.read();
-
-    expect(!bool{ result });
+    expect(hal::rpm(5.0) == result);
   };
 }
 

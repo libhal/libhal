@@ -17,7 +17,6 @@
 #include <array>
 #include <cstdint>
 
-#include "error.hpp"
 #include "functional.hpp"
 #include "units.hpp"
 
@@ -137,24 +136,15 @@ public:
   using handler = void(const message_t& p_message);
 
   /**
-   * @brief Feedback from sending data over the CAN BUS.
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct send_t
-  {};
-
-  /**
    * @brief Configure this can bus port to match the settings supplied
    *
    * @param p_settings - settings to apply to can driver
-   * @return status - success or failure
-   * @throws std::errc::invalid_argument if the settings could not be achieved.
+   * @throws hal::operation_not_supported - if the settings could not be
+   * achieved.
    */
-  [[nodiscard]] status configure(const settings& p_settings)
+  void configure(const settings& p_settings)
   {
-    return driver_configure(p_settings);
+    driver_configure(p_settings);
   }
 
   /**
@@ -175,32 +165,28 @@ public:
    * errors reach 255 counts, the device will go into the "bus-off" state.
    *
    * In the "bus-off" state, the CAN peripheral can no longer communicate on the
-   * bus. Any calls to `send()` will throw the error `std::errc::network_down`.
-   * If this occurs, this function must be called to re-enable bus
-   * communication.
+   * bus. Any calls to `send()` will throw the error
+   * `hal::operation_not_permitted`. If this occurs, this function must be
+   * called to re-enable bus communication.
    *
-   * @return status - success or failure. In the case this function fails
-   * repeatedly, it is advised to simply not use the bus anymore as something is
-   * critical wrong and may not be recoverable.
    */
-  [[nodiscard]] status bus_on()
+  void bus_on()
   {
-    return driver_bus_on();
+    driver_bus_on();
   }
 
   /**
    * @brief Send a can message
    *
    * @param p_message - the message to be sent
-   * @return result<send_t> - success or failure
-   * @throws std::errc::network_down - if the can device is in the "bus-off"
-   * state. This can happen if a critical fault in the bus has occurred. A call
-   * to `bus_on()` will need to be issued to attempt to talk on the bus again.
-   * See `bus_on()` for more details.
+   * @throws hal::operation_not_permitted - if the can device has entered the
+   * "bus-off" state. This can happen if a critical fault in the bus has
+   * occurred. A call to `bus_on()` will need to be issued to attempt to talk on
+   * the bus again. See `bus_on()` for more details.
    */
-  [[nodiscard]] result<send_t> send(const message_t& p_message)
+  void send(const message_t& p_message)
   {
-    return driver_send(p_message);
+    driver_send(p_message);
   }
 
   /**
@@ -213,15 +199,15 @@ public:
    */
   void on_receive(hal::callback<handler> p_handler)
   {
-    return driver_on_receive(p_handler);
+    driver_on_receive(p_handler);
   }
 
   virtual ~can() = default;
 
 private:
-  virtual status driver_configure(const settings& p_settings) = 0;
-  virtual status driver_bus_on() = 0;
-  virtual result<send_t> driver_send(const message_t& p_message) = 0;
+  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual void driver_bus_on() = 0;
+  virtual void driver_send(const message_t& p_message) = 0;
   virtual void driver_on_receive(hal::callback<handler> p_handler) = 0;
 };
 }  // namespace hal

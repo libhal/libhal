@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <cstdint>
 
-#include "error.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -55,24 +54,6 @@ class pwm
 {
 public:
   /**
-   * @brief Feedback setting the pwm duty cycle.
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct duty_cycle_t
-  {};
-
-  /**
-   * @brief Feedback setting the pwm frequency.
-   *
-   * This structure is currently empty as no feedback has been determined for
-   * now. This structure may be expanded in the future.
-   */
-  struct frequency_t
-  {};
-
-  /**
    * @brief Set the pwm waveform frequency
    *
    * This function clamps the input value between 1.0_Hz and 1.0_GHz and thus
@@ -83,14 +64,13 @@ public:
    * implementors to omit redundant clamping code, reducing code bloat.
    *
    * @param p_frequency - settings to apply to pwm driver
-   * @return result<frequency_t> - success or failure
-   * @throws std::errc::argument_out_of_domain - if the frequency is beyond what
+   * @throws hal::argument_out_of_domain - if the frequency is beyond what
    * the pwm generator is capable of achieving.
    */
-  [[nodiscard]] result<frequency_t> frequency(hertz p_frequency)
+  void frequency(hertz p_frequency)
   {
     auto clamped_frequency = std::clamp(p_frequency, 1.0_Hz, 1.0_GHz);
-    return driver_frequency(clamped_frequency);
+    driver_frequency(clamped_frequency);
   }
 
   /**
@@ -112,18 +92,17 @@ public:
    *
    * @param p_duty_cycle - a value from 0.0f to +1.0f representing the duty
    * cycle percentage.
-   * @return result<duty_cycle_t> - success or failure
    */
-  [[nodiscard]] result<duty_cycle_t> duty_cycle(float p_duty_cycle)
+  void duty_cycle(float p_duty_cycle)
   {
     auto clamped_duty_cycle = std::clamp(p_duty_cycle, 0.0f, 1.0f);
-    return driver_duty_cycle(clamped_duty_cycle);
+    driver_duty_cycle(clamped_duty_cycle);
   }
 
   virtual ~pwm() = default;
 
 private:
-  virtual result<frequency_t> driver_frequency(hertz p_frequency) = 0;
-  virtual result<duty_cycle_t> driver_duty_cycle(float p_duty_cycle) = 0;
+  virtual void driver_frequency(hertz p_frequency) = 0;
+  virtual void driver_duty_cycle(float p_duty_cycle) = 0;
 };
 }  // namespace hal

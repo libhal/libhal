@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "error.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -81,24 +80,11 @@ class distance_sensor
 {
 public:
   /**
-   * @brief Result from sampling the distance sensor
-   *
-   */
-  struct read_t
-  {
-    /**
-     * @brief Encoder distance measurement in meters
-     *
-     */
-    meters distance;
-  };
-
-  /**
    * @brief Read the current distance measured by the device
    *
-   * @return result<read_t> - distance data
+   * @return hal::meters - distance in meters sampled from the device
    */
-  [[nodiscard]] result<read_t> read()
+  [[nodiscard]] hal::meters read()
   {
     return driver_read();
   }
@@ -106,6 +92,6 @@ public:
   virtual ~distance_sensor() = default;
 
 private:
-  virtual result<read_t> driver_read() = 0;
+  virtual hal::meters driver_read() = 0;
 };
 }  // namespace hal

@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include "error.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -27,24 +26,11 @@ class temperature_sensor
 {
 public:
   /**
-   * @brief Result from reading the temperature sensor.
-   *
-   */
-  struct read_t
-  {
-    /**
-     * @brief Measured temperature
-     *
-     */
-    celsius temperature;
-  };
-
-  /**
    * @brief Read the current temperature measured by the device
    *
-   * @return result<read_t> - temperature data
+   * @return celsius - Measured temperature
    */
-  [[nodiscard]] result<read_t> read()
+  [[nodiscard]] celsius read()
   {
     return driver_read();
   }
@@ -52,6 +38,6 @@ public:
   virtual ~temperature_sensor() = default;
 
 private:
-  virtual result<read_t> driver_read() = 0;
+  virtual celsius driver_read() = 0;
 };
 }  // namespace hal
