@@ -1,0 +1,43 @@
+# Modifications File for libhal
+
+This file documents the modifications made to the original `libhal` repository, originally forked from `libhal-google`, which is under the Apache 2.0 license.
+
+## Contributor
+
+- Khalil Estell
+
+## List of Modifications
+
+### Copyright Change
+
+- **Date of Modification**: Wed Jan 17 16:39:17 2024 -0800
+- **Description of the Change**: The copyright notice in the repository has
+  been updated to reflect Khalil Estell as the copyright owner of the
+  modifications. This change was made to signify ownership over the new
+  contributions and modifications made to the fork. The change is intended to
+  apply only to modifications and contributions made by Khalil Estell and does
+  not alter the copyright of the original work, which remains under the
+  ownership of Google LLC and other previous contributors, as applicable.
+- **Files Affected**: All files in repository not under any directories labeled
+  `/third_party/`.
+
+## Compliance with Apache 2.0 License
+
+This modification has been made in compliance with the Apache 2.0 license under
+which the original repository was licensed. It is intended to respect the terms
+and conditions of the original license, including, but not limited to,
+retaining the original Apache 2.0 license file unaltered, providing notices of
+the original copyright and license in unmodified portions of the work, and
+documenting significant changes made to the software.
+
+## Purpose
+
+The purpose of this modification is to attribute the new work and contributions
+made by Khalil Estell within the fork of the original `libhal`
+project. It reflects the personal or organizational ownership over these
+specific contributions and modifications, in alignment with open source
+collaboration practices and the Apache 2.0 license requirements.
+
+For more information on the Apache 2.0 license, please see the LICENSE file in
+this repository or visit
+[http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0).
