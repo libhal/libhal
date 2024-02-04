@@ -1,6 +1,7 @@
 # Modifications File for libhal
 
-This file documents the modifications made to the original `libhal` repository, originally forked from `libhal-google`, which is under the Apache 2.0 license.
+This file documents the modifications made to the original `libhal` repository,
+originally forked from `libhal-google`, which is under the Apache 2.0 license.
 
 ## Contributor
 
