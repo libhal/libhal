@@ -12,5 +12,5 @@ jobs:
       arch: x86_64
       compiler_version: 12.3
       compiler_package: ""
-      os: linux
+      os: Linux
     secrets: inherit
