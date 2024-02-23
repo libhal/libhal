@@ -7,6 +7,10 @@ jobs:
   deploy:
     uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
     with:
-      version: exceptions
+      compiler: gcc
+      version: 3.0.0-alpha.1
       arch: x86_64
+      compiler_version: 12.3
+      compiler_package: ""
+      os: linux
     secrets: inherit
