@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <libhal/dac.hpp>
+
 #include <libhal/error.hpp>
 
 #include <boost/ut.hpp>

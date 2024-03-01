@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <libhal/can.hpp>
+
 #include <libhal/error.hpp>
 
 #include <functional>
