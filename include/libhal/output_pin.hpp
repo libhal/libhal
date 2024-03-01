@@ -42,13 +42,6 @@ public:
     bool open_drain = false;
   };
 
-  /// Pin level reading structure
-  struct level_t
-  {
-    /// Current state of the pin
-    bool state;
-  };
-
   /**
    * @brief Configure the output pin to match the settings supplied
    *

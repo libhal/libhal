@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <algorithm>
+
 namespace hal {
 /**
  * @brief Hardware abstraction for an open loop rotational actuator

@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "helpers.hpp"
 #include <libhal/units.hpp>
+
+#include "helpers.hpp"
 
 #include <boost/ut.hpp>
 

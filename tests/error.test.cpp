@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <libhal/error.hpp>
+
 #include <optional>
 #include <utility>
 
-#include <libhal/error.hpp>
 #include <libhal/units.hpp>
 
 #include <boost/ut.hpp>
