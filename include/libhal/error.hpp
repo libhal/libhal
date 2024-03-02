@@ -17,8 +17,19 @@
 #include <system_error>
 #include <type_traits>
 
-namespace hal {
+/**
+ * @defgroup Error Error
+ *
+ */
 
+namespace hal {
+/**
+ * @ingroup Error
+ * @brief libhal function for throwing exceptions with static analysis
+ *
+ * @tparam thrown_t - type of the object to be thrown
+ * @param p_thrown_object - object to throw
+ */
 template<class thrown_t>
 void safe_throw(thrown_t&& p_thrown_object)
 {
@@ -91,6 +102,7 @@ private:
 };
 
 /**
+ * @ingroup Error
  * @brief Base exception class for all hal related exceptions
  *
  */
@@ -199,6 +211,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
 #endif
 
 /**
+ * @ingroup Error
  * @brief Raised when an device was expected to exist and did not
  *
  * # How to recover from this?
@@ -277,6 +290,7 @@ struct no_such_device : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised to indicate an issue with low level I/O
  *
  * I/O errors are error at a low fundamental level. For I2C that could mean that
@@ -310,6 +324,7 @@ struct io_error : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised when a resource is unavailable but another attempt would work
  *
  * Resources are typically busses, peripherals, and shared hardware devices.
@@ -348,6 +363,7 @@ struct resource_unavailable_try_again : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised when an operation reaches a deadline before completing
  *
  * Time outs can be generated from time sources such as a hal::steady_clock or
@@ -387,6 +403,7 @@ struct timed_out : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised exclusively when a driver cannot configure itself based on the
  * settings passed to it.
  *
@@ -435,6 +452,7 @@ struct operation_not_supported : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised when an operation could not be performed because it is no
  * longer permitted to use a resource.
  *
@@ -462,6 +480,7 @@ struct operation_not_permitted : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised when an input passed to a function is outside the domain of the
  * function.
  *
@@ -476,6 +495,7 @@ struct argument_out_of_domain : public exception
 };
 
 /**
+ * @ingroup Error
  * @brief Raised when the error does not match any known or expected error from
  * a device or system.
  *
