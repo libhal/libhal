@@ -216,7 +216,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  *
  * # How to recover from this?
  *
- * 1. Scanning
+ * ## 1. Scanning
  *
  * Lets consider I2C. A developer may want a system that can scan a bus for
  * devices and determine if a device is present. Normally, in I2C, devices will
@@ -226,7 +226,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  * case, the error can be handled locally to the call and each call that does
  * not result in an exception is an address with a device.
  *
- * 2. Polling after reset
+ * ## 2. Polling after reset
  *
  * Lets consider I2C. In this situation, lets consider a device that must be
  * reset in order for a configuration setting to be used. In this situation, a
@@ -239,7 +239,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  *
  * To handle this, simply do:
  *
- * ```C++
+ * ```
  * for (int i = 0; i < number_of_attempts; i++) {
  *    try {
  *      hal::read(i2c, m_address, buffer);
@@ -253,7 +253,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  * you and returns a bool if it was successfully able to communicate with the
  * device.
  *
- * 3. Temporary/Intermittent
+ * ## 3. Temporary/Intermittent
  *
  * There are some cases where communication with a device is intermittent in
  * nature. In these cases, such an exception is temporary in nature and another
@@ -263,7 +263,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  * construction of the object to skip catching the error and allow it propagate
  * out of the driver such that user code can handle.
  *
- * 4. Else, not recoverable
+ * ## 4. Else, not recoverable
  *
  * If none of the above apply to your application, this error is considered,
  * generally non-recoverable and will terminate your application. This would be
@@ -331,7 +331,7 @@ struct io_error : public exception
  *
  * # How do to recover from this?
  *
- * 1. Retry!
+ * ## 1. Retry!
  *
  * Consider I2C. I2C has the ability to have multiple controllers on the bus. If
  * two controllers attempt to control the bus at the same time, arbitration will
@@ -339,7 +339,7 @@ struct io_error : public exception
  * hal::resource_unavailable_try_again exception. To handle this, simply attempt
  * the transaction again until a timeout occurs (time or retry based).
  *
- * 2. Else?
+ * ## 2. Else?
  *
  * This exception should only be raised for arbitration reasons and not I/O
  * reasons, so the only option is to retry. The time it takes for a retry to
@@ -377,7 +377,7 @@ struct resource_unavailable_try_again : public exception
  *
  * # How do to recover from this?
  *
- * 1. Context Required
+ * ## 1. Context Required
  *
  * This entirely depends on your application. If a timeout is too small, it may
  * not give calling code enough time to perform the operation. But in many
@@ -409,7 +409,7 @@ struct timed_out : public exception
  *
  * # How do to recover from this?
  *
- * 1. Adjust settings at runtime if applicable
+ * ## 1. Adjust settings at runtime if applicable
  *
  * This option requires the settings for a driver to be fluid. In most cases, a
  * configuration is a HARD requirement and cannot be simply adjusted to get the
@@ -418,7 +418,7 @@ struct timed_out : public exception
  * so adjusting the clock rate could work if the application can handle this
  * change as well.
  *
- * 2. Else?
+ * ## 2. Else?
  *
  * Normally, the configuration settings of an application are determined early
  * at boot. So if a driver was expected to work with a specific setting such as
@@ -458,13 +458,13 @@ struct operation_not_supported : public exception
  *
  * # How do to recover from this?
  *
- * 1. hal::can
+ * ## 1. hal::can
  *
  * See the API docs for `hal::can::bus_on()` and `hal::can::send()` for details
  * on how to recover from this. It will explain in detail how to recover from
  * this situation.
  *
- * 2. Else?
+ * ## 2. Else?
  *
  * This would be context specific and the API that throws this error should
  * explain why the operation is not permitted and how to allow the operation to
@@ -484,7 +484,18 @@ struct operation_not_permitted : public exception
  * @brief Raised when an input passed to a function is outside the domain of the
  * function.
  *
- * TODO: Missing recovery steps! Add them later!
+ * Thrown by interfaces and drivers with necessarily unbounded inputs. For
+ * example, hal::servo takes a position variable centered at a zero position. A
+ * servo will have a bounded range. But servos also have a variety of possible
+ * ranges and thus the interface must allow for an unbounded set of input
+ * positions. When an input position is given that exceeds what the servo can
+ * perform, it raises this exception.
+ *
+ * # How to recover from this?
+ *
+ * TBD: but in most cases this is a bug in the application and not recoverable.
+ * In general, this is only recoverable if an application is trying to determine
+ * the bounds of a servo.
  */
 struct argument_out_of_domain : public exception
 {
@@ -515,5 +526,4 @@ struct unknown : public exception
   {
   }
 };
-
 }  // namespace hal
