@@ -25,23 +25,6 @@
  */
 
 namespace hal {
-/**
- * @ingroup Error
- * @brief libhal function for throwing exceptions with static analysis
- *
- * @tparam thrown_t - type of the object to be thrown
- * @param p_thrown_object - object to throw
- */
-template<class thrown_t>
-void safe_throw(thrown_t&& p_thrown_object)
-{
-  static_assert(
-    std::is_trivially_destructible_v<thrown_t>,
-    "safe_throw() only works with trivially destructible thrown types");
-
-  throw p_thrown_object;
-}
-
 [[noreturn]] inline void halt()
 {
   while (true) {
@@ -509,6 +492,73 @@ struct argument_out_of_domain : public exception
 
 /**
  * @ingroup Error
+ * @brief Raised when a message, packet, or payload is greater than what can be
+ * sent.
+ *
+ * # How do to recover from this?
+ *
+ * ## Attempt Largest Packet Size, Trim & Retry
+ *
+ * This error can be recovered from by catching the exception and using the
+ * `max_size` field to split your packets into smaller chunks and then calling
+ * the API with each chunk in order.
+ *
+ * A good policy for using libhal libraries is to ask for forgiveness not
+ * permission. Meaning attempt to send the greatest amount of data at once and
+ * see if you can get away with it. Wrap such calls to send/transfer like APIs
+ * with a catch for this exception type and use it to determine the new largest
+ * packet size to send.
+ *
+ */
+struct message_size : public exception
+{
+  message_size(std::uint32_t p_max_size, void* p_instance)
+    : exception(std::errc::message_size, p_instance)
+    , max_size(p_max_size)
+  {
+  }
+
+  std::uint32_t max_size;
+};
+
+/**
+ * @ingroup Error
+ * @brief Raised when an operation is attempted on an unestablished connection.
+ *
+ * This error is typically encountered in network programming, serial
+ * communication, or other contexts where a logical or physical connection is
+ * required before communication can occur. It signifies that the connection
+ * expected for the operation is not currently established.
+ *
+ * # How to recover from this?
+ *
+ * ## Check Connection Status, Re-establish & Retry
+ *
+ * Recovery from this error involves ensuring that the connection has been
+ * successfully established before retrying the operation. This might include:
+ *
+ * - Checking the connection status through appropriate API calls.
+ * - Attempting to re-establish the connection using the connection setup or
+ *   initialization function.
+ * - Once the connection is confirmed or successfully re-established, retry the
+ *   failed operation.
+ *
+ * It's advisable to implement a robust error handling mechanism that includes
+ * connection status checks, retries with exponential backoff, and clear
+ * feedback to the user or system when a connection cannot be established within
+ * a reasonable amount of attempts.
+ *
+ */
+struct not_connected : public exception
+{
+  not_connected(void* p_instance)
+    : exception(std::errc::not_connected, p_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
  * @brief Raised when the error does not match any known or expected error from
  * a device or system.
  *
@@ -528,4 +578,29 @@ struct unknown : public exception
   {
   }
 };
+
+/**
+ * @ingroup Error
+ * @brief libhal function for throwing exceptions with static analysis
+ *
+ * The types that can be thrown must follow these rules:
+ *
+ * 1. Must be trivially destructible
+ * 2. Must have hal::exception as a base class for the type.
+ *
+ * @tparam thrown_t - type of the object to be thrown.
+ * @param p_thrown_object - object to throw.
+ * @throw thrown_t - the passed p_thrown_object.
+ */
+template<class thrown_t>
+void safe_throw(thrown_t&& p_thrown_object)
+{
+  static_assert(
+    std::is_trivially_destructible_v<thrown_t>,
+    "safe_throw() only works with trivially destructible thrown types.");
+  static_assert(std::is_base_of_v<hal::exception, thrown_t>,
+                "Only hal::exception and its derived classes can be safely "
+                "thrown by a libhal library.");
+  throw p_thrown_object;
+}
 }  // namespace hal
