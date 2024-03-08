@@ -593,7 +593,7 @@ struct unknown : public exception
  * @throw thrown_t - the passed p_thrown_object.
  */
 template<class thrown_t>
-void safe_throw(thrown_t&& p_thrown_object)
+[[noreturn]] void safe_throw(thrown_t&& p_thrown_object)
 {
   static_assert(
     std::is_trivially_destructible_v<thrown_t>,
