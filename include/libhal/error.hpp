@@ -131,7 +131,7 @@ public:
    * object cannot be guaranteed and is considered the strongest form of UB.
    *
    */
-  const void* instance() const
+  [[nodiscard]] const void* instance() const
   {
     return m_instance;
   }
@@ -165,7 +165,7 @@ public:
    *
    * @return std::errc - error code represented by the exception
    */
-  std::errc error_code() const
+  [[nodiscard]] std::errc error_code() const
   {
     return m_error_code;
   }
