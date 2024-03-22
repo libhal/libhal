@@ -36,16 +36,14 @@
 archives/
 
 # GDB
-*/**/.gdb_history
+.gdb_history
 
 # Artifacts
 build/
-docs/api/
-docs/doxygen_warn.log
 tools/
 
 # lint artifacts
-ncc.stderr
+compile_commands.json
 
 # OS files
 .DS_Store
@@ -58,3 +56,4 @@ conanbuildinfo.txt
 
 # CMake
 CMakeUserPresets.json
+
