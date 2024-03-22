@@ -1,2 +1,8 @@
-CompileFlags:
-  CompilationDatabase: build/Release
+If:
+  PathMatch: demos/.*
+  CompileFlags:
+    CompilationDatabase: demos
+Else:
+  CompileFlags:
+    CompilationDatabase: .
+
