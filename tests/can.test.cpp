@@ -16,8 +16,6 @@
 
 #include <libhal/error.hpp>
 
-#include <functional>
-
 #include <boost/ut.hpp>
 
 namespace hal {
