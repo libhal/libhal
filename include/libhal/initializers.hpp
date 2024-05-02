@@ -1,7 +1,12 @@
 #pragma once
 
 #include <cstdint>
+
+#include <array>
+#include <span>
 #include <type_traits>
+
+#include "units.hpp"
 
 namespace hal {
 
@@ -215,6 +220,37 @@ inline constexpr channel_t<value> channel{};
  */
 template<std::int64_t value>
 inline constexpr buffer_t<value> buffer{};
+
+/**
+ * @brief Generate a static byte buffer at compile time.
+ *
+ * Each call to this function will generate a new statically allocated buffer
+ * at compile time.
+ *
+ * NEVER: call this function with the template argument set like so:
+ *
+ *        // NEVER DO THIS!
+ *        auto buffer = create_unique_static_buffer<float>();
+ *
+ * This is dangerous because if any other code invoked this function with the
+ * same input type, and the same `p_buffer_size`, it will result in the same
+ * exact instance of the buffer being returned. Having two parts of the code
+ * writing to this buffer is undefined behavior.
+ *
+ * @tparam decltype([]() {}) - Do not modify or set this. This generates a new
+ * type instance each time it is called.
+ * @param p_buffer_size - Buffer parameter type to construct the static array
+ * with.
+ * @return constexpr std::span<hal::byte> - Span pointing to the statically
+ * allocated buffer.
+ */
+template<class = decltype([]() {})>
+constexpr std::span<hal::byte> create_unique_static_buffer(
+  buffer_param auto p_buffer_size)
+{
+  static std::array<hal::byte, p_buffer_size()> buffer{};
+  return buffer;
+}
 
 /// This tag indicates to the reader that the function or constructor used will
 /// perform some runtime sanity checks on its inputs and may return an error or
