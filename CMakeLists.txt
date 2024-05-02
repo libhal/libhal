@@ -27,6 +27,7 @@ libhal_unit_test(SOURCES
   tests/spi.test.cpp
   tests/adc.test.cpp
   tests/dac.test.cpp
+  tests/initializers.test.cpp
   tests/input_pin.test.cpp
   tests/interrupt_pin.test.cpp
   tests/output_pin.test.cpp

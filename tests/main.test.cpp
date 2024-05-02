@@ -33,6 +33,7 @@ extern void g_force_test();
 extern void lengths_test();
 extern void angular_velocity_sensor_test();
 extern void current_sensor_test();
+extern void initializers_test();
 }  // namespace hal
 
 int main()
@@ -43,6 +44,7 @@ int main()
   hal::error_test();
   hal::i2c_test();
   hal::input_pin_test();
+  hal::initializers_test();
   hal::interrupt_pin_test();
   hal::motor_test();
   hal::output_pin_test();
