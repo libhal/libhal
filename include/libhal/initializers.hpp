@@ -245,7 +245,7 @@ inline constexpr buffer_t<value> buffer{};
  * allocated buffer.
  */
 template<class = decltype([]() {})>
-constexpr std::span<hal::byte> create_unique_static_buffer(
+std::span<hal::byte> create_unique_static_buffer(
   buffer_param auto p_buffer_size)
 {
   static std::array<hal::byte, p_buffer_size()> buffer{};
