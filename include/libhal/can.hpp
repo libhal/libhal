@@ -14,8 +14,11 @@
 
 #pragma once
 
-#include <array>
 #include <cstdint>
+
+#include <array>
+#include <optional>
+#include <utility>
 
 #include "functional.hpp"
 #include "units.hpp"
@@ -37,65 +40,47 @@ public:
   /**
    * @brief Generic settings for a can peripheral
    *
-   * CAN Bit Quanta Timing Diagram of:
-   *
-   *                               | <--- sjw ---> |
-   *         ____    ______    __________    __________
-   *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_
-   *       \______/\________/\____________/\____________/
-   *                                       ^ Sample point
    */
   struct settings
   {
     /**
      * @brief Bus clock rate in hertz
      *
+     * CAN Bit Quanta Timing Diagram of:
+     *
+     *                               | <--- sjw ---> |
+     *         ____    ______    __________    __________
+     *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_
+     *       \______/\________/\____________/\____________/
+     *                                       ^ Sample point
+     *
+     * A can bus bit is separated into the segments:
+     *
+     *   - Sync Segment (always 1qt): Initial sync transition, the start of a
+     *     CAN bit.
+     *   - Propagation Delay (1qt ... 8qt): Number of time quanta to
+     *     compensate for signal/propagation delays across the network.
+     *   - Phase Segment 1 (1qt ... 8qt): phase segment 1 acts as a buffer that
+     *     can be lengthened to resynchronize with the bit stream via the
+     *     synchronization jump width.
+     *   - Phase Segment 2 (1qt ... 8qt): Occurs after the sampling point. Phase
+     *     segment 2. can be shortened to resynchronize with the bit stream via
+     *     the synchronization jump width.
+     *   - Synchronization jump width (1qt ... 4qt): This is the maximum time by
+     *     which the bit sampling period may be lengthened or shortened during
+     *     each cycle to adjust for oscillator mismatch between nodes. This
+     *     value must be smaller than phase_segment1 and phase_segment2.
+     *
+     * The exact value of these segments is calculated for you by the can
+     * peripheral based on the input clock to the peripheral and the desired
+     * baud rate.
+     *
+     * A conformant can bus peripheral driver will either choose from tq
+     * starting from 25 and reducing it down to 8 or will have pre-configured
+     * timing values for each frequency it supports.
+     *
      */
     hertz baud_rate = 100.0_kHz;
-
-    /**
-     * @brief Sync Segment (always 1qt)
-     *
-     * Initial sync transition, the start of a CAN bit
-     */
-    static constexpr std::uint8_t sync_segment = 1;
-
-    /**
-     * @brief Propagation Delay (1qt ... 8qt)
-     *
-     * Propagation time It is used to compensate for signal delays across the
-     * network.
-     */
-    std::uint8_t propagation_delay = 3;
-
-    /**
-     * @brief Length of Phase Segment 1 (1qt ... 8qt)
-     *
-     * Determines the bit rate, phase segment 1 acts as a buffer that can be
-     * lengthened to resynchronize with the bit stream via the
-     * synchronization_jump_width. Includes propagation delay
-     */
-    std::uint8_t phase_segment1 = 3;
-
-    /**
-     * @brief Length of Phase Segment 2 (1qt ... 8qt)
-     *
-     * Determines the bit rate and is like phase segment 1 and occurs after the
-     * sampling point. Phase segment 2 can be shortened to resynchronize with
-     * the bit stream via the synchronization_jump_width.
-     */
-    std::uint8_t phase_segment2 = 3;
-
-    /**
-     * @brief Synchronization jump width (1qt ... 4qt)
-     *
-     * This is the maximum time by which the bit sampling period may be
-     * lengthened or shortened during each cycle to adjust for oscillator
-     * mismatch between nodes.
-     *
-     * This value must be smaller than phase_segment1 and phase_segment2
-     */
-    std::uint8_t synchronization_jump_width = 1;
   };
 
   /**
