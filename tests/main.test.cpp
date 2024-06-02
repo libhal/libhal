@@ -34,6 +34,7 @@ extern void lengths_test();
 extern void angular_velocity_sensor_test();
 extern void current_sensor_test();
 extern void initializers_test();
+extern void stream_dac_test();
 }  // namespace hal
 
 int main()
@@ -59,4 +60,5 @@ int main()
   hal::lengths_test();
   hal::angular_velocity_sensor_test();
   hal::current_sensor_test();
+  hal::stream_dac_test();
 }
