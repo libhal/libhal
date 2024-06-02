@@ -47,6 +47,7 @@ libhal_unit_test(SOURCES
   tests/lengths.test.cpp
   tests/angular_velocity_sensor.test.cpp
   tests/current_sensor.test.cpp
+  tests/stream_dac.test.cpp
   tests/main.test.cpp
 
   PACKAGES
