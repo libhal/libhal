@@ -86,10 +86,23 @@ public:
    * 2. Wake the device from sleep if necessary
    *
    * Care should be taken when unblocking a thread as it is likely that the
-   * resume api is being called in an interrupt context.
+   * resume api is being called in an interrupt context. As such the resume
+   * API MUST NOT THROW! The resume implementation should be as short as
+   * possible to achieve the action of resuming the thread of execution. Using
+   * resume to perform any lengthy work, calculations, or to control hardware is
+   * strictly forbidden as this can cause potential race conditions and
+   * starvation of the scheduler/application.
+   *
+   * The resume implementation should try as much as possible to ensure that no
+   * exceptions can be thrown within any api called within it. This should be
+   * avoided even if the terminate handler for the application is OS aware and
+   * only terminates the threads in which an exception was thrown. Even in this
+   * case, because resume can be called in an interrupt context it could have
+   * been fired at any point during any task, which would improperly terminate
+   * the wrong task.
    *
    */
-  void resume()
+  void resume() noexcept
   {
     driver_resume();
   }
@@ -98,6 +111,6 @@ public:
 
 private:
   virtual void driver_wait() = 0;
-  virtual void driver_resume() = 0;
+  virtual void driver_resume() noexcept = 0;
 };
 }  // namespace hal
