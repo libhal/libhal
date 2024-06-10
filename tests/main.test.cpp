@@ -35,6 +35,7 @@ extern void angular_velocity_sensor_test();
 extern void current_sensor_test();
 extern void initializers_test();
 extern void stream_dac_test();
+extern void io_waiter_test();
 }  // namespace hal
 
 int main()

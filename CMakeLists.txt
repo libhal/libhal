@@ -44,6 +44,7 @@ libhal_unit_test(SOURCES
   tests/temperature_sensor.test.cpp
   tests/servo.test.cpp
   tests/g_force.test.cpp
+  tests/io_waiter.test.cpp
   tests/lengths.test.cpp
   tests/angular_velocity_sensor.test.cpp
   tests/current_sensor.test.cpp

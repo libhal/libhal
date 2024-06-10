@@ -113,4 +113,39 @@ private:
   virtual void driver_wait() = 0;
   virtual void driver_resume() noexcept = 0;
 };
+
+/**
+ * @brief Returns a reference to a statically allocated polling io waiter
+ *
+ * Polling io waiter is a waiter that does nothing. It simply returns when wait
+ * or resume are called, causing the driver to poll its ready flag until it is
+ * completed. This should be used as a default io waiter type for drivers so
+ * the user does not have to manually pass the polling io waiter in the code.
+ * This waiter can be used in applications where polling is an acceptable option
+ * during a driver's waiting period.
+ *
+ * @return io_waiter& - reference to statically allocated polling io waiter
+ * object.
+ */
+inline io_waiter& polling_io_waiter()
+{
+  class polling_io_waiter_t : public hal::io_waiter
+  {
+    void driver_wait()
+    {
+      // Do nothing and allow the outer loop of the driver to poll its ready
+      // flag.
+      return;
+    }
+    void driver_resume() noexcept
+    {
+      // Since wait didn't do anything, neither does resume.
+      return;
+    }
+  };
+
+  static polling_io_waiter_t waiter;
+
+  return waiter;
+}
 }  // namespace hal
