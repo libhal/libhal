@@ -28,7 +28,7 @@ public:
   samples actual_samples;
 
 private:
-  void driver_write(const samples& p_samples) override
+  void driver_write(samples const& p_samples) override
   {
     actual_samples = p_samples;
   }
@@ -41,7 +41,7 @@ void stream_dac_test()
   "stream_dac interface test"_test = []() {
     // Setup
     test_stream_dac test;
-    const std::array<std::uint8_t, 7> expected_out{ 0, 1, 2, 3, 4, 5 };
+    std::array<std::uint8_t, 7> const expected_out{ 0, 1, 2, 3, 4, 5 };
     constexpr hal::hertz expected_sample_rate = 16.0_kHz;
 
     // Exercise

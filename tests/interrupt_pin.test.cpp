@@ -34,7 +34,7 @@ public:
   std::function<handler> m_callback = [](bool) {};
 
 private:
-  void driver_configure(const settings& p_settings) override
+  void driver_configure(settings const& p_settings) override
   {
     m_settings = p_settings;
   };

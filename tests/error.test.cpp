@@ -27,7 +27,7 @@ void error_test()
 
     try {
       hal::safe_throw(hal::timed_out(nullptr));
-    } catch (const hal::timed_out&) {
+    } catch (hal::timed_out const&) {
       exception_thrown = true;
     }
 
@@ -58,7 +58,7 @@ void error_test()
 
     try {
       hal::safe_throw(dtor_t(5.0f));
-    } catch (const dtor_t&) {
+    } catch (dtor_t const&) {
       exception_thrown = true;
     }
 
@@ -71,7 +71,7 @@ void error_test()
 
     try {
       hal::safe_throw(5);
-    } catch (const int&) {
+    } catch (int const&) {
       exception_thrown = true;
     }
 

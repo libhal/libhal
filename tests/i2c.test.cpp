@@ -26,7 +26,7 @@ constexpr hal::i2c::settings expected_settings{ .clock_rate = 1.0_Hz };
 constexpr hal::byte expected_address{ 100 };
 constexpr std::array<hal::byte, 4> expected_data_out{ 'a', 'b' };
 std::array<hal::byte, 4> expected_data_in{ '1', '2' };
-const hal::function_ref<hal::timeout_function> expected_timeout = []() {};
+hal::function_ref<hal::timeout_function> const expected_timeout = []() {};
 
 class test_i2c : public hal::i2c
 {
