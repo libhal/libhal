@@ -58,9 +58,9 @@ void spi_test()
   "spi interface test"_test = []() {
     // Setup
     test_spi test;
-    const std::array<hal::byte, 4> expected_out{ 'a', 'b' };
+    std::array<hal::byte, 4> const expected_out{ 'a', 'b' };
     std::array<hal::byte, 4> expected_in{ '1', '2' };
-    const auto expected_filler = ' ';
+    auto const expected_filler = ' ';
 
     // Exercise
     test.configure(expected_settings);

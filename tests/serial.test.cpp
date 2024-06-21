@@ -66,7 +66,7 @@ void serial_test()
   "serial interface test"_test = []() {
     // Setup
     test_serial test;
-    const std::array<hal::byte, 4> expected_payload{ 'a', 'b' };
+    std::array<hal::byte, 4> const expected_payload{ 'a', 'b' };
     std::array<hal::byte, 4> expected_buffer{ '1', '2' };
 
     // Exercise

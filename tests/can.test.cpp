@@ -26,19 +26,19 @@ constexpr hal::can::settings expected_settings{
 int counter = 0;
 constexpr hal::can::message_t expected_message{ .id = 1, .length = 0 };
 hal::callback<hal::can::handler> expected_handler =
-  [](const hal::can::message_t&) { counter++; };
+  [](hal::can::message_t const&) { counter++; };
 
 class test_can : public hal::can
 {
 public:
   settings m_settings{};
   message_t m_message{};
-  hal::callback<handler> m_handler = [](const message_t&) {};
+  hal::callback<handler> m_handler = [](message_t const&) {};
   bool m_bus_on_called{ false };
   ~test_can() override = default;
 
 private:
-  void driver_configure(const settings& p_settings) override
+  void driver_configure(settings const& p_settings) override
   {
     m_settings = p_settings;
   };
@@ -48,7 +48,7 @@ private:
     m_bus_on_called = true;
   }
 
-  void driver_send(const message_t& p_message) override
+  void driver_send(message_t const& p_message) override
   {
     m_message = p_message;
   };

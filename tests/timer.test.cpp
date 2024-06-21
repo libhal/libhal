@@ -58,11 +58,11 @@ void timer_test()
     // Setup
     test_timer test;
     bool callback_stored_successfully = false;
-    const hal::callback<void(void)> expected_callback =
+    hal::callback<void(void)> const expected_callback =
       [&callback_stored_successfully]() {
         callback_stored_successfully = true;
       };
-    const hal::time_duration expected_delay = {};
+    hal::time_duration const expected_delay = {};
 
     // Exercise + Verify
     auto is_running = test.is_running();
