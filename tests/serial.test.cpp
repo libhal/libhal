@@ -34,12 +34,12 @@ public:
   ~test_serial() override = default;
 
 private:
-  void driver_configure(const settings& p_settings) override
+  void driver_configure(settings const& p_settings) override
   {
     m_settings = p_settings;
   }
 
-  write_t driver_write(std::span<const hal::byte> p_data) override
+  write_t driver_write(std::span<hal::byte const> p_data) override
   {
     return write_t{ .data = p_data };
   }

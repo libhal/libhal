@@ -33,21 +33,21 @@ class test_i2c : public hal::i2c
 public:
   settings m_settings{};
   hal::byte m_address{};
-  std::span<const hal::byte> m_data_out{};
+  std::span<hal::byte const> m_data_out{};
   std::span<hal::byte> m_data_in{};
   std::function<hal::timeout_function> m_timeout = []() {};
 
   ~test_i2c() override = default;
 
 private:
-  void driver_configure(const settings& p_settings) override
+  void driver_configure(settings const& p_settings) override
   {
     m_settings = p_settings;
     return;
   };
   void driver_transaction(
     hal::byte p_address,
-    std::span<const hal::byte> p_data_out,
+    std::span<hal::byte const> p_data_out,
     std::span<hal::byte> p_data_in,
     hal::function_ref<hal::timeout_function> p_timeout) override
   {

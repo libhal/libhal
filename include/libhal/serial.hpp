@@ -16,7 +16,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <span>
 
 #include "units.hpp"
@@ -115,7 +114,7 @@ public:
   struct write_t
   {
     /// The portion of the buffer transmitted
-    std::span<const hal::byte> data;
+    std::span<hal::byte const> data;
   };
 
   /**
@@ -129,7 +128,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(const settings& p_settings)
+  void configure(settings const& p_settings)
   {
     driver_configure(p_settings);
   }
@@ -140,7 +139,7 @@ public:
    * @param p_data - data to be transmitted over the serial port
    * @return write_t - serial write response
    */
-  write_t write(std::span<const hal::byte> p_data)
+  write_t write(std::span<hal::byte const> p_data)
   {
     return driver_write(p_data);
   }
@@ -196,8 +195,8 @@ public:
   virtual ~serial() = default;
 
 private:
-  virtual void driver_configure(const settings& p_settings) = 0;
-  virtual write_t driver_write(std::span<const hal::byte> p_data) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual write_t driver_write(std::span<hal::byte const> p_data) = 0;
   virtual read_t driver_read(std::span<hal::byte> p_data) = 0;
   virtual void driver_flush() = 0;
 };

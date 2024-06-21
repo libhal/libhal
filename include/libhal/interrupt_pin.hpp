@@ -96,7 +96,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(const settings& p_settings)
+  void configure(settings const& p_settings)
   {
     driver_configure(p_settings);
   }
@@ -116,7 +116,7 @@ public:
   virtual ~interrupt_pin() = default;
 
 private:
-  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_on_trigger(hal::callback<handler> p_callback) = 0;
 };
 }  // namespace hal

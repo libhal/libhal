@@ -17,8 +17,6 @@
 #include <cstdint>
 
 #include <array>
-#include <optional>
-#include <utility>
 
 #include "functional.hpp"
 #include "units.hpp"
@@ -118,7 +116,7 @@ public:
    * @brief Receive handler for can messages
    *
    */
-  using handler = void(const message_t& p_message);
+  using handler = void(message_t const& p_message);
 
   /**
    * @brief Configure this can bus port to match the settings supplied
@@ -127,7 +125,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(const settings& p_settings)
+  void configure(settings const& p_settings)
   {
     driver_configure(p_settings);
   }
@@ -169,7 +167,7 @@ public:
    * occurred. A call to `bus_on()` will need to be issued to attempt to talk on
    * the bus again. See `bus_on()` for more details.
    */
-  void send(const message_t& p_message)
+  void send(message_t const& p_message)
   {
     driver_send(p_message);
   }
@@ -190,9 +188,9 @@ public:
   virtual ~can() = default;
 
 private:
-  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_bus_on() = 0;
-  virtual void driver_send(const message_t& p_message) = 0;
+  virtual void driver_send(message_t const& p_message) = 0;
   virtual void driver_on_receive(hal::callback<handler> p_handler) = 0;
 };
 }  // namespace hal

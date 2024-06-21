@@ -15,7 +15,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <span>
 
 #include "units.hpp"
@@ -63,7 +62,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(const settings& p_settings)
+  void configure(settings const& p_settings)
   {
     return driver_configure(p_settings);
   }
@@ -84,7 +83,7 @@ public:
    * @param p_filler - filler data placed on the bus in place of actual write
    * data when p_data_out has been exhausted.
    */
-  void transfer(std::span<const hal::byte> p_data_out,
+  void transfer(std::span<hal::byte const> p_data_out,
                 std::span<hal::byte> p_data_in,
                 hal::byte p_filler = default_filler)
   {
@@ -94,8 +93,8 @@ public:
   virtual ~spi() = default;
 
 private:
-  virtual void driver_configure(const settings& p_settings) = 0;
-  virtual void driver_transfer(std::span<const hal::byte> p_data_out,
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual void driver_transfer(std::span<hal::byte const> p_data_out,
                                std::span<hal::byte> p_data_in,
                                hal::byte p_filler) = 0;
 };

@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <chrono>
-
 #include "functional.hpp"
 #include "units.hpp"
 

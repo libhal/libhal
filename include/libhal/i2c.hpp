@@ -53,7 +53,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(const settings& p_settings)
+  void configure(settings const& p_settings)
   {
     driver_configure(p_settings);
   }
@@ -70,7 +70,7 @@ public:
    * `std::span<hal::byte>{}` and pass a buffer to p_data_out.
    *
    * - For read transactions, pass p_data_out as an empty span
-   * `std::span<const hal::byte>{}` and pass a buffer to p_data_in.
+   * `std::span<hal::byte const>{}` and pass a buffer to p_data_in.
    *
    * - For write-then-read transactions, pass a buffer for both p_data_in
    *   p_data_out.
@@ -111,7 +111,7 @@ public:
    * This tends to present a hardware issue and is usually not recoverable.
    */
   void transaction(hal::byte p_address,
-                   std::span<const hal::byte> p_data_out,
+                   std::span<hal::byte const> p_data_out,
                    std::span<hal::byte> p_data_in,
                    hal::function_ref<hal::timeout_function> p_timeout)
   {
@@ -121,10 +121,10 @@ public:
   virtual ~i2c() = default;
 
 private:
-  virtual void driver_configure(const settings& p_settings) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_transaction(
     hal::byte p_address,
-    std::span<const hal::byte> p_data_out,
+    std::span<hal::byte const> p_data_out,
     std::span<hal::byte> p_data_in,
     hal::function_ref<hal::timeout_function> p_timeout) = 0;
 };

@@ -21,9 +21,7 @@
  */
 #pragma once
 
-#include "error.hpp"
 #include "functional.hpp"
-#include "steady_clock.hpp"
 
 namespace hal {
 /**

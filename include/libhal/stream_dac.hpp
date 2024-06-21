@@ -89,7 +89,7 @@ public:
      * If this is empty (empty() == true), then the write command simply
      * returns without updating anything.
      */
-    std::span<const data_t> data;
+    std::span<data_t const> data;
   };
 
   /**
@@ -122,7 +122,7 @@ public:
    *       which samples are rejected and when an exception is thrown.
    *     - The sample rate is too low and cannot be achieved by the DAC.
    */
-  void write(const samples& p_samples)
+  void write(samples const& p_samples)
   {
     driver_write(p_samples);
   }
@@ -130,7 +130,7 @@ public:
   virtual ~stream_dac() = default;
 
 private:
-  virtual void driver_write(const samples& p_samples) = 0;
+  virtual void driver_write(samples const& p_samples) = 0;
 };
 
 /**

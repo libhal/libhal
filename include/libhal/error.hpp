@@ -131,7 +131,7 @@ public:
    * object cannot be guaranteed and is considered the strongest form of UB.
    *
    */
-  [[nodiscard]] const void* instance() const
+  [[nodiscard]] void const* instance() const
   {
     return m_instance;
   }
