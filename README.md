@@ -11,7 +11,7 @@ used to make the whole ecosystem work.
 ## 📚 Software APIs & Usage
 
 To learn about the available drivers and APIs see the
-[API Reference](https://libhal.github.io/api/namespacehal/)
+[API Reference](https://libhal.github.io/latest/api/)
 documentation page or look at the
 [`include/libhal`](https://github.com/libhal/libhal/tree/main/include/libhal)
 directory.
