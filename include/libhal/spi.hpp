@@ -22,7 +22,48 @@
 namespace hal {
 /**
  * @brief Serial peripheral interface (SPI) communication protocol hardware
- * abstract interface
+ * abstraction interface
+ *
+ * This interface supports the most common SPI features:
+ *
+ * 1. Word length locked to 8-bits
+ * 2. Byte transfer is always MSB first
+ * 3. Chip select is not controlled by this driver
+ *
+ * # Design Philosophy
+ *
+ * By restricting the SPI interface requirements, we ensure compatibility with
+ * nearly all devices that communicate over SPI. This approach simplifies both
+ * the requirements and the code for SPI drivers and implementations.
+ *
+ * ## 8-bit Transfers
+ *
+ * The 8-bit word length is the most common SPI word length, compatible with
+ * almost any SPI peripheral driver, SPI converter driver, and most devices.
+ * Devices that support 16-bit word transfers can split the 16-bit word into two
+ * bytes. Devices using word formats that aren't multiples of 8 bits are very
+ * rare.
+ *
+ * ## MSB First Transfers
+ *
+ * The most common bit order for SPI is MSB first. Devices that use LSB first
+ * are rare. Drivers using this SPI interface must handle bit reversal to
+ * comply with the MSB first requirement. This decision helps to eliminate
+ * rare and potentially unsupportable configurations, optimizing the interface
+ * for the majority of use cases.
+ *
+ * ## Manual Chip Select Control
+ *
+ * Many SPI peripherals have a dedicated chip select pin that can be controlled
+ * manually. Automatic chip select control asserts the chip select for the
+ * duration of the transfer and de-asserts it at the end, which can be
+ * problematic for drivers needing to perform multiple transfers while keeping
+ * the chip select asserted. For instance, if payload parts are in ROM, copying
+ * them to a buffer for a full transfer requires more stack space than calling
+ * the transfer multiple times with the ROM data stream. Some devices, like SD
+ * cards, require the chip select to be held with a sequence of clock cycles
+ * until they respond with actual data. This sequence can vary, so manual chip
+ * select control allows more precise and memory-efficient operations.
  *
  */
 class spi
