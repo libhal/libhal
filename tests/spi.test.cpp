@@ -25,6 +25,11 @@ constexpr hal::spi::settings expected_settings{
   .clock_idles_high = true,
   .data_valid_on_trailing_edge = true,
 };
+constexpr hal::spi::settings expected_settings2{
+  .clock_rate = 10.0_kHz,
+  .cpol = true,
+  .cpha = false,
+};
 class test_spi : public hal::spi
 {
 public:
@@ -70,6 +75,40 @@ void spi_test()
     expect(that % expected_out.data() == test.m_data_out.data());
     expect(that % expected_in.data() == test.m_data_in.data());
     expect(expected_filler == test.m_filler);
+    expect(expected_settings.clock_rate == test.m_settings.clock_rate);
+    expect(expected_settings.clock_idles_high ==
+           test.m_settings.clock_idles_high);
+    expect(expected_settings.data_valid_on_trailing_edge ==
+           test.m_settings.data_valid_on_trailing_edge);
+    expect(expected_settings.cpol == test.m_settings.cpol);
+    expect(expected_settings.cpha == test.m_settings.cpha);
+    expect(expected_settings.clock_polarity == test.m_settings.clock_polarity);
+    expect(expected_settings.clock_phase == test.m_settings.clock_phase);
+  };
+  "spi interface test: settings2"_test = []() {
+    // Setup
+    test_spi test;
+    std::array<hal::byte, 4> const expected_out{ 'a', 'b' };
+    std::array<hal::byte, 4> expected_in{ '1', '2' };
+    auto const expected_filler = ' ';
+
+    // Exercise
+    test.configure(expected_settings2);
+    test.transfer(expected_out, expected_in, expected_filler);
+
+    // Verify
+    expect(that % expected_out.data() == test.m_data_out.data());
+    expect(that % expected_in.data() == test.m_data_in.data());
+    expect(expected_filler == test.m_filler);
+    expect(expected_settings2.clock_rate == test.m_settings.clock_rate);
+    expect(expected_settings2.cpol == test.m_settings.cpol);
+    expect(expected_settings2.cpha == test.m_settings.cpha);
+    expect(expected_settings2.clock_idles_high ==
+           test.m_settings.clock_idles_high);
+    expect(expected_settings2.data_valid_on_trailing_edge ==
+           test.m_settings.data_valid_on_trailing_edge);
+    expect(expected_settings2.clock_polarity == test.m_settings.clock_polarity);
+    expect(expected_settings2.clock_phase == test.m_settings.clock_phase);
   };
 };
 }  // namespace hal
