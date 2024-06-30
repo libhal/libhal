@@ -83,13 +83,27 @@ public:
     /**
      * @brief The polarity of the pins when the signal is idle
      *
+     * CPOL == 0 == false
+     * CPOL == 1 == true
      */
-    bool clock_idles_high = false;
+    union
+    {
+      bool clock_idles_high = false;
+      bool clock_polarity;
+      bool cpol;
+    };
     /**
      * @brief The phase of the clock signal when communicating
      *
+     * CPHA == 0 == false
+     * CPHA == 1 == true
      */
-    bool data_valid_on_trailing_edge = false;
+    union
+    {
+      bool data_valid_on_trailing_edge = false;
+      bool clock_phase;
+      bool cpha;
+    };
   };
 
   /// Default filler data placed on the bus in place of actual write data when
