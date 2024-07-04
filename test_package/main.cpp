@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <cstdio>
-#include <system_error>
 
 #include <libhal/error.hpp>
 #include <libhal/pwm.hpp>
@@ -34,8 +33,6 @@ private:
   {
     std::printf("duty cycle = %f %%\n", p_position);
   }
-
-  int m_error_count_down = 2;
 };
 
 int main()
@@ -50,7 +47,7 @@ int main()
     pwm.duty_cycle(-0.25);
     pwm.duty_cycle(-1.0);
     pwm.frequency(10.0_MHz);
-  } catch (const hal::argument_out_of_domain& p_errc) {
+  } catch (hal::argument_out_of_domain const& p_errc) {
     std::printf("Caught argument_out_of_domain error successfully!\n");
     std::printf("    Object address: %p\n", p_errc.instance());
   } catch (...) {

@@ -36,6 +36,7 @@ extern void current_sensor_test();
 extern void initializers_test();
 extern void stream_dac_test();
 extern void io_waiter_test();
+extern void lock_test();
 }  // namespace hal
 
 int main()
@@ -62,4 +63,6 @@ int main()
   hal::angular_velocity_sensor_test();
   hal::current_sensor_test();
   hal::stream_dac_test();
+  hal::io_waiter_test();
+  hal::lock_test();
 }
