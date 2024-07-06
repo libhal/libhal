@@ -207,7 +207,7 @@ void lock_test()
       // Verify
       expect(that % test_subject.lock_acquired);
       expect(that % got_lock);
-      expect(that % 5ms == test_subject.duration);
+      expect(5ms == test_subject.duration);
     }
 
     test_subject.lock_acquired = false;
@@ -217,7 +217,7 @@ void lock_test()
       // Verify
       expect(that % test_subject.lock_acquired);
       expect(that % got_lock);
-      expect(that % 10ms == test_subject.duration);
+      expect(10ms == test_subject.duration);
     }
 
     test_subject.lock_acquired = false;
@@ -228,7 +228,7 @@ void lock_test()
       // Verify
       expect(that % not test_subject.lock_acquired);
       expect(that % not got_lock);
-      expect(that % 15ms == test_subject.duration);
+      expect(15ms == test_subject.duration);
     }
 
     /* Exercise */ {
@@ -236,7 +236,7 @@ void lock_test()
       // Verify
       expect(that % not test_subject.lock_acquired);
       expect(that % not got_lock);
-      expect(that % 20ms == test_subject.duration);
+      expect(20ms == test_subject.duration);
     }
   };
 
