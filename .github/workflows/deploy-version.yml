@@ -1,16 +1,17 @@
 # Breaking change was removing the bit timing sections from hal::can::settings,
 # now it is just baud_rate.
-name: 🚀 Deploy 4.0.0
+name: 🚀 Deploy Version
 
 on:
   workflow_dispatch:
 
 jobs:
   deploy:
+    if: startsWith(github.ref, 'refs/tags/')
     uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
     with:
       compiler: gcc
-      version: 4.0.0
+      version: ${{ github.ref_name }}
       arch: x86_64
       compiler_version: 12.3
       compiler_package: ""
