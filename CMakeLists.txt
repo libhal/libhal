@@ -50,6 +50,7 @@ libhal_unit_test(SOURCES
   tests/current_sensor.test.cpp
   tests/stream_dac.test.cpp
   tests/lock.test.cpp
+  tests/experimental/usb.test.cpp
   tests/main.test.cpp
 
   PACKAGES
