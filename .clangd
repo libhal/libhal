@@ -5,4 +5,3 @@ If:
 Else:
   CompileFlags:
     CompilationDatabase: .
-
