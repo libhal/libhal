@@ -37,10 +37,12 @@ extern void initializers_test();
 extern void stream_dac_test();
 extern void io_waiter_test();
 extern void lock_test();
+extern void test_pimpl();
 }  // namespace hal
 
 int main()
 {
+  hal::test_pimpl();
   hal::adc_test();
   hal::can_test();
   hal::dac_test();

@@ -52,6 +52,7 @@ libhal_unit_test(SOURCES
   tests/lock.test.cpp
   tests/experimental/usb.test.cpp
   tests/main.test.cpp
+  tests/pimpl.test.cpp
 
   PACKAGES
   tl-function-ref
