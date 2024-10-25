@@ -78,7 +78,7 @@ private:
     static_cast<void>(m_reserved3);
   }
 
-  void* m_instance = nullptr;
+  void const* m_instance = nullptr;
   std::errc m_error_code{};
   std::uint32_t m_reserved0{};
   std::uint32_t m_reserved1{};
@@ -94,7 +94,7 @@ private:
 class exception
 {
 public:
-  constexpr exception(std::errc p_error_code, void* p_instance)
+  constexpr exception(std::errc p_error_code, void const* p_instance)
     : m_instance(p_instance)
     , m_error_code(p_error_code)
   {
@@ -171,7 +171,7 @@ public:
   }
 
 private:
-  void* m_instance = nullptr;
+  void const* m_instance = nullptr;
   std::errc m_error_code{};
   /// Reserved memory for future use without breaking the ABI
   /// To keep the layout the same with `exception_abi_origin_v0`, these MUST
@@ -265,7 +265,7 @@ struct no_such_device : public exception
    * @param p_instance - must point to the instance of the driver that threw
    * this exception.
    */
-  constexpr no_such_device(std::uint32_t p_address, void* p_instance)
+  constexpr no_such_device(std::uint32_t p_address, void const* p_instance)
     : exception(std::errc::no_such_device, p_instance)
     , address(p_address)
   {
@@ -302,7 +302,7 @@ struct io_error : public exception
    * @param p_instance - must point to the instance of the driver that threw
    * this exception. If this was thrown from a free function pass nullptr.
    */
-  io_error(void* p_instance)
+  io_error(void const* p_instance)
     : exception(std::errc::io_error, p_instance)
   {
   }
@@ -341,7 +341,7 @@ struct resource_unavailable_try_again : public exception
    * @param p_instance - must point to the instance of the driver that threw
    * this exception.
    */
-  resource_unavailable_try_again(void* p_instance)
+  resource_unavailable_try_again(void const* p_instance)
     : exception(std::errc::resource_unavailable_try_again, p_instance)
   {
   }
@@ -381,7 +381,7 @@ struct timed_out : public exception
    * @param p_instance - must point to the instance of the driver timed out. If
    * the timeout occurred from a free function, pass nullptr.
    */
-  timed_out(void* p_instance)
+  timed_out(void const* p_instance)
     : exception(std::errc::timed_out, p_instance)
   {
   }
@@ -430,7 +430,7 @@ struct operation_not_supported : public exception
    * @param p_instance - must point to the instance of the driver that could not
    * be configured with the configuration settings passed to it.
    */
-  operation_not_supported(void* p_instance)
+  operation_not_supported(void const* p_instance)
     : exception(std::errc::operation_not_supported, p_instance)
   {
   }
@@ -458,7 +458,7 @@ struct operation_not_supported : public exception
  */
 struct operation_not_permitted : public exception
 {
-  operation_not_permitted(void* p_instance)
+  operation_not_permitted(void const* p_instance)
     : exception(std::errc::operation_not_permitted, p_instance)
   {
   }
@@ -484,7 +484,7 @@ struct operation_not_permitted : public exception
  */
 struct argument_out_of_domain : public exception
 {
-  argument_out_of_domain(void* p_instance)
+  argument_out_of_domain(void const* p_instance)
     : exception(std::errc::argument_out_of_domain, p_instance)
   {
   }
@@ -512,7 +512,7 @@ struct argument_out_of_domain : public exception
  */
 struct message_size : public exception
 {
-  message_size(std::uint32_t p_max_size, void* p_instance)
+  message_size(std::uint32_t p_max_size, void const* p_instance)
     : exception(std::errc::message_size, p_instance)
     , max_size(p_max_size)
   {
@@ -551,7 +551,7 @@ struct message_size : public exception
  */
 struct not_connected : public exception
 {
-  not_connected(void* p_instance)
+  not_connected(void const* p_instance)
     : exception(std::errc::not_connected, p_instance)
   {
   }
@@ -573,7 +573,7 @@ struct not_connected : public exception
  */
 struct unknown : public exception
 {
-  unknown(void* p_instance)
+  unknown(void const* p_instance)
     : exception(std::errc{}, p_instance)
   {
   }
