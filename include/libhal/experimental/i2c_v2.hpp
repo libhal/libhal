@@ -16,9 +16,7 @@
 
 #include <span>
 
-#include "functional.hpp"
-#include "timeout.hpp"
-#include "units.hpp"
+#include "../units.hpp"
 
 namespace hal {
 /**
@@ -29,13 +27,16 @@ namespace hal {
  * because it only requires two connections SDA (data signal) and SCL (clock
  * signal). This is possible because the protocol for I2C is addressable.
  *
- * Some devices can utilize clock stretching as a means to pause the i2c
- * controller until the device is ready to respond. To ensure operations with
- * i2c are deterministic and reliably it is advised to NEVER use a clock
- * stretching device in your application.
+ * Compared to the original i2c driver, this does the following:
  *
+ * 1. Remove `p_timeout` from parameter from `transaction`. If clock stretching
+ *    occurs, the i2c driver will hold until the clock stretching ends.
+ * 2. Remove exception `hal::resource_unavailable_try_again` from list of
+ *    transaction exceptions. If another device is controlling the bus, the i2c
+ *    implementation should wait until that transaction is finished.
+ * 3.
  */
-class i2c
+class i2c_v2
 {
 public:
   /**
@@ -49,12 +50,6 @@ public:
      *
      */
     hertz clock_rate = 100.0_kHz;
-
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    bool operator<=>(settings const&) const = default;
   };
 
   /**
@@ -95,6 +90,12 @@ public:
    * an transaction and one of the i2c bus controllers, that isn't this one won
    * out.
    *
+   * In the event of clock stretching, the implementation should wait until the
+   * clock stretching if finished. If the application has a deadline it must
+   * reach, the application should consider using a timer, watchdog, thread, or
+   * something along those lines to detect a stalled thread of execution and do
+   * something about it.
+   *
    * @param p_address 7-bit address of the device you want to communicate with.
    * To perform a transaction with a 10-bit address, this parameter must be the
    * address upper byte of the 10-bit address OR'd with 0b1111'0000 (the 10-bit
@@ -103,15 +104,15 @@ public:
    * @param p_data_out data to be written to the addressed device. Set this to a
    * span with `size() == 0` in order to skip writing.
    * @param p_data_in buffer to store read data from the addressed device. Set
-   * to nullptr with length 0 in order to skip reading.
+   * this to a span with `size() == 0` in order to skip reading.
    * @throws hal::no_such_device - indicates that no devices on
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
    * respond, broken or many other possible outcomes.
    * @throws hal::io_error - indicates that the i2c lines were put into an
    * invalid state during the transaction due to interference, misconfiguration,
-   * hardware fault, malfunctioning i2c peripheral or possibly something else.
-   * This tends to present a hardware issue and is usually not recoverable.
+   * hardware fault, malfunctioning i2c peripheral, or possibly something else.
+   * This typically represent a hardware issue and is usually not recoverable.
    */
   void transaction(hal::byte p_address,
                    std::span<hal::byte const> p_data_out,
@@ -120,73 +121,12 @@ public:
     driver_transaction(p_address, p_data_out, p_data_in);
   }
 
-  /**
-   * @deprecated Prefer to use the i2c API that does not use timeouts. Timeout
-   * functions get in the way of an efficient usage of DMA, is a viral
-   * performance hit, and is only for the rare situation where a device on the
-   * bus may perform clock stretching for which there are few devices that
-   * support this. The deprecated attribute is not used yet, as the transition
-   * is still ongoing.
-   *
-   * @brief perform an i2c transaction with another device on the bus. The type
-   * of transaction depends on values of input parameters. This function will
-   * block until the entire transfer is finished.
-   *
-   *
-   * @param p_address 7-bit address of the device you want to communicate with.
-   * To perform a transaction with a 10-bit address, this parameter must be the
-   * address upper byte of the 10-bit address OR'd with 0b1111'0000 (the 10-bit
-   * address indicator). The lower byte of the address must be contained in the
-   * first byte of the p_data_out span.
-   * @param p_data_out data to be written to the addressed device. Set to
-   * nullptr with length zero in order to skip writing.
-   * @param p_data_in buffer to store read data from the addressed device. Set
-   * to nullptr with length 0 in order to skip reading.
-   * @param p_timeout callable which notifies the i2c driver that it has run out
-   * of time to perform the transaction and must stop and return control to the
-   * caller.
-   * @throws hal::timed_out from p_timeout if the transaction exceeds its
-   * deadline.
-   * @throws hal::no_such_device - indicates that no devices on
-   * the bus acknowledge the address in this transaction, which could mean that
-   * the device is not connected to the bus, is not powered, not available to
-   * respond, broken or many other possible outcomes.
-   * @throws hal::io_error - indicates that the i2c lines were put into an
-   * invalid state during the transaction due to interference, misconfiguration,
-   * hardware fault, malfunctioning i2c peripheral or possibly something else.
-   * This tends to present a hardware issue and is usually not recoverable.
-   */
-  void transaction(hal::byte p_address,
-                   std::span<hal::byte const> p_data_out,
-                   std::span<hal::byte> p_data_in,
-                   hal::function_ref<hal::timeout_function> p_timeout)
-  {
-    driver_transaction(p_address, p_data_out, p_data_in, p_timeout);
-  }
-
-  virtual ~i2c() = default;
+  virtual ~i2c_v2() = default;
 
 private:
   virtual void driver_configure(settings const& p_settings) = 0;
-
-  /// Implementors of this virtual API should simply call the concrete class's
-  /// implementation of driver_transaction() without the p_timeout parameter and
-  /// drop the p_timeout parameter.
-  virtual void driver_transaction(
-    hal::byte p_address,
-    std::span<hal::byte const> p_data_out,
-    std::span<hal::byte> p_data_in,
-    hal::function_ref<hal::timeout_function> p_timeout) = 0;
-
-  /// The default implementation of this calls the original driver_transaction
-  /// with a never timeout parameter. This is to make this API call backwards
-  /// compatible.
   virtual void driver_transaction(hal::byte p_address,
                                   std::span<hal::byte const> p_data_out,
-                                  std::span<hal::byte> p_data_in)
-  {
-    // NOLINTNEXTLINE
-    transaction(p_address, p_data_out, p_data_in, hal::never_timeout());
-  }
+                                  std::span<hal::byte> p_data_in) = 0;
 };
 }  // namespace hal
