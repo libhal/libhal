@@ -22,6 +22,7 @@
 
 namespace hal {
 /**
+ * @deprecated Use `zero_copy_serial` instead for better performance
  * @brief Hardware abstract interface for the serial communication protocol
  *
  * Use this interface for hardware that implements a serial protocol like UART,
@@ -43,7 +44,9 @@ namespace hal {
  * Examples of buffering schemes are:
  *
  * - Using DMA to copy data from a serial peripheral to a region of memory
- * - Using interrupts when a serial peripheral's queue has filled to a point
+ * - Using interrupts when a serial peripheral's queue has filled to a point.
+ *   Refrain from using interrupts if the peripheral's byte queue is only of
+ *   size 1. This is bad for runtime performance and can result in missed bytes.
  *
  */
 class serial
