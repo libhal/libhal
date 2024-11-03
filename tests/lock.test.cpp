@@ -60,8 +60,7 @@ private:
 };
 }  // namespace
 
-void lock_test()
-{
+boost::ut::suite<"lock_test"> lock_test = []() {
   using namespace boost::ut;
 
   "lock"_test = []() {

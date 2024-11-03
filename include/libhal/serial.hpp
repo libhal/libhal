@@ -85,6 +85,12 @@ public:
 
     /// Parity bit type for each frame
     parity parity = parity::none;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /// Return type for serial read operations

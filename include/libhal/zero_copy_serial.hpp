@@ -115,26 +115,11 @@ public:
    * represents the newly received bytes. When reading the data, remember that
    * it may wrap around from the end of the buffer back to the beginning.
    *
-   * @return std::size_t - Current write position in the circular receive buffer
+   * @return std::size_t - position of the write cursor for the circular buffer
    */
   [[nodiscard]] std::size_t receive_cursor()
   {
     return driver_cursor();
-  }
-
-  /**
-   * @brief Flush working buffer
-   *
-   * The behavior of flushing the internal working buffer is this:
-   *
-   * 1. Stop data reception.
-   * 2. Clear any received data stored in hardware FIFOs.
-   * 3. Write zeros to circular buffer.
-   * 4. Enable data reception.
-   */
-  void flush()
-  {
-    driver_flush();
   }
 
   virtual ~zero_copy_serial() = default;
@@ -144,6 +129,5 @@ private:
   virtual void driver_write(std::span<hal::byte const> p_data) = 0;
   virtual std::span<hal::byte const> driver_receive_buffer() = 0;
   virtual std::size_t driver_cursor() = 0;
-  virtual void driver_flush() = 0;
 };
 }  // namespace hal

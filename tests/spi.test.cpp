@@ -57,10 +57,9 @@ private:
 };
 }  // namespace
 
-void spi_test()
-{
+boost::ut::suite<"spi_test"> spi_test = []() {
   using namespace boost::ut;
-  "spi interface test"_test = []() {
+  "test"_test = []() {
     // Setup
     test_spi test;
     std::array<hal::byte, 4> const expected_out{ 'a', 'b' };
@@ -85,7 +84,8 @@ void spi_test()
     expect(expected_settings.clock_polarity == test.m_settings.clock_polarity);
     expect(expected_settings.clock_phase == test.m_settings.clock_phase);
   };
-  "spi interface test: settings2"_test = []() {
+
+  "hal::spi::settings2"_test = []() {
     // Setup
     test_spi test;
     std::array<hal::byte, 4> const expected_out{ 'a', 'b' };

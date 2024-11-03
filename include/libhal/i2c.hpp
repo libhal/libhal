@@ -49,6 +49,12 @@ public:
      *
      */
     hertz clock_rate = 100.0_kHz;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /**

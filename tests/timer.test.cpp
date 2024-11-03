@@ -51,34 +51,35 @@ private:
 };
 }  // namespace
 
-void timer_test()
-{
-  using namespace boost::ut;
-  "timer interface test"_test = []() {
-    // Setup
-    test_timer test;
-    bool callback_stored_successfully = false;
-    hal::callback<void(void)> const expected_callback =
-      [&callback_stored_successfully]() {
-        callback_stored_successfully = true;
-      };
-    hal::time_duration const expected_delay = {};
+boost::ut::suite timer_test = []() {
+  {
+    using namespace boost::ut;
+    "timer interface test"_test = []() {
+      // Setup
+      test_timer test;
+      bool callback_stored_successfully = false;
+      hal::callback<void(void)> const expected_callback =
+        [&callback_stored_successfully]() {
+          callback_stored_successfully = true;
+        };
+      hal::time_duration const expected_delay = {};
 
-    // Exercise + Verify
-    auto is_running = test.is_running();
-    expect(that % false == is_running);
+      // Exercise + Verify
+      auto is_running = test.is_running();
+      expect(that % false == is_running);
 
-    test.schedule(expected_callback, expected_delay);
-    is_running = test.is_running();
-    expect(that % true == is_running);
-    expect(expected_delay == test.m_delay);
+      test.schedule(expected_callback, expected_delay);
+      is_running = test.is_running();
+      expect(that % true == is_running);
+      expect(expected_delay == test.m_delay);
 
-    test.m_callback();
-    expect(that % true == callback_stored_successfully);
+      test.m_callback();
+      expect(that % true == callback_stored_successfully);
 
-    test.cancel();
-    is_running = test.is_running();
-    expect(that % false == is_running);
+      test.cancel();
+      is_running = test.is_running();
+      expect(that % false == is_running);
+    };
   };
 };
 }  // namespace hal

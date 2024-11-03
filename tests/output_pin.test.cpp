@@ -48,10 +48,9 @@ private:
 };
 }  // namespace
 
-void output_pin_test()
-{
+boost::ut::suite<"output_pin_test"> output_pin_test = []() {
   using namespace boost::ut;
-  "output_pin interface test"_test = []() {
+  "test"_test = []() {
     // Setup
     test_output_pin test;
 

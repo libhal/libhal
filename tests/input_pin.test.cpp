@@ -41,8 +41,7 @@ private:
 };
 }  // namespace
 
-void input_pin_test()
-{
+boost::ut::suite<"input_pin_test"> input_pin_test = []() {
   using namespace boost::ut;
   "input_pin interface test"_test = []() {
     // Setup

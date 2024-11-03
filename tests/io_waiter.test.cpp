@@ -17,8 +17,7 @@
 #include <boost/ut.hpp>
 
 namespace hal {
-void io_waiter_test()
-{
+boost::ut::suite io_waiter_test = []() {
   using namespace boost::ut;
   "spin lock waiter test"_test = []() {
     // Setup
@@ -28,5 +27,5 @@ void io_waiter_test()
     test_subject.wait();
     test_subject.resume();
   };
-}
+};
 }  // namespace hal

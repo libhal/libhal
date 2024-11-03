@@ -58,6 +58,12 @@ struct can_message
    * If true, then length and payload are ignored.
    */
   bool is_remote_request = false;
+
+  /**
+   * @brief Enables default comparison
+   *
+   */
+  bool operator<=>(can_message const&) const = default;
 };
 
 /**
@@ -104,6 +110,12 @@ struct can_settings
    *
    */
   hertz baud_rate = 100.0_kHz;
+
+  /**
+   * @brief Enables default comparison
+   *
+   */
+  bool operator<=>(can_settings const&) const = default;
 };
 
 /**
@@ -228,7 +240,7 @@ public:
    * represents the newly received messages. When reading the data, remember
    * that it may wrap around from the end of the buffer back to the beginning.
    *
-   * @return std::size_t - Current write position in the circular receive buffer
+   * @return std::size_t - position of the write cursor for the circular buffer
    */
   std::size_t receive_cursor()
   {

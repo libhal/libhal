@@ -60,29 +60,26 @@ private:
 };
 }  // namespace
 
-void serial_test()
-{
+boost::ut::suite<"serial_test"> serial_test = []() {
   using namespace boost::ut;
-  "serial interface test"_test = []() {
-    // Setup
-    test_serial test;
-    std::array<hal::byte, 4> const expected_payload{ 'a', 'b' };
-    std::array<hal::byte, 4> expected_buffer{ '1', '2' };
+  // Setup
+  test_serial test;
+  std::array<hal::byte, 4> const expected_payload{ 'a', 'b' };
+  std::array<hal::byte, 4> expected_buffer{ '1', '2' };
 
-    // Exercise
-    test.configure(expected_settings);
-    auto write_info = test.write(expected_payload);
-    auto read_info = test.read(expected_buffer);
-    test.flush();
+  // Exercise
+  test.configure(expected_settings);
+  auto write_info = test.write(expected_payload);
+  auto read_info = test.read(expected_buffer);
+  test.flush();
 
-    // Verify
-    auto delta = expected_settings.baud_rate - test.m_settings.baud_rate;
-    expect(that % 0.001f > std::abs(delta));
-    expect(expected_settings.stop == test.m_settings.stop);
-    expect(expected_settings.parity == test.m_settings.parity);
-    expect(that % expected_payload.data() == write_info.data.data());
-    expect(that % expected_buffer.data() == read_info.data.data());
-    expect(true == test.m_flush_called);
-  };
+  // Verify
+  auto delta = expected_settings.baud_rate - test.m_settings.baud_rate;
+  expect(that % 0.001f > std::abs(delta));
+  expect(expected_settings.stop == test.m_settings.stop);
+  expect(expected_settings.parity == test.m_settings.parity);
+  expect(that % expected_payload.data() == write_info.data.data());
+  expect(that % expected_buffer.data() == read_info.data.data());
+  expect(true == test.m_flush_called);
 };
 }  // namespace hal

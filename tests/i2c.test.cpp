@@ -24,9 +24,13 @@ namespace hal {
 namespace {
 constexpr hal::i2c::settings expected_settings{ .clock_rate = 1.0_Hz };
 constexpr hal::byte expected_address{ 100 };
-constexpr std::array<hal::byte, 4> expected_data_out{ 'a', 'b' };
-std::array<hal::byte, 4> expected_data_in{ '1', '2' };
-hal::function_ref<hal::timeout_function> const expected_timeout = []() {};
+constexpr auto expected_data_out = std::to_array<hal::byte const>({ 'a', 'b' });
+std::array<hal::byte, 2> expected_data_in{};
+
+auto timeout_callback_calls = 0;
+hal::function_ref<hal::timeout_function> const expected_timeout = []() {
+  timeout_callback_calls++;
+};
 
 class test_i2c : public hal::i2c
 {
@@ -58,25 +62,169 @@ private:
     m_timeout = p_timeout;
   };
 };
+
+class test_i2c_v2 : public hal::i2c
+{
+public:
+  settings m_settings{};
+  hal::byte m_address{};
+  std::span<hal::byte const> m_data_out{};
+  std::span<hal::byte> m_data_in{};
+  bool overriden_call = false;
+
+  ~test_i2c_v2() override = default;
+
+private:
+  void driver_configure(settings const& p_settings) override
+  {
+    m_settings = p_settings;
+    return;
+  };
+  void driver_transaction(hal::byte p_address,
+                          std::span<hal::byte const> p_data_out,
+                          std::span<hal::byte> p_data_in,
+                          hal::function_ref<hal::timeout_function>) override
+  {
+    overriden_call = true;
+    driver_transaction(p_address, p_data_out, p_data_in);
+  };
+
+  void driver_transaction(hal::byte p_address,
+                          std::span<hal::byte const> p_data_out,
+                          std::span<hal::byte> p_data_in) override
+  {
+    m_address = p_address;
+    m_data_out = p_data_out;
+    m_data_in = p_data_in;
+  };
+};
 }  // namespace
 
-void i2c_test()
-{
+boost::ut::suite<"i2c_test_v1"> i2c_test = []() {
   using namespace boost::ut;
-  "i2c interface test"_test = []() {
+  "::configure()"_test = []() {
     // Setup
     test_i2c test;
 
+    // Ensure
+    expect(expected_settings != test.m_settings);
+
     // Exercise
     test.configure(expected_settings);
+
+    // Verify
+    expect(expected_settings == test.m_settings);
+  };
+
+  "::transaction(..., p_timeout)"_test = []() {
+    // Setup
+    test_i2c test;
+
+    // Ensure
+    expect(that % expected_address != test.m_address);
+    expect(that % expected_data_out.data() != test.m_data_out.data());
+    expect(that % expected_data_out.size() != test.m_data_out.size());
+    expect(that % expected_data_in.data() != test.m_data_in.data());
+    expect(that % expected_data_in.size() != test.m_data_in.size());
+
+    // Exercise
     test.transaction(
       expected_address, expected_data_out, expected_data_in, expected_timeout);
 
     // Verify
-    expect(that % expected_settings.clock_rate == test.m_settings.clock_rate);
     expect(that % expected_address == test.m_address);
     expect(that % expected_data_out.data() == test.m_data_out.data());
+    expect(that % expected_data_out.size() == test.m_data_out.size());
     expect(that % expected_data_in.data() == test.m_data_in.data());
+    expect(that % expected_data_in.size() == test.m_data_in.size());
+  };
+
+  "::transaction(...)"_test = []() {
+    // Setup
+    test_i2c test;
+
+    // Ensure
+    expect(that % expected_address != test.m_address);
+    expect(that % expected_data_out.data() != test.m_data_out.data());
+    expect(that % expected_data_out.size() != test.m_data_out.size());
+    expect(that % expected_data_in.data() != test.m_data_in.data());
+    expect(that % expected_data_in.size() != test.m_data_in.size());
+
+    // Exercise
+    test.transaction(expected_address, expected_data_out, expected_data_in);
+
+    // Verify
+    expect(that % expected_address == test.m_address);
+    expect(that % expected_data_out.data() == test.m_data_out.data());
+    expect(that % expected_data_out.size() == test.m_data_out.size());
+    expect(that % expected_data_in.data() == test.m_data_in.data());
+    expect(that % expected_data_in.size() == test.m_data_in.size());
+  };
+};
+
+boost::ut::suite<"i2c_test_v2"> i2c_test_v2 = []() {
+  using namespace boost::ut;
+  "::configure()"_test = []() {
+    // Setup
+    test_i2c_v2 test;
+
+    // Ensure
+    expect(expected_settings != test.m_settings);
+
+    // Exercise
+    test.configure(expected_settings);
+
+    // Verify
+    expect(expected_settings == test.m_settings);
+  };
+
+  "::transaction(..., p_timeout)"_test = []() {
+    // Setup
+    test_i2c_v2 test;
+
+    // Ensure
+    expect(that % expected_address != test.m_address);
+    expect(that % expected_data_out.data() != test.m_data_out.data());
+    expect(that % expected_data_out.size() != test.m_data_out.size());
+    expect(that % expected_data_in.data() != test.m_data_in.data());
+    expect(that % expected_data_in.size() != test.m_data_in.size());
+    expect(that % not test.overriden_call);
+
+    // Exercise
+    test.transaction(
+      expected_address, expected_data_out, expected_data_in, expected_timeout);
+
+    // Verify
+    expect(that % expected_address == test.m_address);
+    expect(that % expected_data_out.data() == test.m_data_out.data());
+    expect(that % expected_data_out.size() == test.m_data_out.size());
+    expect(that % expected_data_in.data() == test.m_data_in.data());
+    expect(that % expected_data_in.size() == test.m_data_in.size());
+    expect(that % test.overriden_call);
+  };
+
+  "::transaction(...)"_test = []() {
+    // Setup
+    test_i2c_v2 test;
+
+    // Ensure
+    expect(that % expected_address != test.m_address);
+    expect(that % expected_data_out.data() != test.m_data_out.data());
+    expect(that % expected_data_out.size() != test.m_data_out.size());
+    expect(that % expected_data_in.data() != test.m_data_in.data());
+    expect(that % expected_data_in.size() != test.m_data_in.size());
+    expect(that % not test.overriden_call);
+
+    // Exercise
+    test.transaction(expected_address, expected_data_out, expected_data_in);
+
+    // Verify
+    expect(that % expected_address == test.m_address);
+    expect(that % expected_data_out.data() == test.m_data_out.data());
+    expect(that % expected_data_out.size() == test.m_data_out.size());
+    expect(that % expected_data_in.data() == test.m_data_in.data());
+    expect(that % expected_data_in.size() == test.m_data_in.size());
+    expect(that % not test.overriden_call);  // Must stay this way
   };
 };
 }  // namespace hal

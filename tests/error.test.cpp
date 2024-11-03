@@ -17,66 +17,67 @@
 #include <boost/ut.hpp>
 
 namespace hal {
-void error_test()
-{
-  using namespace boost::ut;
+boost::ut::suite<"error_test"> error_test = []() {
+  {
+    using namespace boost::ut;
 
-  "[success] hal::safe_throw"_test = []() {
-    // Setup
-    bool exception_thrown = false;
+    "[success] hal::safe_throw"_test = []() {
+      // Setup
+      bool exception_thrown = false;
 
-    try {
-      hal::safe_throw(hal::timed_out(nullptr));
-    } catch (hal::timed_out const&) {
-      exception_thrown = true;
-    }
+      try {
+        hal::safe_throw(hal::timed_out(nullptr));
+      } catch (hal::timed_out const&) {
+        exception_thrown = true;
+      }
 
-    expect(exception_thrown);
-  };
+      expect(exception_thrown);
+    };
 
 #define TEST_COMPILE_TIME_FAILURE 0
 #if TEST_COMPILE_TIME_FAILURE
-  "[failure] hal::safe_throw(non-trivial-dtor)"_test = []() {
-    // Setup
-    bool exception_thrown = false;
+    "[failure] hal::safe_throw(non-trivial-dtor)"_test = []() {
+      // Setup
+      bool exception_thrown = false;
 
-    struct dtor_t : hal::exception
-    {
-      dtor_t(float p_value)
-        : hal::exception(std::errc{}, nullptr)
-        , value(p_value)
+      struct dtor_t : hal::exception
       {
+        dtor_t(float p_value)
+          : hal::exception(std::errc{}, nullptr)
+          , value(p_value)
+        {
+        }
+
+        ~dtor_t()
+        {
+          value = 0;
+        }
+
+        float value;
+      };
+
+      try {
+        hal::safe_throw(dtor_t(5.0f));
+      } catch (dtor_t const&) {
+        exception_thrown = true;
       }
 
-      ~dtor_t()
-      {
-        value = 0;
-      }
-
-      float value;
+      expect(exception_thrown);
     };
 
-    try {
-      hal::safe_throw(dtor_t(5.0f));
-    } catch (dtor_t const&) {
-      exception_thrown = true;
-    }
+    "[failure] hal::safe_throw(non_hal_exception_type)"_test = []() {
+      // Setup
+      bool exception_thrown = false;
 
-    expect(exception_thrown);
-  };
+      try {
+        hal::safe_throw(5);
+      } catch (int const&) {
+        exception_thrown = true;
+      }
 
-  "[failure] hal::safe_throw(non_hal_exception_type)"_test = []() {
-    // Setup
-    bool exception_thrown = false;
-
-    try {
-      hal::safe_throw(5);
-    } catch (int const&) {
-      exception_thrown = true;
-    }
-
-    expect(exception_thrown);
-  };
+      expect(exception_thrown);
+    };
 #endif
+  };
 };
 }  // namespace hal
