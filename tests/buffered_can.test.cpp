@@ -36,6 +36,7 @@ public:
   can_message m_message{};
   bool m_bus_on_called{ false };
   std::array<can_message, 16> m_message_buffer{};
+  std::optional<hal::callback<void(void)>> m_callback = std::nullopt;
   std::size_t m_cursor = 0;
 
   ~test_can() override = default;
@@ -50,6 +51,12 @@ private:
   void driver_configure(can_settings const& p_settings) override
   {
     m_settings = p_settings;
+  }
+
+  void driver_on_bus_off(
+    std::optional<hal::callback<void(void)>> p_callback) override
+  {
+    m_callback = p_callback;
   }
 
   void driver_bus_on() override
@@ -144,6 +151,25 @@ boost::ut::suite<"buffered_can_test"> buffered_can_test = []() {
     expect(expected_message == receive_buffer[initial_cursor]);
     expect(expected_message2 == receive_buffer[first_message_cursor]);
     expect(expected_message3 == receive_buffer[second_message_cursor]);
+  };
+
+  "::on_bus_off()"_test = []() {
+    // Setup
+    test_can test;
+    bool callback_called = false;
+
+    // Ensure
+    expect(that % not test.m_callback);
+
+    // Exercise
+    test.on_bus_off([&callback_called] { callback_called = true; });
+    // Exercise: Use `value()` because it throws an exception if the optional is
+    //           disengaged.
+    test.m_callback.value()();
+
+    // Verify
+    expect(that % test.m_callback);
+    expect(that % callback_called);
   };
 };
 }  // namespace hal
