@@ -19,9 +19,9 @@
 #include <boost/ut.hpp>
 
 namespace hal {
-void timeout_test()
-{
-  using namespace boost::ut;
+boost::ut::suite timeout_test = []() {
+  {
+    using namespace boost::ut;
 #if 0
   "hal::delay(timeout)"_test = []() {
     // Setup
@@ -61,5 +61,6 @@ void timeout_test()
     expect(!bool{ result });
   };
 #endif
+  };
 };
 }  // namespace hal

@@ -42,8 +42,7 @@ private:
 };
 }  // namespace
 
-void pwm_test()
-{
+boost::ut::suite<"pwm_test"> pwm_test = []() {
   using namespace boost::ut;
   "pwm interface test"_test = []() {
     // Setup

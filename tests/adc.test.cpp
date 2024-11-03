@@ -36,10 +36,9 @@ private:
 };
 }  // namespace
 
-void adc_test()
-{
+boost::ut::suite<"hal::adc"> adc_test = []() {
   using namespace boost::ut;
-  "adc interface test"_test = []() {
+  "::read()"_test = []() {
     // Setup
     test_adc test;
 
@@ -49,5 +48,5 @@ void adc_test()
     // Verify
     expect(that % expected_value == sample);
   };
-}
+};
 }  // namespace hal

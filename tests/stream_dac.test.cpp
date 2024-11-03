@@ -35,22 +35,19 @@ private:
 };
 }  // namespace
 
-void stream_dac_test()
-{
+boost::ut::suite<"stream_dac_test"> stream_dac_test = []() {
   using namespace boost::ut;
-  "stream_dac interface test"_test = []() {
-    // Setup
-    test_stream_dac test;
-    std::array<std::uint8_t, 7> const expected_out{ 0, 1, 2, 3, 4, 5 };
-    constexpr hal::hertz expected_sample_rate = 16.0_kHz;
+  // Setup
+  test_stream_dac test;
+  std::array<std::uint8_t, 7> const expected_out{ 0, 1, 2, 3, 4, 5 };
+  constexpr hal::hertz expected_sample_rate = 16.0_kHz;
 
-    // Exercise
-    test.write({ .sample_rate = expected_sample_rate, .data = expected_out });
+  // Exercise
+  test.write({ .sample_rate = expected_sample_rate, .data = expected_out });
 
-    // Verify
-    expect(that % expected_sample_rate == test.actual_samples.sample_rate);
-    expect(that % expected_out.data() == test.actual_samples.data.data());
-    expect(that % expected_out.size() == test.actual_samples.data.size());
-  };
+  // Verify
+  expect(that % expected_sample_rate == test.actual_samples.sample_rate);
+  expect(that % expected_out.data() == test.actual_samples.data.data());
+  expect(that % expected_out.size() == test.actual_samples.data.size());
 };
 }  // namespace hal

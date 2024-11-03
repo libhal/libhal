@@ -31,16 +31,15 @@ private:
 };
 }  // namespace
 
-void angular_velocity_sensor_test()
-{
-  using namespace boost::ut;
-  "angular velocity sensor interface test"_test = []() {
-    test_angular_velocity_sensor test;
+boost::ut::suite<"angular_velocity_sensor_test"> angular_velocity_sensor_test =
+  []() {
+    using namespace boost::ut;
+    "angular velocity sensor interface test"_test = []() {
+      test_angular_velocity_sensor test;
 
-    auto result = test.read();
+      auto result = test.read();
 
-    expect(hal::rpm(5.0) == result);
+      expect(hal::rpm(5.0) == result);
+    };
   };
-}
-
 }  // namespace hal

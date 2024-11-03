@@ -35,20 +35,21 @@ private:
 };
 }  // namespace
 
-void dac_test()
-{
-  using namespace boost::ut;
-
-  "dac interface test"_test = []() {
+boost::ut::suite<"dac_test"> dac_test = []() {
+  {
     using namespace boost::ut;
-    // Setup
-    test_dac test;
 
-    // Exercise
-    test.write(expected_value);
+    "dac interface test"_test = []() {
+      using namespace boost::ut;
+      // Setup
+      test_dac test;
 
-    // Verify
-    expect(that % expected_value == test.m_passed_value);
+      // Exercise
+      test.write(expected_value);
+
+      // Verify
+      expect(that % expected_value == test.m_passed_value);
+    };
   };
 };
 }  // namespace hal

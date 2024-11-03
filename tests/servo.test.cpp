@@ -36,18 +36,15 @@ private:
 };
 }  // namespace
 
-void servo_test()
-{
+boost::ut::suite<"servo_test"> servo_test = []() {
   using namespace boost::ut;
-  "servo interface test"_test = []() {
-    // Setup
-    test_servo test;
+  // Setup
+  test_servo test;
 
-    // Exercise
-    test.position(expected_value);
+  // Exercise
+  test.position(expected_value);
 
-    // Verify
-    expect(that % expected_value == test.m_position);
-  };
+  // Verify
+  expect(that % expected_value == test.m_position);
 };
 }  // namespace hal

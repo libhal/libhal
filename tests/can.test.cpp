@@ -15,69 +15,113 @@
 #include <libhal/can.hpp>
 
 #include <libhal/error.hpp>
+#include <libhal/functional.hpp>
 
 #include <boost/ut.hpp>
 
 namespace hal {
 namespace {
-constexpr hal::can::settings expected_settings{
-  .baud_rate = 1.0_Hz,
-};
-int counter = 0;
-constexpr hal::can::message_t expected_message{ .id = 1, .length = 0 };
-hal::callback<hal::can::handler> expected_handler =
-  [](hal::can::message_t const&) { counter++; };
+constexpr hal::can_settings expected_settings{ .baud_rate = 1.0_MHz };
+constexpr hal::can_message expected_message{ .id = 22,
+                                             .payload = { 0xCC, 0xDD, 0xEE, },
+                                             .length = 3 };
 
 class test_can : public hal::can
 {
 public:
-  settings m_settings{};
-  message_t m_message{};
-  hal::callback<handler> m_handler = [](message_t const&) {};
+  can_settings m_settings{};
+  can_message m_message{};
   bool m_bus_on_called{ false };
+  hal::callback<handler> m_handler{};
+  std::size_t m_cursor = 0;
+
   ~test_can() override = default;
 
 private:
-  void driver_configure(settings const& p_settings) override
+  void driver_configure(can_settings const& p_settings) override
   {
     m_settings = p_settings;
-  };
+  }
 
   void driver_bus_on() override
   {
     m_bus_on_called = true;
   }
 
-  void driver_send(message_t const& p_message) override
+  void driver_send(can_message const& p_message) override
   {
     m_message = p_message;
-  };
+  }
 
   void driver_on_receive(hal::callback<handler> p_handler) override
   {
     m_handler = p_handler;
-  };
+  }
 };
 }  // namespace
 
-void can_test()
-{
+boost::ut::suite<"can_test"> can_test = []() {
   using namespace boost::ut;
 
-  "can interface test"_test = []() {
+  "::configure()"_test = []() {
     // Setup
     test_can test;
 
+    // Ensure
+    expect(expected_settings != test.m_settings);
+
     // Exercise
     test.configure(expected_settings);
-    test.send(expected_message);
-    test.on_receive(expected_handler);
-    test.m_handler(expected_message);
 
     // Verify
-    expect(that % expected_settings.baud_rate == test.m_settings.baud_rate);
-    expect(that % expected_message.id == test.m_message.id);
-    expect(that % 1 == counter);
+    expect(expected_settings == test.m_settings);
+  };
+
+  "::send()"_test = []() {
+    // Setup
+    test_can test;
+
+    // Ensure
+    expect(expected_message != test.m_message);
+
+    // Exercise
+    test.send(expected_message);
+
+    // Verify
+    expect(expected_message == test.m_message);
+  };
+
+  "::bus_on()"_test = []() {
+    // Setup
+    test_can test;
+
+    // Ensure
+    expect(that % not test.m_bus_on_called);
+
+    // Exercise
+    test.bus_on();
+
+    // Verify
+    expect(that % test.m_bus_on_called);
+  };
+
+  "::on_receive()"_test = []() {
+    // Setup
+    test_can test;
+    bool callback_called = false;
+
+    // Ensure
+    test.m_handler({});
+    expect(that % not callback_called);
+
+    // Exercise
+    // Exercise: Simulate incoming message
+    test.on_receive(
+      [&callback_called](hal::can_message const&) { callback_called = true; });
+    test.m_handler({});
+
+    // Verify
+    expect(that % callback_called);
   };
 };
 }  // namespace hal

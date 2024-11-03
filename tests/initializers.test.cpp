@@ -40,81 +40,82 @@ struct test_class_allocator
 };
 }  // namespace
 
-void initializers_test()
-{
-  using namespace boost::ut;
-  "create_unique_static_buffer()"_test = []() {
-    // Setup
-    auto span1 = hal::create_unique_static_buffer(buffer<128>);
-    auto span2 = hal::create_unique_static_buffer(buffer<128>);
-    auto span3 = hal::create_unique_static_buffer(buffer<256>);
-    auto span4 = hal::create_unique_static_buffer(buffer<64>);
-    auto span5 = hal::create_unique_static_buffer(buffer<72>);
+boost::ut::suite<"initializers_test"> initializers_test = []() {
+  {
+    using namespace boost::ut;
+    "create_unique_static_buffer()"_test = []() {
+      // Setup
+      auto span1 = hal::create_unique_static_buffer(buffer<128>);
+      auto span2 = hal::create_unique_static_buffer(buffer<128>);
+      auto span3 = hal::create_unique_static_buffer(buffer<256>);
+      auto span4 = hal::create_unique_static_buffer(buffer<64>);
+      auto span5 = hal::create_unique_static_buffer(buffer<72>);
 
-    test_class_allocator test1(port<2>, buffer<128>);
-    test_class_allocator test2(port<0>, buffer<512>);
-    test_class_allocator test3(port<1>, buffer<128>);
+      test_class_allocator test1(port<2>, buffer<128>);
+      test_class_allocator test2(port<0>, buffer<512>);
+      test_class_allocator test3(port<1>, buffer<128>);
 
-    // Exercise
-    // Verify
-    // Verify: Sizes of each span
-    expect(that % 128 == span1.size());
-    expect(that % 128 == span2.size());
-    expect(that % 256 == span3.size());
-    expect(that % 64 == span4.size());
-    expect(that % 72 == span5.size());
-    expect(that % 128 == test1.m_buffer.size());
-    expect(that % 512 == test2.m_buffer.size());
-    expect(that % 128 == test3.m_buffer.size());
+      // Exercise
+      // Verify
+      // Verify: Sizes of each span
+      expect(that % 128 == span1.size());
+      expect(that % 128 == span2.size());
+      expect(that % 256 == span3.size());
+      expect(that % 64 == span4.size());
+      expect(that % 72 == span5.size());
+      expect(that % 128 == test1.m_buffer.size());
+      expect(that % 512 == test2.m_buffer.size());
+      expect(that % 128 == test3.m_buffer.size());
 
-    expect(that % span1.data() == span1.data());
-    expect(that % span1.data() != span2.data());
-    expect(that % span1.data() != span3.data());
-    expect(that % span1.data() != span4.data());
-    expect(that % span1.data() != span5.data());
-    expect(that % span1.data() != test1.m_buffer.data());
-    expect(that % span1.data() != test2.m_buffer.data());
-    expect(that % span1.data() != test3.m_buffer.data());
+      expect(that % span1.data() == span1.data());
+      expect(that % span1.data() != span2.data());
+      expect(that % span1.data() != span3.data());
+      expect(that % span1.data() != span4.data());
+      expect(that % span1.data() != span5.data());
+      expect(that % span1.data() != test1.m_buffer.data());
+      expect(that % span1.data() != test2.m_buffer.data());
+      expect(that % span1.data() != test3.m_buffer.data());
 
-    expect(that % span2.data() != span1.data());
-    expect(that % span2.data() == span2.data());
-    expect(that % span2.data() != span3.data());
-    expect(that % span2.data() != span4.data());
-    expect(that % span2.data() != span5.data());
-    expect(that % span2.data() != test1.m_buffer.data());
-    expect(that % span2.data() != test2.m_buffer.data());
-    expect(that % span2.data() != test3.m_buffer.data());
+      expect(that % span2.data() != span1.data());
+      expect(that % span2.data() == span2.data());
+      expect(that % span2.data() != span3.data());
+      expect(that % span2.data() != span4.data());
+      expect(that % span2.data() != span5.data());
+      expect(that % span2.data() != test1.m_buffer.data());
+      expect(that % span2.data() != test2.m_buffer.data());
+      expect(that % span2.data() != test3.m_buffer.data());
 
-    expect(that % span3.data() != span1.data());
-    expect(that % span3.data() != span2.data());
-    expect(that % span3.data() == span3.data());
-    expect(that % span3.data() != span4.data());
-    expect(that % span3.data() != span5.data());
-    expect(that % span3.data() != test1.m_buffer.data());
-    expect(that % span3.data() != test2.m_buffer.data());
-    expect(that % span3.data() != test3.m_buffer.data());
+      expect(that % span3.data() != span1.data());
+      expect(that % span3.data() != span2.data());
+      expect(that % span3.data() == span3.data());
+      expect(that % span3.data() != span4.data());
+      expect(that % span3.data() != span5.data());
+      expect(that % span3.data() != test1.m_buffer.data());
+      expect(that % span3.data() != test2.m_buffer.data());
+      expect(that % span3.data() != test3.m_buffer.data());
 
-    expect(that % span4.data() != span1.data());
-    expect(that % span4.data() != span2.data());
-    expect(that % span4.data() != span3.data());
-    expect(that % span4.data() == span4.data());
-    expect(that % span4.data() != span5.data());
-    expect(that % span4.data() != test1.m_buffer.data());
-    expect(that % span4.data() != test2.m_buffer.data());
-    expect(that % span4.data() != test3.m_buffer.data());
+      expect(that % span4.data() != span1.data());
+      expect(that % span4.data() != span2.data());
+      expect(that % span4.data() != span3.data());
+      expect(that % span4.data() == span4.data());
+      expect(that % span4.data() != span5.data());
+      expect(that % span4.data() != test1.m_buffer.data());
+      expect(that % span4.data() != test2.m_buffer.data());
+      expect(that % span4.data() != test3.m_buffer.data());
 
-    expect(that % span5.data() != span1.data());
-    expect(that % span5.data() != span2.data());
-    expect(that % span5.data() != span3.data());
-    expect(that % span5.data() != span4.data());
-    expect(that % span5.data() == span5.data());
-    expect(that % span5.data() != test1.m_buffer.data());
-    expect(that % span5.data() != test2.m_buffer.data());
-    expect(that % span5.data() != test3.m_buffer.data());
+      expect(that % span5.data() != span1.data());
+      expect(that % span5.data() != span2.data());
+      expect(that % span5.data() != span3.data());
+      expect(that % span5.data() != span4.data());
+      expect(that % span5.data() == span5.data());
+      expect(that % span5.data() != test1.m_buffer.data());
+      expect(that % span5.data() != test2.m_buffer.data());
+      expect(that % span5.data() != test3.m_buffer.data());
 
-    expect(that % test1.m_buffer.data() != test2.m_buffer.data());
-    expect(that % test1.m_buffer.data() != test3.m_buffer.data());
-    expect(that % test2.m_buffer.data() != test3.m_buffer.data());
+      expect(that % test1.m_buffer.data() != test2.m_buffer.data());
+      expect(that % test1.m_buffer.data() != test3.m_buffer.data());
+      expect(that % test2.m_buffer.data() != test3.m_buffer.data());
+    };
   };
 };
 }  // namespace hal

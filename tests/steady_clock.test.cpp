@@ -41,20 +41,17 @@ private:
 };
 }  // namespace
 
-void steady_clock_test()
-{
+boost::ut::suite<"steady_clock_test"> steady_clock_test = []() {
   using namespace boost::ut;
-  "steady_clock interface test"_test = []() {
-    // Setup
-    test_steady_clock test;
+  // Setup
+  test_steady_clock test;
 
-    // Exercise
-    auto frequency = test.frequency();
-    auto uptime = test.uptime();
+  // Exercise
+  auto frequency = test.frequency();
+  auto uptime = test.uptime();
 
-    // Verify
-    expect(that % test.m_frequency == frequency);
-    expect(that % test.m_uptime == uptime);
-  };
+  // Verify
+  expect(that % test.m_frequency == frequency);
+  expect(that % test.m_uptime == uptime);
 };
 }  // namespace hal

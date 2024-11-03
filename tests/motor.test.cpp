@@ -36,8 +36,7 @@ private:
 };
 }  // namespace
 
-void motor_test()
-{
+boost::ut::suite<"motor_test"> motor_test = []() {
   using namespace boost::ut;
   "motor interface test"_test = []() {
     // Setup
