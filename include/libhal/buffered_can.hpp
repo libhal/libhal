@@ -210,7 +210,8 @@ public:
    * @return std::span<message const> - constant span to the message receive
    * buffer used by this driver. Assume the lifetime of the buffer is the same
    * as the class's lifetime. When the memory of the owning object is
-   * invalidated, so is this span.
+   * invalidated, so is this span. Calling `size()` on the span will always
+   * return a value of at least 1.
    */
   std::span<can_message const> receive_buffer()
   {
@@ -218,13 +219,22 @@ public:
   }
 
   /**
-   * @brief Returns the write position (head) of the circular receive buffer
+   * @brief Returns the current write position of the circular receive buffer
    *
-   * Receive head represents the position where the next byte of data will be
-   * written in the receive buffer. This position advances as new data arrives.
-   * To determine how much new data has arrived, store the previous head
-   * position and compare it with the current head position, accounting for
-   * buffer wraparound.
+   * Receive head represents the position where the next message will be written
+   * in the receive buffer. This position advances as new messages arrives. To
+   * determine how much new data has arrived, store the previous head position
+   * and compare it with the current head position, accounting for buffer
+   * wraparound.
+   *
+   * The cursor value will ALWAYS follow this equation:
+   *
+   *          0 <= cursor && cursor < receive_buffer().size()
+   *
+   * Thus this expression is always a valid memory access but may not return
+   * useful information:
+   *
+   *         can.receive_buffer()[ can.cursor() ];
    *
    * Example:
    *
@@ -240,7 +250,7 @@ public:
    * represents the newly received messages. When reading the data, remember
    * that it may wrap around from the end of the buffer back to the beginning.
    *
-   * @return std::size_t - position of the write cursor for the circular buffer
+   * @return std::size_t - position of the write cursor for the circular buffer.
    */
   std::size_t receive_cursor()
   {

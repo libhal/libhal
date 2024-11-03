@@ -85,7 +85,8 @@ public:
    * for more details.
    *
    * @return std::span<hal::byte const> - a const span to the receive buffer
-   * used by the serial port.
+   * used by the serial port. Calling `size()` on the span will always
+   * return a value of at least 1.
    */
   [[nodiscard]] std::span<hal::byte const> receive_buffer()
   {
@@ -93,13 +94,24 @@ public:
   }
 
   /**
-   * @brief Returns the write position (head) of the circular receive buffer
+   * @brief Returns the current write position of the circular receive buffer
    *
    * Receive head represents the position where the next byte of data will be
-   * written in the receive buffer. This position advances as new data arrives.
-   * To determine how much new data has arrived, store the previous head
-   * position and compare it with the current head position, accounting for
+   * written in to the receive buffer. This position advances as new data
+   * arrives. To determine how much new data has arrived, store the previous
+   * head position and compare it with the current head position, accounting for
    * buffer wraparound.
+   *
+   * The cursor value will ALWAYS follow this equation:
+   *
+   *          0 <= cursor && cursor < receive_buffer().size()
+   *
+   * Thus making the following expression valid memory access:
+   *
+   *         serial.receive_buffer()[ serial.cursor() ];
+   *
+   * Just note that just because it is valid does not mean that there is useful
+   * information at this position.
    *
    * Example:
    *
