@@ -17,8 +17,10 @@
 #include <cstdint>
 
 #include <array>
+#include <optional>
 #include <span>
 
+#include "functional.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -151,7 +153,7 @@ public:
    *
    * @param p_settings - settings to apply to can driver
    * @throws hal::operation_not_supported - if the settings could not be
-   * achieved.
+   *         achieved.
    */
   void configure(can_settings const& p_settings)
   {
@@ -159,14 +161,37 @@ public:
   }
 
   /**
+   * @brief Set a callback for when the CAN device goes bus-off
+   *
+   * The BUS-OFF state for CAN is denoted by the occurrence of too many
+   * transmission errors (TEC > 255) causing the CAN controller to disconnect
+   * from the bus to prevent further network disruption. During bus-off,
+   * the node cannot transmit or receive any messages.
+   *
+   * On construction of the can driver, the default callback for the bus-off
+   * event is to do nothing. The `send()` API throw the
+   * `hal::operation_not_permitted` exception and the `receive_cursor()` API
+   * will not update.
+   *
+   * Care should be taken when writing the callback, as it will most likely be
+   * executed in an interrupt context.
+   *
+   * @param p_callback - Optional callback function to be executed when bus-off
+   *        occurs. If `std::nullopt` is passed, any previously set
+   *        callback will be cleared. The callback takes no parameters and
+   *        returns void.
+   */
+  void on_bus_off(std::optional<hal::callback<void(void)>> p_callback)
+  {
+    driver_on_bus_off(p_callback);
+  }
+
+  /**
    * @brief Transition the CAN device from "bus-off" to "bus-on"
-  @verbatim embed:rst
-  ```{warning}
-  Calling this function when the device is already in "bus-on" will
-  have no effect. This function is not necessary to call after creating the
-  CAN driver as the driver should already be "bus-on" on creation.
-  ```
-  @endverbatim
+   *
+   * Calling this function when the device is already "bus-on" will have no
+   * effect. This function is not necessary to call after creating the CAN
+   * driver as the driver should already be "bus-on" on creation.
    *
    * Can devices have two counters to determine system health. These two
    * counters are the "transmit error counter" and the "receive error counter".
@@ -187,13 +212,15 @@ public:
   }
 
   /**
-   * @brief Send a can message
+   * @brief Send a can message over the can network
    *
-   * @param p_message - the message to be sent
-   * @throws hal::operation_not_permitted - if the can device has entered the
-   * "bus-off" state. This can happen if a critical fault in the bus has
-   * occurred. A call to `bus_on()` will need to be issued to attempt to talk on
-   * the bus again. See `bus_on()` for more details.
+   * @param p_message - a message to be sent over the can network
+   * @throws hal::operation_not_permitted - or a derivative of this class, if
+   *         the can device has entered the "bus-off" state. This can happen if
+   *         a critical fault in the bus has occurred. A call to `bus_on()`
+   *         will need to be issued to attempt to talk on the bus again. See
+   *         `bus_on()` for more details.
+   *
    */
   void send(can_message const& p_message)
   {
@@ -207,11 +234,13 @@ public:
    * has been read into the receive buffer. See the docs for `receive_cursor()`
    * for more details.
    *
+   * This API will work even if the CAN peripheral is "bus-off".
+   *
    * @return std::span<message const> - constant span to the message receive
-   * buffer used by this driver. Assume the lifetime of the buffer is the same
-   * as the class's lifetime. When the memory of the owning object is
-   * invalidated, so is this span. Calling `size()` on the span will always
-   * return a value of at least 1.
+   *         buffer used by this driver. Assume the lifetime of the buffer is
+   *         the same as the class's lifetime. When the memory of the owning
+   *         object is invalidated, so is this span. Calling `size()` on the
+   *         span will always return a value of at least 1.
    */
   std::span<can_message const> receive_buffer()
   {
@@ -250,6 +279,8 @@ public:
    * represents the newly received messages. When reading the data, remember
    * that it may wrap around from the end of the buffer back to the beginning.
    *
+   * This function will not change if the state of the system is "bus-off".
+   *
    * @return std::size_t - position of the write cursor for the circular buffer.
    */
   std::size_t receive_cursor()
@@ -261,6 +292,8 @@ public:
 
 private:
   virtual void driver_configure(can_settings const& p_settings) = 0;
+  virtual void driver_on_bus_off(
+    std::optional<hal::callback<void(void)>> p_callback) = 0;
   virtual void driver_bus_on() = 0;
   virtual void driver_send(can_message const& p_message) = 0;
   virtual std::span<can_message const> driver_receive_buffer() = 0;
