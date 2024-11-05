@@ -20,35 +20,35 @@
 
 namespace hal {
 namespace {
-constexpr hal::can_settings expected_settings{ .baud_rate = 1.0_MHz };
-constexpr hal::can_message expected_message{ .id = 10, .length = 0 };
-constexpr hal::can_message expected_message2{ .id = 11,
-                                              .payload = { 0xAA, 0xBB },
-                                              .length = 2 };
-constexpr hal::can_message expected_message3{ .id = 22,
+constexpr hal::can::settings expected_settings{ .baud_rate = 1.0_MHz };
+constexpr hal::can::message_t expected_message{ .id = 10, .length = 0 };
+constexpr hal::can::message_t expected_message2{ .id = 11,
+                                                 .payload = { 0xAA, 0xBB },
+                                                 .length = 2 };
+constexpr hal::can::message_t expected_message3{ .id = 22,
                                               .payload = { 0xCC, 0xDD, 0xEE, },
                                               .length = 3 };
 
 class test_can : public hal::buffered_can
 {
 public:
-  can_settings m_settings{};
-  can_message m_message{};
+  can::settings m_settings{};
+  can::message_t m_message{};
   bool m_bus_on_called{ false };
-  std::array<can_message, 16> m_message_buffer{};
+  std::array<can::message_t, 16> m_message_buffer{};
   std::optional<hal::callback<void(void)>> m_callback = std::nullopt;
   std::size_t m_cursor = 0;
 
   ~test_can() override = default;
 
-  void add_message_to_buffer(can_message const& p_message)
+  void add_message_to_buffer(can::message_t const& p_message)
   {
     m_message_buffer[m_cursor] = p_message;
     m_cursor = (m_cursor + 1) % m_message_buffer.size();
   }
 
 private:
-  void driver_configure(can_settings const& p_settings) override
+  void driver_configure(can::settings const& p_settings) override
   {
     m_settings = p_settings;
   }
@@ -64,12 +64,12 @@ private:
     m_bus_on_called = true;
   }
 
-  void driver_send(can_message const& p_message) override
+  void driver_send(can::message_t const& p_message) override
   {
     m_message = p_message;
   }
 
-  std::span<can_message const> driver_receive_buffer() override
+  std::span<can::message_t const> driver_receive_buffer() override
   {
     return m_message_buffer;
   }
