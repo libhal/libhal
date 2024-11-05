@@ -14,111 +14,13 @@
 
 #pragma once
 
-#include <cstdint>
-
-#include <array>
 #include <optional>
 #include <span>
 
+#include "can.hpp"
 #include "functional.hpp"
-#include "units.hpp"
 
 namespace hal {
-
-/**
- * @brief Can message ID type trait
- *
- */
-using can_id = std::uint32_t;
-
-/**
- * @brief A standard CAN message
- *
- */
-struct can_message
-{
-  /**
-   * @brief ID of the message
-   *
-   */
-  can_id id;
-  /**
-   * @brief Message data contents
-   *
-   */
-  std::array<hal::byte, 8> payload{};
-  /**
-   * @brief The number of valid elements in the payload
-   *
-   * Can be between 0 and 8. A length value above 8 should be considered
-   * invalid and can be discarded.
-   */
-  uint8_t length = 0;
-  /**
-   * @brief Determines if the message is a remote request frame
-   *
-   * If true, then length and payload are ignored.
-   */
-  bool is_remote_request = false;
-
-  /**
-   * @brief Enables default comparison
-   *
-   */
-  bool operator<=>(can_message const&) const = default;
-};
-
-/**
- * @brief Generic settings for a can peripheral
- *
- */
-struct can_settings
-{
-  /**
-   * @brief Bus clock rate in hertz
-   *
-   * CAN Bit Quanta Timing Diagram of:
-   *
-   *                               | <--- sjw ---> |
-   *         ____    ______    __________    __________
-   *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_
-   *       \______/\________/\____________/\____________/
-   *                                       ^ Sample point
-   *
-   * A can bus bit is separated into the segments:
-   *
-   *   - Sync Segment (always 1qt): Initial sync transition, the start of a
-   *     CAN bit.
-   *   - Propagation Delay (1qt ... 8qt): Number of time quanta to
-   *     compensate for signal/propagation delays across the network.
-   *   - Phase Segment 1 (1qt ... 8qt): phase segment 1 acts as a buffer that
-   *     can be lengthened to resynchronize with the bit stream via the
-   *     synchronization jump width.
-   *   - Phase Segment 2 (1qt ... 8qt): Occurs after the sampling point. Phase
-   *     segment 2. can be shortened to resynchronize with the bit stream via
-   *     the synchronization jump width.
-   *   - Synchronization jump width (1qt ... 4qt): This is the maximum time by
-   *     which the bit sampling period may be lengthened or shortened during
-   *     each cycle to adjust for oscillator mismatch between nodes. This
-   *     value must be smaller than phase_segment1 and phase_segment2.
-   *
-   * The exact value of these segments is calculated for you by the can
-   * peripheral based on the input clock to the peripheral and the desired
-   * baud rate.
-   *
-   * A conformant can bus peripheral driver will either choose from tq
-   * starting from 25 and reducing it down to 8 or will have pre-configured
-   * timing values for each frequency it supports.
-   *
-   */
-  hertz baud_rate = 100.0_kHz;
-
-  /**
-   * @brief Enables default comparison
-   *
-   */
-  bool operator<=>(can_settings const&) const = default;
-};
 
 /**
  * @brief Controller Area Network (CAN bus) hardware abstraction interface with
@@ -155,7 +57,7 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    *         achieved.
    */
-  void configure(can_settings const& p_settings)
+  void configure(can::settings const& p_settings)
   {
     driver_configure(p_settings);
   }
@@ -222,7 +124,7 @@ public:
    *         `bus_on()` for more details.
    *
    */
-  void send(can_message const& p_message)
+  void send(can::message_t const& p_message)
   {
     driver_send(p_message);
   }
@@ -242,7 +144,7 @@ public:
    *         object is invalidated, so is this span. Calling `size()` on the
    *         span will always return a value of at least 1.
    */
-  std::span<can_message const> receive_buffer()
+  std::span<can::message_t const> receive_buffer()
   {
     return driver_receive_buffer();
   }
@@ -291,12 +193,12 @@ public:
   virtual ~buffered_can() = default;
 
 private:
-  virtual void driver_configure(can_settings const& p_settings) = 0;
+  virtual void driver_configure(can::settings const& p_settings) = 0;
   virtual void driver_on_bus_off(
     std::optional<hal::callback<void(void)>> p_callback) = 0;
   virtual void driver_bus_on() = 0;
-  virtual void driver_send(can_message const& p_message) = 0;
-  virtual std::span<can_message const> driver_receive_buffer() = 0;
+  virtual void driver_send(can::message_t const& p_message) = 0;
+  virtual std::span<can::message_t const> driver_receive_buffer() = 0;
   virtual std::size_t driver_receive_cursor() = 0;
 };
 }  // namespace hal

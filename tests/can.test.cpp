@@ -21,16 +21,16 @@
 
 namespace hal {
 namespace {
-constexpr hal::can_settings expected_settings{ .baud_rate = 1.0_MHz };
-constexpr hal::can_message expected_message{ .id = 22,
+constexpr hal::can::settings expected_settings{ .baud_rate = 1.0_MHz };
+constexpr hal::can::message_t expected_message{ .id = 22,
                                              .payload = { 0xCC, 0xDD, 0xEE, },
                                              .length = 3 };
 
 class test_can : public hal::can
 {
 public:
-  can_settings m_settings{};
-  can_message m_message{};
+  can::settings m_settings{};
+  can::message_t m_message{};
   bool m_bus_on_called{ false };
   hal::callback<handler> m_handler{};
   std::size_t m_cursor = 0;
@@ -38,7 +38,7 @@ public:
   ~test_can() override = default;
 
 private:
-  void driver_configure(can_settings const& p_settings) override
+  void driver_configure(can::settings const& p_settings) override
   {
     m_settings = p_settings;
   }
@@ -48,7 +48,7 @@ private:
     m_bus_on_called = true;
   }
 
-  void driver_send(can_message const& p_message) override
+  void driver_send(can::message_t const& p_message) override
   {
     m_message = p_message;
   }
@@ -116,8 +116,9 @@ boost::ut::suite<"can_test"> can_test = []() {
 
     // Exercise
     // Exercise: Simulate incoming message
-    test.on_receive(
-      [&callback_called](hal::can_message const&) { callback_called = true; });
+    test.on_receive([&callback_called](hal::can::message_t const&) {
+      callback_called = true;
+    });
     test.m_handler({});
 
     // Verify

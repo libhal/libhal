@@ -14,8 +14,10 @@
 
 #pragma once
 
-#include "buffered_can.hpp"
+#include <array>
+
 #include "functional.hpp"
+#include "units.hpp"
 
 namespace hal {
 /**
@@ -42,23 +44,96 @@ public:
    * This was added for backwards API compatibility.
    *
    */
-  using id_t = can_id;
+  using id_t = std::uint32_t;
 
   /**
-   * @brief Definition of settings using the common `hal::can_settings`
-   *
-   * This was added for backwards API compatibility.
+   * @brief A standard CAN message
    *
    */
-  using settings = hal::can_settings;
+  struct message_t
+  {
+    /**
+     * @brief ID of the message
+     *
+     */
+    id_t id;
+    /**
+     * @brief Message data contents
+     *
+     */
+    std::array<hal::byte, 8> payload{};
+    /**
+     * @brief The number of valid elements in the payload
+     *
+     * Can be between 0 and 8. A length value above 8 should be considered
+     * invalid and can be discarded.
+     */
+    uint8_t length = 0;
+    /**
+     * @brief Determines if the message is a remote request frame
+     *
+     * If true, then length and payload are ignored.
+     */
+    bool is_remote_request = false;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(message_t const&) const = default;
+  };
 
   /**
-   * @brief Definition of message_t using the common `hal::can_message`
-   *
-   * This was added for backwards API compatibility.
+   * @brief Generic settings for a can peripheral
    *
    */
-  using message_t = hal::can_message;
+  struct settings
+  {
+    /**
+     * @brief Bus clock rate in hertz
+     *
+     * CAN Bit Quanta Timing Diagram of:
+     *
+     *                               | <--- sjw ---> |
+     *         ____    ______    __________    __________
+     *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_
+     *       \______/\________/\____________/\____________/
+     *                                       ^ Sample point
+     *
+     * A can bus bit is separated into the segments:
+     *
+     *   - Sync Segment (always 1qt): Initial sync transition, the start of a
+     *     CAN bit.
+     *   - Propagation Delay (1qt ... 8qt): Number of time quanta to
+     *     compensate for signal/propagation delays across the network.
+     *   - Phase Segment 1 (1qt ... 8qt): phase segment 1 acts as a buffer that
+     *     can be lengthened to resynchronize with the bit stream via the
+     *     synchronization jump width.
+     *   - Phase Segment 2 (1qt ... 8qt): Occurs after the sampling point. Phase
+     *     segment 2. can be shortened to resynchronize with the bit stream via
+     *     the synchronization jump width.
+     *   - Synchronization jump width (1qt ... 4qt): This is the maximum time by
+     *     which the bit sampling period may be lengthened or shortened during
+     *     each cycle to adjust for oscillator mismatch between nodes. This
+     *     value must be smaller than phase_segment1 and phase_segment2.
+     *
+     * The exact value of these segments is calculated for you by the can
+     * peripheral based on the input clock to the peripheral and the desired
+     * baud rate.
+     *
+     * A conformant can bus peripheral driver will either choose from tq
+     * starting from 25 and reducing it down to 8 or will have pre-configured
+     * timing values for each frequency it supports.
+     *
+     */
+    hertz baud_rate = 100.0_kHz;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
+  };
 
   /**
    * @brief Receive handler for can messages
