@@ -40,6 +40,12 @@ public:
     /// Starting level of the output pin. HIGH voltage defined as true and LOW
     /// voltage defined as false.
     bool open_drain = false;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /**

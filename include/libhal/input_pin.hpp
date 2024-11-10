@@ -31,6 +31,12 @@ public:
   {
     /// Pull resistor for an input pin
     pin_resistor resistor = pin_resistor::pull_up;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /**
