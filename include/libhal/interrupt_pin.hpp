@@ -79,6 +79,12 @@ public:
      *
      */
     trigger_edge trigger = trigger_edge::rising;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /**
