@@ -123,6 +123,26 @@ namespace literals {
   return static_cast<float>(p_value * std::giga::num);
 }
 
+[[nodiscard]] consteval u32 operator""_Hz(long long unsigned p_value) noexcept
+{
+  return p_value;
+}
+
+[[nodiscard]] consteval u32 operator""_kHz(long long unsigned p_value) noexcept
+{
+  return p_value * std::kilo::num;
+}
+
+[[nodiscard]] consteval u32 operator""_MHz(long long unsigned p_value) noexcept
+{
+  return p_value * std::mega::num;
+}
+
+[[nodiscard]] consteval u32 operator""_GHz(long long unsigned p_value) noexcept
+{
+  return p_value * std::giga::num;
+}
+
 // =============================================================================
 // G force
 // =============================================================================

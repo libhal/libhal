@@ -14,6 +14,10 @@
 
 #pragma once
 
+#include <optional>
+
+#include "functional.hpp"
+
 namespace hal {
 /**
  * @brief An interface for customizing the behavior of drivers when they must
@@ -42,6 +46,13 @@ namespace hal {
 class io_waiter
 {
 public:
+  /**
+   * @brief Disambiguation tag object for io_waiter on wait callbacks
+   *
+   */
+  struct on_wait_tag
+  {};
+
   /**
    * @brief Execute this function when your driver is waiting on something
    *
@@ -121,11 +132,28 @@ public:
     driver_resume();
   }
 
+  /**
+   * @brief Inject a function to call before waiting on I/O
+   *
+   * This function allows application code to inject functionality into an I/O
+   * waiter before performing a wait. This is useful for stacking multiple
+   * waiting operations in a single thread OR throwing an exception out of an
+   * io_waiter if a deadline violation has occurred.
+   *
+   * @param p_callback - A function to be called before waiting on I/O
+   */
+  void on_wait(std::optional<hal::callback<void(on_wait_tag)>> p_callback)
+  {
+    driver_on_wait(p_callback);
+  }
+
   virtual ~io_waiter() = default;
 
 private:
   virtual void driver_wait() = 0;
   virtual void driver_resume() noexcept = 0;
+  virtual void driver_on_wait(
+    std::optional<hal::callback<void(on_wait_tag)>> p_callback) = 0;
 };
 
 /**
@@ -145,17 +173,30 @@ inline io_waiter& polling_io_waiter()
 {
   class polling_io_waiter_t : public hal::io_waiter
   {
-    void driver_wait()
+    void driver_wait() override
     {
+      if (m_callback) {
+        m_callback.value()(on_wait_tag{});
+      }
+
       // Do nothing and allow the outer loop of the driver to poll its ready
       // flag.
       return;
     }
-    void driver_resume() noexcept
+
+    void driver_resume() noexcept override
     {
       // Since wait didn't do anything, neither does resume.
       return;
     }
+
+    void driver_on_wait(
+      std::optional<hal::callback<void(on_wait_tag)>> p_callback) override
+    {
+      m_callback = p_callback;
+    }
+
+    std::optional<hal::callback<void(on_wait_tag)>> m_callback;
   };
 
   static polling_io_waiter_t waiter;

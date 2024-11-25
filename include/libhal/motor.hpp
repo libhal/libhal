@@ -14,7 +14,7 @@
 
 #pragma once
 
-#include <algorithm>
+#include "units.hpp"
 
 namespace hal {
 /**
@@ -57,18 +57,17 @@ public:
    *   only go in one direction, this function should clamp the power applied to
    *   0%.
    *
-   * @param p_power - Percentage of power to apply to the motor from -1.0f to
-   * +1.0f, -100% to 100%, respectively.
+   * @param p_power - Percentage of power to apply to the motor from -32'768 to
+   * 32'767, -100% to 100%, respectively.
    */
-  void power(float p_power)
+  void power(i16 p_power)
   {
-    auto clamped_power = std::clamp(p_power, -1.0f, +1.0f);
-    return driver_power(clamped_power);
+    return driver_power(p_power);
   }
 
   virtual ~motor() = default;
 
 private:
-  virtual void driver_power(float p_power) = 0;
+  virtual void driver_power(i16 p_power) = 0;
 };
 }  // namespace hal

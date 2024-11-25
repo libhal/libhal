@@ -16,8 +16,6 @@
 
 #include <span>
 
-#include "functional.hpp"
-#include "timeout.hpp"
 #include "units.hpp"
 
 namespace hal {
@@ -39,34 +37,22 @@ class i2c
 {
 public:
   /**
-   * @brief Generic settings for a standard I2C device
+   * @brief Get the clock rate of the i2c bus
    *
-   */
-  struct settings
-  {
-    /**
-     * @brief The serial clock rate in hertz.
-     *
-     */
-    hertz clock_rate = 100.0_kHz;
-
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    bool operator<=>(settings const&) const = default;
-  };
-
-  /**
-   * @brief Configure i2c to match the settings supplied
+   * This is used by device drivers sharing this resource to determine if the
+   * clock rate is above what the device can support. If that is the case, the
+   * device should throw the exception hal::operation_not_supported to signal
+   * that the i2c is not supported for this device.
    *
-   * @param p_settings - settings to apply to i2c driver
-   * @throws hal::operation_not_supported - if the settings could not be
-   * achieved.
+   * NOTE: if the i2c clock rate is too high for a device on the bus it is
+   * likely that the i2c may experience and throw hal::io_errors on any
+   * transaction due to devices misinterpreting the bus signals.
+   *
+   * @returns u32 - returns the i2c device's clock rate
    */
-  void configure(settings const& p_settings)
+  u32 clock_rate()
   {
-    driver_configure(p_settings);
+    return driver_clock_rate();
   }
 
   /**
@@ -120,73 +106,12 @@ public:
     driver_transaction(p_address, p_data_out, p_data_in);
   }
 
-  /**
-   * @deprecated Prefer to use the i2c API that does not use timeouts. Timeout
-   * functions get in the way of an efficient usage of DMA, is a viral
-   * performance hit, and is only for the rare situation where a device on the
-   * bus may perform clock stretching for which there are few devices that
-   * support this. The deprecated attribute is not used yet, as the transition
-   * is still ongoing.
-   *
-   * @brief perform an i2c transaction with another device on the bus. The type
-   * of transaction depends on values of input parameters. This function will
-   * block until the entire transfer is finished.
-   *
-   *
-   * @param p_address 7-bit address of the device you want to communicate with.
-   * To perform a transaction with a 10-bit address, this parameter must be the
-   * address upper byte of the 10-bit address OR'd with 0b1111'0000 (the 10-bit
-   * address indicator). The lower byte of the address must be contained in the
-   * first byte of the p_data_out span.
-   * @param p_data_out data to be written to the addressed device. Set to
-   * nullptr with length zero in order to skip writing.
-   * @param p_data_in buffer to store read data from the addressed device. Set
-   * to nullptr with length 0 in order to skip reading.
-   * @param p_timeout callable which notifies the i2c driver that it has run out
-   * of time to perform the transaction and must stop and return control to the
-   * caller.
-   * @throws hal::timed_out from p_timeout if the transaction exceeds its
-   * deadline.
-   * @throws hal::no_such_device - indicates that no devices on
-   * the bus acknowledge the address in this transaction, which could mean that
-   * the device is not connected to the bus, is not powered, not available to
-   * respond, broken or many other possible outcomes.
-   * @throws hal::io_error - indicates that the i2c lines were put into an
-   * invalid state during the transaction due to interference, misconfiguration,
-   * hardware fault, malfunctioning i2c peripheral or possibly something else.
-   * This tends to present a hardware issue and is usually not recoverable.
-   */
-  void transaction(hal::byte p_address,
-                   std::span<hal::byte const> p_data_out,
-                   std::span<hal::byte> p_data_in,
-                   hal::function_ref<hal::timeout_function> p_timeout)
-  {
-    driver_transaction(p_address, p_data_out, p_data_in, p_timeout);
-  }
-
   virtual ~i2c() = default;
 
 private:
-  virtual void driver_configure(settings const& p_settings) = 0;
-
-  /// Implementors of this virtual API should simply call the concrete class's
-  /// implementation of driver_transaction() without the p_timeout parameter and
-  /// drop the p_timeout parameter.
-  virtual void driver_transaction(
-    hal::byte p_address,
-    std::span<hal::byte const> p_data_out,
-    std::span<hal::byte> p_data_in,
-    hal::function_ref<hal::timeout_function> p_timeout) = 0;
-
-  /// The default implementation of this calls the original driver_transaction
-  /// with a never timeout parameter. This is to make this API call backwards
-  /// compatible.
+  virtual u32 driver_clock_rate() = 0;
   virtual void driver_transaction(hal::byte p_address,
                                   std::span<hal::byte const> p_data_out,
-                                  std::span<hal::byte> p_data_in)
-  {
-    // NOLINTNEXTLINE
-    transaction(p_address, p_data_out, p_data_in, hal::never_timeout());
-  }
+                                  std::span<hal::byte> p_data_in) = 0;
 };
 }  // namespace hal

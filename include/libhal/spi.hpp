@@ -79,48 +79,72 @@ public:
      * @brief Serial clock frequency in hertz
      *
      */
-    hertz clock_rate = 100.0_kHz;
+    u32 clock_rate = 100_kHz;
+
     /**
      * @brief The polarity of the pins when the signal is idle
      *
      * CPOL == 0 == false
      * CPOL == 1 == true
      */
-    union
+    bool cpol = false;
+
+    constexpr auto& clock_polarity(bool p_value)
     {
-      bool clock_idles_high = false;
-      bool clock_polarity;
-      bool cpol;
-    };
+      cpol = p_value;
+      return *this;
+    }
+
+    constexpr auto& clock_idles_high(bool p_value)
+    {
+      cpol = p_value;
+      return *this;
+    }
+
     /**
      * @brief The phase of the clock signal when communicating
      *
      * CPHA == 0 == false
      * CPHA == 1 == true
      */
-    union
+    bool cpha = false;
+
+    constexpr auto& clock_phase(bool p_value)
     {
-      bool data_valid_on_trailing_edge = false;
-      bool clock_phase;
-      bool cpha;
-    };
+      cpha = p_value;
+      return *this;
+    }
+
+    constexpr auto& data_valid_on_trailing_edge(bool p_value)
+    {
+      cpha = p_value;
+      return *this;
+    }
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
-  /// Default filler data placed on the bus in place of actual write data when
-  /// the write buffer has been exhausted.
-  static constexpr hal::byte default_filler = hal::byte{ 0xFF };
+  /**
+   * @brief Default filler data
+   *
+   * Data placed on the bus in place of actual write data when the write buffer
+   * has been exhausted.
+   */
+  static constexpr byte default_filler = 0xFF;
 
   /**
-   * @brief Configure spi to match the settings supplied
+   * @brief Default settings for an SPI transaction
    *
-   * @param p_settings - settings to apply to spi
-   * @throws hal::operation_not_supported - if the settings could not be
-   * achieved.
    */
-  void configure(settings const& p_settings)
-  {
-    return driver_configure(p_settings);
-  }
+  static constexpr auto default_settings = settings{
+    .clock_rate = 100_kHz,
+    .cpol = false,
+    .cpha = false,
+  };
 
   /**
    * @brief Send and receive data between a selected device on the spi bus.
@@ -135,14 +159,16 @@ public:
    * be ignored. If the length of this buffer is less than p_data_out, once this
    * buffer has been filled, the rest of the received bytes on the bus will be
    * dropped.
+   * @param p_settings - the settings for the spi transaction
    * @param p_filler - filler data placed on the bus in place of actual write
    * data when p_data_out has been exhausted.
    */
   void transfer(std::span<hal::byte const> p_data_out,
                 std::span<hal::byte> p_data_in,
+                settings p_settings = default_settings,
                 hal::byte p_filler = default_filler)
   {
-    return driver_transfer(p_data_out, p_data_in, p_filler);
+    return driver_transfer(p_data_out, p_data_in, p_settings, p_filler);
   }
 
   virtual ~spi() = default;
@@ -151,6 +177,7 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_transfer(std::span<hal::byte const> p_data_out,
                                std::span<hal::byte> p_data_in,
+                               settings p_settings,
                                hal::byte p_filler) = 0;
 };
 }  // namespace hal
