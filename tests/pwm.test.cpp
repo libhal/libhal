@@ -20,41 +20,69 @@
 
 namespace hal {
 namespace {
-constexpr auto expected_frequency = hertz(1'000);
-constexpr auto expected_duty_cycle = float(0.5);
+static constexpr u32 expected_frequency = 15_kHz;
+constexpr auto expected_duty_cycle = 1337;
 
-class test_pwm : public hal::pwm
+class test_pwm16 : public hal::pwm16
 {
 public:
-  hertz m_frequency{};
-  float m_duty_cycle{};
-  ~test_pwm() override = default;
+  u32 m_frequency{};
+  u16 m_duty_cycle{};
+  ~test_pwm16() override = default;
 
 private:
-  void driver_frequency(hertz p_frequency) override
+  void driver_frequency(u32 p_frequency) override
   {
     m_frequency = p_frequency;
   }
-  void driver_duty_cycle(float p_duty_cycle) override
+  void driver_duty_cycle(u16 p_duty_cycle) override
+  {
+    m_duty_cycle = p_duty_cycle;
+  }
+};
+
+class test_pwm_duty_cycle16 : public hal::pwm_duty_cycle16
+{
+public:
+  u16 m_duty_cycle{};
+  ~test_pwm_duty_cycle16() override = default;
+
+private:
+  u32 driver_frequency() override
+  {
+    return expected_frequency;
+  }
+  void driver_duty_cycle(u16 p_duty_cycle) override
   {
     m_duty_cycle = p_duty_cycle;
   }
 };
 }  // namespace
 
-boost::ut::suite<"pwm_test"> pwm_test = []() {
+boost::ut::suite<"pwm16"> pwm16_test = []() {
   using namespace boost::ut;
-  "pwm interface test"_test = []() {
-    // Setup
-    test_pwm test;
+  // Setup
+  test_pwm16 test;
 
-    // Exercise
-    test.frequency(expected_frequency);
-    test.duty_cycle(expected_duty_cycle);
+  // Exercise
+  test.frequency(expected_frequency);
+  test.duty_cycle(expected_duty_cycle);
 
-    // Verify
-    expect(that % expected_frequency == test.m_frequency);
-    expect(that % expected_duty_cycle == test.m_duty_cycle);
-  };
+  // Verify
+  expect(that % expected_frequency == test.m_frequency);
+  expect(that % expected_duty_cycle == test.m_duty_cycle);
+};
+
+boost::ut::suite<"test_pwm_duty_cycle16"> pwm_duty_cycle16_test = []() {
+  using namespace boost::ut;
+  // Setup
+  test_pwm_duty_cycle16 test;
+
+  // Exercise
+  test.duty_cycle(expected_duty_cycle);
+
+  // Verify
+  expect(that % expected_frequency == test.frequency());
+  expect(that % expected_duty_cycle == test.m_duty_cycle);
 };
 }  // namespace hal
