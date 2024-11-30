@@ -53,6 +53,8 @@ public:
   struct on_wait_tag
   {};
 
+  using on_wait_handler = hal::callback<void(on_wait_tag)>;
+
   /**
    * @brief Execute this function when your driver is waiting on something
    *
@@ -142,7 +144,7 @@ public:
    *
    * @param p_callback - A function to be called before waiting on I/O
    */
-  void on_wait(std::optional<hal::callback<void(on_wait_tag)>> p_callback)
+  void on_wait(std::optional<on_wait_handler> p_callback)
   {
     driver_on_wait(p_callback);
   }
@@ -152,8 +154,7 @@ public:
 private:
   virtual void driver_wait() = 0;
   virtual void driver_resume() noexcept = 0;
-  virtual void driver_on_wait(
-    std::optional<hal::callback<void(on_wait_tag)>> p_callback) = 0;
+  virtual void driver_on_wait(std::optional<on_wait_handler> p_callback) = 0;
 };
 
 /**

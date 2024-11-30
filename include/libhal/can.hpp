@@ -118,13 +118,6 @@ public:
   {};
 
   /**
-   * @brief Disambiguation tag object for message receive events
-   *
-   */
-  struct on_receive_tag
-  {};
-
-  /**
    * @brief @brief Returns the baud rate of the can bus
    *
    * @return u32 - baud rate
@@ -272,40 +265,6 @@ public:
     driver_bus_on();
   }
 
-  /**
-   * @brief Set the filter mode for the device
-   *
-   * @param p_acceptance - the message acceptance mode for the can bus device
-   */
-  void filter_mode(accept p_acceptance)
-  {
-    driver_filter_mode(p_acceptance);
-  }
-  /**
-   * @brief Add a message ID to the acceptance filter.
-   *
-   * This API allows messages with the specified ID to pass through to the
-   * receive buffer. Note that this is a "best effort" approach, as the
-   * capabilities of CAN Bus filtering schemes can vary greatly. This may result
-   * in additional messages being received that are not exactly equal to the set
-   * ID passed into this function.
-   *
-   * Calling this API multiple times adds additional messages to the filter.
-   *
-   * This has no effect if the filter mode is set to `accept::none` or
-   * `accept::all`. To wipe away all of the currently filtered messages, set the
-   * filter mode to any acceptance mode other than `accept::filter`.
-   *
-   * If an implementation does not support `accept::filter` then `accept::all`
-   * will be used.
-   *
-   * @param p_message_id - message ID to be allowed through the receive filter.
-   */
-  void allow_message_id(id_t p_message_id)
-  {
-    driver_allow_message_id(p_message_id);
-  }
-
   virtual ~can() = default;
 
 private:
@@ -315,11 +274,72 @@ private:
   virtual u32 driver_receive_cursor() = 0;
   virtual void driver_on_bus_off(
     std::optional<hal::callback<void(on_bus_off_tag)>> p_callback) = 0;
-  virtual void driver_on_receive(
-    std::optional<hal::callback<void(on_receive_tag, can::message const&)>>
-      p_callback) = 0;
   virtual void driver_bus_on() = 0;
-  virtual void driver_filter_mode(accept p_acceptance) = 0;
-  virtual void driver_allow_message_id(id_t p_message_id) = 0;
+};
+
+class can_message_interrupt
+{
+  /**
+   * @brief Disambiguation tag object for message receive events
+   *
+   */
+  struct on_receive_tag
+  {};
+
+  /**
+   * @brief
+   *
+   */
+  using on_receive_handler = void(on_receive_tag, can::message const&);
+
+  void on_receive(std::optional<hal::callback<on_receive_handler>> p_callback)
+  {
+    driver_on_receive(p_callback);
+  }
+
+  virtual ~can_message_interrupt() = default;
+
+private:
+  virtual void driver_on_receive(
+    std::optional<hal::callback<on_receive_handler>> p_callback) = 0;
+};
+
+class can_identifier_filter
+{
+  void set(id_t p_id)
+  {
+    driver_set(p_id);
+  }
+
+  virtual ~can_identifier_filter() = default;
+
+private:
+  virtual void driver_set(id_t p_id) = 0;
+};
+
+class can_mask_filter
+{
+  void set(id_t p_id, id_t p_mask)
+  {
+    driver_set(p_id, p_mask);
+  }
+
+  virtual ~can_mask_filter() = default;
+
+private:
+  virtual void driver_set(id_t p_id, id_t p_mask) = 0;
+};
+
+class can_range_filter
+{
+  void set(id_t p_id_1, id_t p_id_2)
+  {
+    driver_set(p_id_1, p_id_2);
+  }
+
+  virtual ~can_range_filter() = default;
+
+private:
+  virtual void driver_set(id_t p_id_1, id_t p_id_2) = 0;
 };
 }  // namespace hal
