@@ -216,4 +216,5 @@ private:
   virtual void driver_send(message_t const& p_message) = 0;
   virtual void driver_on_receive(hal::callback<handler> p_handler) = 0;
 };
+
 }  // namespace hal
