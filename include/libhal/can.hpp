@@ -15,12 +15,18 @@
 #pragma once
 
 #include <array>
+#include <span>
 
 #include "functional.hpp"
 #include "units.hpp"
 
 namespace hal {
 /**
+ * @deprecated This interface has too much responsibility and has been split up
+ * into `hal::can_transceiver`, `hal::can_interrupt`, `hal::can_bus_manager`,
+ * `hal::can_identifier_filter`, `hal::can_extended_identifier_filter`,
+ * `hal::can_mask_filter`, `hal::can_extended_mask_filter`,
+ * `hal::can_range_filter`, and `hal::can_extended_range_filter`.
  * @brief Controller Area Network (CAN bus) hardware abstraction interface.
  *
  * This interface does not provide APIs for CAN message hardware filtering. The
@@ -31,9 +37,6 @@ namespace hal {
  * resources available. It is often not possible to filter every possible ID in
  * hardware that your application is interested in. Thus, must expect that the
  * CAN message receive buffer.
- *
- * This interface provides a means to interrupt on every message received. If
- * this behavior is not desirable, consider `hal::can_transceiver` instead.
  */
 class can
 {
@@ -251,7 +254,7 @@ struct can_message
    * Can be between 0 and 8. A length value above 8 should be considered
    * invalid and can be discarded.
    */
-  uint8_t length = 0;
+  u8 length = 0;
   /**
    * @brief Message data contents
    *
@@ -352,6 +355,9 @@ static_assert(can_message_size == 16, "can message size must be 16 bytes!");
  * @brief Controller Area Network (CAN bus) hardware abstraction interface with
  * message buffering.
  *
+ * Implementations of this interface are sharable across multiple applications
+ * and device drivers.
+ *
  * Buffered can provides easy access to all can messages received by the CAN bus
  * allowing multiple device drivers to use the same buffered can for their
  * operations.
@@ -394,7 +400,7 @@ public:
    *         `bus_on()` for more details.
    *
    */
-  void send(can::message_t const& p_message)
+  void send(can_message const& p_message)
   {
     driver_send(p_message);
   }
@@ -414,7 +420,7 @@ public:
    *         object is invalidated, so is this span. Calling `size()` on the
    *         span will always return a value of at least 1.
    */
-  std::span<can::message_t const> receive_buffer()
+  std::span<can_message const> receive_buffer()
   {
     return driver_receive_buffer();
   }
@@ -464,20 +470,25 @@ public:
 
 private:
   virtual u32 driver_baud_rate() = 0;
-  virtual void driver_send(can::message_t const& p_message) = 0;
-  virtual std::span<can::message_t const> driver_receive_buffer() = 0;
+  virtual void driver_send(can_message const& p_message) = 0;
+  virtual std::span<can_message const> driver_receive_buffer() = 0;
   virtual std::size_t driver_receive_cursor() = 0;
 };
 
 /**
- * @brief CAN message interrupt abstraction
+ * @brief CAN Bus message reception hardware abstraction interface
+ *
+ * Implementations of this interface are NOT sharable across multiple device or
+ * applications drivers. If shared, only the last handler set will be the one
+ * that will execute on message reception.
  *
  * Implementations of this interface allow interrupts to be fired when a new
  * message is received. If message filtering is enabled, then the callback will
  * only be for messages received through the filter.
  */
-class can_message_interrupt
+class can_interrupt
 {
+public:
   /**
    * @brief Disambiguation tag object for message receive events
    *
@@ -489,7 +500,17 @@ class can_message_interrupt
    * @brief Receive handler signature
    *
    */
-  using receive_handler = void(on_receive_tag, can::message_t const&);
+  using receive_handler = void(on_receive_tag, can_message const&);
+
+  /**
+   * @brief Optional receive buffer
+   *
+   * Either contains a can message receive handler OR is std::nullopt which
+   * means "disable" message interrupt.
+   *
+   */
+  using optional_receive_handler =
+    std::optional<hal::callback<receive_handler>>;
 
   /**
    * @brief Set a callback to occur when a new message has been received
@@ -499,24 +520,28 @@ class can_message_interrupt
    * std::nullopt, may or may not disable the receive interrupt entirely. This
    * depends on the implementation.
    */
-  void on_receive(std::optional<hal::callback<receive_handler>> p_callback)
+  void on_receive(optional_receive_handler p_callback)
   {
     driver_on_receive(p_callback);
   }
 
-  virtual ~can_message_interrupt() = default;
+  virtual ~can_interrupt() = default;
 
 private:
-  virtual void driver_on_receive(
-    std::optional<hal::callback<receive_handler>> p_callback) = 0;
+  virtual void driver_on_receive(optional_receive_handler p_callback) = 0;
 };
 
 /**
- * @brief Manages
+ * @brief CAN Bus configuration & control hardware abstraction interface
+ *
+ * Implementations of this interface are NOT sharable across multiple device or
+ * applications drivers. Generally a single application or process should
+ * control the CAN bus.
  *
  */
 class can_bus_manager
 {
+public:
   /**
    * @brief Disambiguation tag object for bus off events
    *
@@ -546,14 +571,26 @@ class can_bus_manager
   using bus_off_handler = void(bus_off_tag);
 
   /**
+   * @brief Optional bus off handler signature
+   *
+   * Either contains a bus off handler OR is std::nullopt which means "disable"
+   * message interrupt.
+   */
+  using optional_bus_off_handler =
+    std::optional<hal::callback<bus_off_handler>>;
+
+  /**
    * @brief Set the can bus baud rate
    *
    * The baud rate is the communication rate of the can bus. At a baud rate of
    * 1MHz, each bit has a width of 1us. At 100kHz, each bit has a width of 10us.
    * The developer must ensure that the baud rate is set to the correct
    * communication rate for all devices on the bus. If all other devices on the
-   * bus communicate at 100kHz then so too much this device communicate at
-   * 100kHz.
+   * bus communicate at 100kHz then all other devices on the bus MUST
+   * communicate at 100kHz.
+   *
+   * This API should be called before passing a `hal::can_transceiver`,
+   * corrsponding to this can bus to a device driver for usage.
    *
    * @param p_hertz - baud rate in hertz
    * @throws hal::operation_not_supported if the baud rate is above or below
@@ -595,7 +632,7 @@ class can_bus_manager
    * occurs. If `std::nullopt` is passed, any previously set callback will be
    * cleared. The callback takes no parameters and returns void.
    */
-  void on_bus_off(std::optional<hal::callback<bus_off_handler>> p_callback)
+  void on_bus_off(optional_bus_off_handler p_callback)
   {
     driver_on_bus_off(p_callback);
   }
@@ -630,19 +667,54 @@ class can_bus_manager
 private:
   virtual void driver_baud_rate(hal::u32 p_hertz) = 0;
   virtual void driver_filter_mode(accept p_accept) = 0;
-  virtual void driver_on_bus_off(
-    std::optional<hal::callback<bus_off_handler>> p_callback) = 0;
+  virtual void driver_on_bus_off(optional_bus_off_handler p_callback) = 0;
   virtual void driver_bus_on() = 0;
 };
 
 /**
- * @brief CAN message filter based on message ID
+ * @brief CAN message ID filter hardware abstraction interface
  *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
  */
 class can_identifier_filter
 {
+public:
   /**
-   * @brief
+   * @brief Allow messages with this identifier to pass the can bus filter
+   *
+   * @param p_id - Allow messages with this ID through to the can message
+   * filter. To stop allowing messages from this filter, set this parameter to
+   * `std::nullopt`.
+   */
+  void allow(std::optional<u16> p_id)
+  {
+    driver_allow(p_id);
+  }
+
+  virtual ~can_identifier_filter() = default;
+
+private:
+  virtual void driver_allow(std::optional<u16> p_id) = 0;
+};
+
+/**
+ * @brief CAN message extended ID filter hardware abstraction interface
+ *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
+ */
+class can_extended_identifier_filter
+{
+public:
+  /**
+   * @brief Allow messages with this identifier to pass the can bus filter
    *
    * @param p_id - Allow messages with this ID through to the can message
    * filter. To stop allowing messages from this filter, set this parameter to
@@ -653,35 +725,115 @@ class can_identifier_filter
     driver_allow(p_id);
   }
 
-  virtual ~can_identifier_filter() = default;
+  virtual ~can_extended_identifier_filter() = default;
 
 private:
   virtual void driver_allow(std::optional<u32> p_id) = 0;
 };
 
 /**
- * @brief CAN message filter based on
+ * @brief CAN message mask filter hardware abstraction interface
  *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
  */
 class can_mask_filter
 {
+public:
   /**
-   * @brief Mask filter info
+   * @brief Mask filter
    *
-   * Reach the description of each field to understand how they work.
+   * The following equation must be true in order for the message to pass the
+   * can bus filter.
+   *
+   *     received_message_id & mask == id & mask
    */
   struct pair
   {
     /**
-     * @brief Pr
+     * @brief Specifies an ID to match against
+     *
+     */
+    u16 id = 0;
+    /**
+     * @brief Specifies which bits of the ID to consider.
+     *
+     * For example, a mask of 0x7FF would match all bits in a 11-bit ID since
+     * all 11 bits are set. A mask of 0x7F0, would allow messages with the most
+     * significant 7 bits of the ID and the lower 4 bits can be any value.
+     *
+     */
+    u16 mask = 0;
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    constexpr bool operator<=>(pair const&) const = default;
+  };
+
+  /**
+   * @brief Allow messages that correspond to this mask pass the can bus filter
+   *
+   * @param p_filter_pair - mask filter used to filter incoming messages. To
+   * stop allowing messages from this filter, set this parameter to
+   * `std::nullopt`.
+   */
+  void allow(std::optional<pair> p_filter_pair)
+  {
+    driver_allow(p_filter_pair);
+  }
+
+  virtual ~can_mask_filter() = default;
+
+private:
+  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+};
+
+/**
+ * @brief CAN message extended mask filter hardware abstraction interface
+ *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
+ */
+class can_extended_mask_filter
+{
+public:
+  /**
+   * @brief Extended mask filter
+   *
+   * The following equation must be true in order for the message to pass the
+   * can bus filter.
+   *
+   *     received_message_id & mask == id & mask
+   */
+  struct pair
+  {
+    /**
+     * @brief Specifies an ID to match against
      *
      */
     u32 id = 0;
     /**
-     * @brief
+     * @brief Specifies which bits of the ID to consider.
+     *
+     * For example, a mask of 0x1FFFFFFF would match all bits in a 29-bit ID
+     * since all 29 bits are set. A mask of 0x1FFFFFF0, would allow messages
+     * with the most significant 25 bits of the ID and the lower 4 bits can be
+     * any value.
      *
      */
     u32 mask = 0;
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    constexpr bool operator<=>(pair const&) const = default;
   };
 
   /**
@@ -692,19 +844,86 @@ class can_mask_filter
    */
   void allow(std::optional<pair> p_filter_pair)
   {
-    driver_set(p_filter_pair);
+    driver_allow(p_filter_pair);
   }
 
-  virtual ~can_mask_filter() = default;
+  virtual ~can_extended_mask_filter() = default;
 
 private:
-  virtual void driver_set(std::optional<pair> p_filter_pair) = 0;
+  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
 };
 
+/**
+ * @brief CAN message range filter hardware abstraction interface
+ *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
+ */
 class can_range_filter
 {
+public:
   /**
    * @brief filter pair information
+   *
+   * id_1 and id_2 constitute a range of allowed IDs. They do NOT need to be
+   * ordered relative to each other. Meaning id_1 < id_2 is not required or
+   * necessary. Setting id_1 and id_2 to the same value allowed and will act
+   * like can_identifier_mask.
+   */
+  struct pair
+  {
+    /**
+     * @brief Specifies one end of the id range bounds.
+     *
+     */
+    u16 id_1 = 0;
+    /**
+     * @brief Specifies the other end of the id range bounds
+     *
+     */
+    u16 id_2 = 0;
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    constexpr bool operator<=>(pair const&) const = default;
+  };
+
+  /**
+   * @brief Allow messages within this id range to pass the can bus filter
+   *
+   * @param p_filter_pair - allow this range of IDs through the can filter. To
+   * stop allowing messages from this filter, set this parameter to
+   * `std::nullopt`.
+   */
+  void allow(std::optional<pair> p_filter_pair)
+  {
+    driver_allow(p_filter_pair);
+  }
+
+  virtual ~can_range_filter() = default;
+
+private:
+  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+};
+
+/**
+ * @brief CAN message extended range filter hardware abstraction interface
+ *
+ * On construction, implementations acquire/reserve resources for filtering the
+ * message passed to the `allow()` API. On destruction, those resources should
+ * be freed such that another can_identifier_filter can claim them. In general,
+ * filters of all sorts are limited in the number and type of filters they
+ * support.
+ */
+class can_extended_range_filter
+{
+public:
+  /**
+   * @brief Range filter
    *
    * id_1 and id_2 constitute a range of allowed IDs. They do NOT need to be
    * ordered relative to each other. Meaning id_1 < id_2 is not required or
@@ -723,20 +942,26 @@ class can_range_filter
      *
      */
     u32 id_2 = 0;
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    constexpr bool operator<=>(pair const&) const = default;
   };
 
   /**
    * @brief Set the allowed messages through a range filter.
    *
-   * @param p_filter_pair - id range to allow through the can filter. Set this
-   * to `std::nullopt` to disengage this filter.
+   * @param p_filter_pair - allow this range of IDs through the can filter. To
+   * stop allowing messages from this filter, set this parameter to
+   * `std::nullopt`.
    */
   void allow(std::optional<pair> p_filter_pair)
   {
     driver_allow(p_filter_pair);
   }
 
-  virtual ~can_range_filter() = default;
+  virtual ~can_extended_range_filter() = default;
 
 private:
   virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;

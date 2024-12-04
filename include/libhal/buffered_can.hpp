@@ -23,6 +23,11 @@
 namespace hal {
 
 /**
+ * @deprecated This interface has too much responsibility and has been split up
+ * into `hal::can_transceiver`, `hal::can_interrupt`, `hal::can_bus_manager`,
+ * `hal::can_identifier_filter`, `hal::can_extended_identifier_filter`,
+ * `hal::can_mask_filter`, `hal::can_extended_mask_filter`,
+ * `hal::can_range_filter`, and `hal::can_extended_range_filter`.
  * @brief Controller Area Network (CAN bus) hardware abstraction interface with
  * message buffering.
  *
@@ -40,8 +45,9 @@ namespace hal {
  * CAN message receive buffer.
  *
  * All implementations MUST allow the user to supply their own message buffer of
- * arbitrary size. This allows a developer the ability to tailored the buffer
- * size to the needs of the application.
+ * arbitrary size up to the limits of what hardware can support. This allows a
+ * developer the ability to tailored the buffer size to the needs of the
+ * application.
  *
  * All CAN messages that pass through the hardware filter will be added to the,
  * message circular buffer.
@@ -50,11 +56,66 @@ class buffered_can
 {
 public:
   /**
-   * @return the device's operating baud rate in hertz
+   * @brief Configure this can bus port to match the settings supplied
+   *
+   * @param p_settings - settings to apply to can driver
+   * @throws hal::operation_not_supported - if the settings could not be
+   *         achieved.
    */
-  u32 baud_rate()
+  void configure(can::settings const& p_settings)
   {
-    return driver_baud_rate();
+    driver_configure(p_settings);
+  }
+
+  /**
+   * @brief Set a callback for when the CAN device goes bus-off
+   *
+   * The BUS-OFF state for CAN is denoted by the occurrence of too many
+   * transmission errors (TEC > 255) causing the CAN controller to disconnect
+   * from the bus to prevent further network disruption. During bus-off,
+   * the node cannot transmit or receive any messages.
+   *
+   * On construction of the can driver, the default callback for the bus-off
+   * event is to do nothing. The `send()` API throw the
+   * `hal::operation_not_permitted` exception and the `receive_cursor()` API
+   * will not update.
+   *
+   * Care should be taken when writing the callback, as it will most likely be
+   * executed in an interrupt context.
+   *
+   * @param p_callback - Optional callback function to be executed when bus-off
+   *        occurs. If `std::nullopt` is passed, any previously set
+   *        callback will be cleared. The callback takes no parameters and
+   *        returns void.
+   */
+  void on_bus_off(std::optional<hal::callback<void(void)>> p_callback)
+  {
+    driver_on_bus_off(p_callback);
+  }
+
+  /**
+   * @brief Transition the CAN device from "bus-off" to "bus-on"
+   *
+   * Calling this function when the device is already "bus-on" will have no
+   * effect. This function is not necessary to call after creating the CAN
+   * driver as the driver should already be "bus-on" on creation.
+   *
+   * Can devices have two counters to determine system health. These two
+   * counters are the "transmit error counter" and the "receive error counter".
+   * Transmission errors can occur when the device attempts to communicate on
+   * the bus and either does not get an acknowledge or sees an unexpected or
+   * erroneous signal on the bus during its own transmission. When transmission
+   * errors reach 255 counts, the device will go into the "bus-off" state.
+   *
+   * In the "bus-off" state, the CAN peripheral can no longer communicate on the
+   * bus. Any calls to `send()` will throw the error
+   * `hal::operation_not_permitted`. If this occurs, this function must be
+   * called to re-enable bus communication.
+   *
+   */
+  void bus_on()
+  {
+    driver_bus_on();
   }
 
   /**
@@ -137,7 +198,10 @@ public:
   virtual ~buffered_can() = default;
 
 private:
-  virtual u32 driver_baud_rate() = 0;
+  virtual void driver_configure(can::settings const& p_settings) = 0;
+  virtual void driver_on_bus_off(
+    std::optional<hal::callback<void(void)>> p_callback) = 0;
+  virtual void driver_bus_on() = 0;
   virtual void driver_send(can::message_t const& p_message) = 0;
   virtual std::span<can::message_t const> driver_receive_buffer() = 0;
   virtual std::size_t driver_receive_cursor() = 0;
