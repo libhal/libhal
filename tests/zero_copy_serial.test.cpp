@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstddef>
 #include <libhal/zero_copy_serial.hpp>
 
 #include <libhal/error.hpp>
@@ -112,12 +113,12 @@ boost::ut::suite<"zero_copy_serial_test"> zero_copy_serial_test = []() {
 
     // Exercise
     auto const receive_buffer = test.receive_buffer();
-    auto const cursor1 = test.receive_cursor();
+    auto const cursor1 = static_cast<std::ptrdiff_t>(test.receive_cursor());
 
     test.append_data_to_receive_buffer(expected_buffer);
 
-    auto const cursor2 = test.receive_cursor();
-    auto const cursor_distance = cursor2 - cursor1;
+    auto const cursor2 = static_cast<std::ptrdiff_t>(test.receive_cursor());
+    auto const cursor_distance = static_cast<std::ptrdiff_t>(cursor2 - cursor1);
 
     bool const the_are_buffers_equal =
       std::equal(receive_buffer.begin() + cursor1,
