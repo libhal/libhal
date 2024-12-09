@@ -20,7 +20,6 @@ namespace hal {
 /**
  * @brief Temperature sensing hardware abstraction interface
  *
- *
  */
 class temperature_sensor
 {

@@ -42,22 +42,6 @@ enum class work_state
 
 /**
  * @ingroup TimeoutCore
- * @brief Signature of a function that throws hal::timed_out
- *
- * A function that expires after a certain amount of time or after a certain
- * amount of events, or after a specific event occurs. When called, this
- * function checks if the expiration event has occurred and if so, throws the
- * exception hal::timed_out.
- *
- * @throws hal::timed_out - to indicate that it has expired
- */
-using timeout_function = void(void) noexcept(false);
-
-template<class T>
-concept timeout = std::convertible_to<T, hal::function_ref<timeout_function>>;
-
-/**
- * @ingroup TimeoutCore
  * @brief A non-blocking callable that performs work with each call
  *
  * Each call to a work_function will perform a set of work. The worker will
@@ -76,15 +60,4 @@ using work_function = work_state();
 
 template<class T>
 concept worker = std::convertible_to<T, hal::function_ref<work_function>>;
-
-/**
- * @ingroup TimeoutCore
- * @brief Create a timeout that will never time out
- *
- * @return auto - callable that will never timeout
- */
-inline auto never_timeout()
-{
-  return []() {};
-}
 }  // namespace hal

@@ -15,6 +15,9 @@
 #pragma once
 
 #include <algorithm>
+#include <limits>
+
+#include "units.hpp"
 
 namespace hal {
 /**
@@ -25,38 +28,34 @@ namespace hal {
  * reference) voltage.
  *
  */
-class dac
+class dac16
 {
 public:
   /**
    * @brief Set the output voltage of the DAC.
    *
-   * The input value `p_percentage` is a 32-bit floating point value from 0.0f
-   * to +1.0f.
+   * The input value `p_percentage` is a 16-bit full-scale value from 0
+   * to 65'535.
    *
-   * The floating point value is linearly proportional to the output voltage
-   * relative to the Vss and Vcc such that if Vss is 0V (gnd) and Vcc is 5V then
-   * 0.0 is 0V, 0.25 is 1.25V, 0.445 is 2.225V and 1.0 is 5V.
+   * The value is linearly proportional to the output voltage relative to the
+   * Vss and Vcc such that if Vss is 0V (GND) and Vcc is 5V then:
    *
-   * This function clamps the input value between 0.0f and 1.0f and thus values
-   * passed to driver implementations are guaranteed to be within this range.
-   * Callers of this function do not need to clamp their values before passing
-   * them into this function as it would be redundant. The rationale for doing
-   * this at the interface layer is that it allows callers and driver
-   * implementors to omit redundant clamping code, reducing code bloat.
+   *     - 0% = 0V = 0
+   *     - 25% = 1.25V = 16'384
+   *     - 44.5% = 2.225V = 29'163
+   *     - 100% = 5V = 65'535
    *
-   * @param p_percentage - value from 0.0f to +1.0f representing the proportion
-   * of the output voltage from the Vss to Vcc.
+   * @param p_percentage - value from 0 to 65'535 representing the proportion
+   * of the output voltage from the device's Vss to Vcc.
    */
-  void write(float p_percentage)
+  void write(u16 p_percentage)
   {
-    auto clamped_percentage = std::clamp(p_percentage, 0.0f, 1.0f);
-    driver_write(clamped_percentage);
+    driver_write(p_percentage);
   }
 
-  virtual ~dac() = default;
+  virtual ~dac16() = default;
 
 private:
-  virtual void driver_write(float p_percentage) = 0;
+  virtual void driver_write(u16 p_percentage) = 0;
 };
 }  // namespace hal

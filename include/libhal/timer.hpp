@@ -35,6 +35,13 @@ class timer
 {
 public:
   /**
+   * @brief Disambiguation tag object for timer callbacks
+   *
+   */
+  struct schedule_tag
+  {};
+
+  /**
    * @brief Determine if the timer is currently running
    *
    * @return true - if a callback has been scheduled and has not been invoked
@@ -79,7 +86,7 @@ public:
    * @throws hal::argument_out_of_domain - if p_interval is greater than what
    * can be cannot be achieved.
    */
-  void schedule(hal::callback<void(void)> p_callback,
+  void schedule(hal::callback<void(schedule_tag)> p_callback,
                 hal::time_duration p_delay)
   {
     driver_schedule(p_callback, p_delay);
@@ -90,7 +97,7 @@ public:
 private:
   virtual bool driver_is_running() = 0;
   virtual void driver_cancel() = 0;
-  virtual void driver_schedule(hal::callback<void(void)> p_callback,
+  virtual void driver_schedule(hal::callback<void(schedule_tag)> p_callback,
                                hal::time_duration p_delay) = 0;
 };
 }  // namespace hal

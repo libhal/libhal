@@ -20,7 +20,7 @@
 
 namespace hal {
 /**
- * @brief Pulse Width Modulation (PWM) channel hardware abstraction.
+ * @brief 16-bit resolution Pulse Width Modulation (PWM) abstraction
  *
  * This driver controls the waveform generation of a square wave and its
  * properties such as frequency and duty cycle.
@@ -49,27 +49,16 @@ namespace hal {
  * signals to servos, sending telemetry and much more.
  *
  */
-class pwm
+class pwm16
 {
 public:
   /**
-   * @brief Set the pwm waveform frequency
+   * @brief Set the pwm waveform frequency in hertz
    *
-   * This function clamps the input value between 1.0_Hz and 1.0_GHz and thus
-   * values passed to driver implementations are guaranteed to be within this
-   * range. Callers of this function do not need to clamp their values before
-   * passing them into this function as it would be redundant. The rationale for
-   * doing this at the interface layer is that it allows callers and driver
-   * implementors to omit redundant clamping code, reducing code bloat.
-   *
-   * @param p_frequency - settings to apply to pwm driver
-   * @throws hal::argument_out_of_domain - if the frequency is beyond what
-   * the pwm generator is capable of achieving.
    */
-  void frequency(hertz p_frequency)
+  void frequency(u32 p_frequency)
   {
-    auto clamped_frequency = std::clamp(p_frequency, 1.0_Hz, 1.0_GHz);
-    driver_frequency(clamped_frequency);
+    return driver_frequency(p_frequency);
   }
 
   /**
@@ -92,16 +81,69 @@ public:
    * @param p_duty_cycle - a value from 0.0f to +1.0f representing the duty
    * cycle percentage.
    */
-  void duty_cycle(float p_duty_cycle)
+  void duty_cycle(u16 p_duty_cycle)
   {
-    auto clamped_duty_cycle = std::clamp(p_duty_cycle, 0.0f, 1.0f);
-    driver_duty_cycle(clamped_duty_cycle);
+    driver_duty_cycle(p_duty_cycle);
   }
 
-  virtual ~pwm() = default;
+  virtual ~pwm16() = default;
 
 private:
-  virtual void driver_frequency(hertz p_frequency) = 0;
-  virtual void driver_duty_cycle(float p_duty_cycle) = 0;
+  virtual void driver_frequency(u32 p_frequency) = 0;
+  virtual void driver_duty_cycle(u16 p_duty_cycle) = 0;
+};
+
+/**
+ * @brief 16-bit resolution Pulse Width Modulation (PWM) duty cycle abstraction
+ *
+ * Works just like pwm16 except frequency control is not available. This
+ * interface supports the abstraction for pwm devices where multiple pwm duty
+ * cycles are available but all controlled based on a single operating
+ * frequency. Changing that sole frequency changes the frequency for ALL pwm
+ * channels associated with that hardware.
+ *
+ */
+class pwm_duty_cycle16
+{
+public:
+  /**
+   * @brief Get the pwm waveform frequency in hertz
+   *
+   */
+  u32 frequency()
+  {
+    return driver_frequency();
+  }
+
+  /**
+   * @brief Set the pwm waveform duty cycle
+   *
+   * The input value `p_duty_cycle` is a 32-bit floating point value from 0.0f
+   * to 1.0f.
+   *
+   * The floating point value is directly proportional to the duty cycle
+   * percentage, such that 0.0f is 0%, 0.25f is 25%, 0.445f is 44.5% and 1.0f is
+   * 100%.
+   *
+   * This function clamps the input value between 0.0f and 1.0f and thus  values
+   * passed to driver implementations are guaranteed to be within this range.
+   * Callers of this function do not need to clamp their values before passing
+   * them into this function as it would be redundant. The rationale for doing
+   * this at the interface layer is that it allows callers and driver
+   * implementors to omit redundant clamping code, reducing code bloat.
+   *
+   * @param p_duty_cycle - a value from 0.0f to +1.0f representing the duty
+   * cycle percentage.
+   */
+  void duty_cycle(u16 p_duty_cycle)
+  {
+    driver_duty_cycle(p_duty_cycle);
+  }
+
+  virtual ~pwm_duty_cycle16() = default;
+
+private:
+  virtual u32 driver_frequency() = 0;
+  virtual void driver_duty_cycle(u16 p_duty_cycle) = 0;
 };
 }  // namespace hal

@@ -20,33 +20,86 @@
 
 namespace hal {
 namespace {
-constexpr auto expected_value = float(0.5);
 
-class test_adc : public hal::adc
+class test_adc16 : public hal::adc16
 {
 public:
-  constexpr static float m_returned_position{ 0.5f };
-  ~test_adc() override = default;
+  static constexpr auto expected_value = (1 << 15) - 1;
+  ~test_adc16() override = default;
 
 private:
-  float driver_read() override
+  u16 driver_read() override
   {
-    return m_returned_position;
+    return expected_value;
+  }
+};
+
+class test_adc24 : public hal::adc24
+{
+public:
+  static constexpr auto expected_value = (1 << 23) - 1;
+  ~test_adc24() override = default;
+
+private:
+  u32 driver_read() override
+  {
+    return expected_value;
+  }
+};
+
+class test_adc32 : public hal::adc32
+{
+public:
+  static constexpr auto expected_value = (1 << 30) - 1;
+  ~test_adc32() override = default;
+
+private:
+  u32 driver_read() override
+  {
+    return expected_value;
   }
 };
 }  // namespace
 
-boost::ut::suite<"hal::adc"> adc_test = []() {
+boost::ut::suite<"hal::adc16"> adc16_test = []() {
   using namespace boost::ut;
   "::read()"_test = []() {
     // Setup
-    test_adc test;
+    test_adc16 test;
 
     // Exercise
     auto sample = test.read();
 
     // Verify
-    expect(that % expected_value == sample);
+    expect(that % test_adc16::expected_value == sample);
+  };
+};
+
+boost::ut::suite<"hal::adc24"> adc24_test = []() {
+  using namespace boost::ut;
+  "::read()"_test = []() {
+    // Setup
+    test_adc24 test;
+
+    // Exercise
+    auto sample = test.read();
+
+    // Verify
+    expect(that % test_adc24::expected_value == sample);
+  };
+};
+
+boost::ut::suite<"hal::adc32"> adc32_test = []() {
+  using namespace boost::ut;
+  "::read()"_test = []() {
+    // Setup
+    test_adc32 test;
+
+    // Exercise
+    auto sample = test.read();
+
+    // Verify
+    expect(that % test_adc32::expected_value == sample);
   };
 };
 }  // namespace hal

@@ -88,12 +88,19 @@ public:
   };
 
   /**
+   * @brief Disambiguation tag object for interrupt pin handlers
+   *
+   */
+  struct handler_tag
+  {};
+
+  /**
    * @brief Interrupt pin handler
    *
    * param p_state - if true state of the pin when the interrupt was triggered
    * was HIGH, otherwise LOW
    */
-  using handler = void(bool p_state);
+  using handler = void(handler_tag, bool p_state);
 
   /**
    * @brief Configure the interrupt pin to match the settings supplied
