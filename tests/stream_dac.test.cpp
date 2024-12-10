@@ -23,7 +23,7 @@ namespace {
 class test_stream_dac : public hal::stream_dac_u8
 {
 public:
-  virtual ~test_stream_dac() = default;
+  ~test_stream_dac() override = default;
 
   samples actual_samples;
 
