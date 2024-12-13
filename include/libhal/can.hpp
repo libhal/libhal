@@ -15,6 +15,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <span>
 
 #include "functional.hpp"
@@ -317,7 +318,7 @@ struct can_message
   /**
    * @return constexpr hal::u32 - returns the message ID
    */
-  constexpr hal::u32 id()
+  constexpr hal::u32 id() const
   {
     auto const id = id_and_flags & id_mask;
     return id;
@@ -329,7 +330,7 @@ struct can_message
    * @return true - this message is a remote request message
    * @return false - this message is NOT a remote request message
    */
-  constexpr bool remote_request()
+  constexpr bool remote_request() const
   {
     auto const is_remote_request = id_and_flags & remote_request_mask;
     return is_remote_request;
@@ -341,7 +342,7 @@ struct can_message
    * @return true - this message is an extended ID message
    * @return false - this message is NOT an extended ID message
    */
-  constexpr bool extended()
+  constexpr bool extended() const
   {
     auto const is_extended = id_and_flags & extended_mask;
     return is_extended;
