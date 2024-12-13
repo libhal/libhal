@@ -23,6 +23,11 @@
 namespace hal {
 
 /**
+ * @deprecated This interface has too much responsibility and has been split up
+ * into `hal::can_transceiver`, `hal::can_interrupt`, `hal::can_bus_manager`,
+ * `hal::can_identifier_filter`, `hal::can_extended_identifier_filter`,
+ * `hal::can_mask_filter`, `hal::can_extended_mask_filter`,
+ * `hal::can_range_filter`, and `hal::can_extended_range_filter`.
  * @brief Controller Area Network (CAN bus) hardware abstraction interface with
  * message buffering.
  *
