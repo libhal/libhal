@@ -41,6 +41,8 @@
  *       dereference. A check must be put in the copy ctor and dtor.
  */
 
+// clang-tidy-disable
+
 #pragma once
 
 #include <functional>
@@ -154,10 +156,10 @@ struct vtable
   {
   }
 
-  vtable(const vtable&) = delete;
+  vtable(vtable const&) = delete;
   vtable(vtable&&) = delete;
 
-  vtable& operator=(const vtable&) = delete;
+  vtable& operator=(vtable const&) = delete;
   vtable& operator=(vtable&&) = delete;
 
   ~vtable() = default;
@@ -200,7 +202,7 @@ struct is_invocable_r_impl<decltype(std::declval<F>()(std::declval<Args>()...),
 template<class F, class... Args>
 struct is_invocable_r_impl<decltype(std::declval<F>()(std::declval<Args>()...),
                                     void()),
-                           const void,
+                           void const,
                            F,
                            Args...> : std::true_type
 {};
@@ -239,7 +241,7 @@ class inplace_function<R(Args...), Capacity, Alignment>
   using storage_t =
     inplace_function_detail::aligned_storage_t<Capacity, Alignment>;
   using vtable_t = inplace_function_detail::vtable<R, Args...>;
-  using vtable_ptr_t = const vtable_t*;
+  using vtable_ptr_t = vtable_t const*;
 
   template<class, size_t, size_t>
   friend class inplace_function;
@@ -273,14 +275,14 @@ public:
                   "Function object does not fit alignment specifications and "
                   "thus cannot be constructed");
 
-    static const vtable_t vt{ inplace_function_detail::wrapper<C>{} };
+    static vtable_t const vt{ inplace_function_detail::wrapper<C>{} };
     vtable_ptr_ = std::addressof(vt);
 
     ::new (std::addressof(storage_)) C{ std::forward<T>(closure) };
   }
 
   template<size_t Cap, size_t Align>
-  inplace_function(const inplace_function<R(Args...), Cap, Align>& other)
+  inplace_function(inplace_function<R(Args...), Cap, Align> const& other)
     : inplace_function(other.vtable_ptr_,
                        other.vtable_ptr_->copy_ptr,
                        std::addressof(other.storage_))
@@ -306,7 +308,7 @@ public:
       std::addressof(inplace_function_detail::empty_vtable<R, Args...>);
   }
 
-  inplace_function(const inplace_function& other)
+  inplace_function(inplace_function const& other)
     : vtable_ptr_{ other.vtable_ptr_ }
   {
     vtable_ptr_->copy_ptr(std::addressof(storage_),
