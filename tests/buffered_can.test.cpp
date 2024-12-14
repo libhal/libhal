@@ -159,7 +159,7 @@ boost::ut::suite<"buffered_can_test"> buffered_can_test = []() {
     bool callback_called = false;
 
     // Ensure
-    expect(that % not test.m_callback);
+    expect(that % not test.m_callback.has_value());
 
     // Exercise
     test.on_bus_off([&callback_called] { callback_called = true; });
@@ -168,7 +168,7 @@ boost::ut::suite<"buffered_can_test"> buffered_can_test = []() {
     test.m_callback.value()();
 
     // Verify
-    expect(that % test.m_callback);
+    expect(that % test.m_callback.has_value());
     expect(that % callback_called);
   };
 };
