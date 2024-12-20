@@ -687,6 +687,10 @@ public:
   /**
    * @brief Allow messages with this identifier to pass the can bus filter
    *
+   * This filter does not distinguish between remote request frames and data
+   * frames. Frames of either type will be allowed so long as the message
+   * identifier matches.
+   *
    * @param p_id - Allow messages with this ID through to the can message
    * filter. To stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
@@ -716,6 +720,10 @@ class can_extended_identifier_filter
 public:
   /**
    * @brief Allow messages with this identifier to pass the can bus filter
+   *
+   * This filter does not distinguish between remote request frames and data
+   * frames. Frames of either type will be allowed so long as the message
+   * identifier matches.
    *
    * @param p_id - Allow messages with this ID through to the can message
    * filter. To stop allowing messages from this filter, set this parameter to
@@ -778,6 +786,10 @@ public:
   /**
    * @brief Allow messages that correspond to this mask pass the can bus filter
    *
+   * This filter does not distinguish between remote request frames and data
+   * frames. Frames of either type will be allowed so long as the message
+   * identifier matches.
+   *
    * @param p_filter_pair - mask filter used to filter incoming messages. To
    * stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
@@ -839,6 +851,14 @@ public:
 
   /**
    * @brief Set the allowed messages through a mask filter.
+   *
+   * This filter does not distinguish between remote request frames and data
+   * frames. Frames of either type will be allowed so long as the message
+   * identifier matches.
+   *
+   * This filter can be used to both standard and extended identifier frames.
+   * Implements should disregard the IDE bit if their platforms support
+   * filtering based on this bit.
    *
    * @param p_filter_pair - mask filter used to filter incoming messages. Set
    * this to `std::nullopt` to disengage this filter.
