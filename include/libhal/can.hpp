@@ -227,28 +227,32 @@ private:
  */
 struct can_message
 {
-  static constexpr u32 id_mask = (1 << 29) - 1;
-  static constexpr u32 remote_request_mask = (1 << 29);
-  static constexpr u32 extended_mask = (1 << 30);
   /**
-   * @brief Memory containing the ID and remote request and extended flags
+   * @brief Memory containing a standard or extended CAN ID
    *
-   * The 31st (final) bit in this mask is reserved and must always be set to 0.
-   * Prefer to use the accessor APIs rather than modify this field directly.
+   * Bits 29 to 31 are reserved and should only be set to 0s.
    *
    */
-  hal::u32 id_and_flags = 0;
+  hal::u32 id = 0;
+
   /**
-   * @brief Reserve padding memory
+   * @brief Determines if this message ID is an extended ID or not
    *
-   * The size of the contents of the is struct are not a multiple of 4 meaning,
-   * on 32-bit and above systems, this struct has a size of 16-bytes where 3 of
-   * the bytes are padding bytes.
+   * When set to `true`, will treat all 29 bits of the ID of the message.
+   * When set to `false`, then this is a standard can message and only the first
+   * 11 bits will be used for the message ID.
+   */
+  bool extended = false;
+
+  /**
+   * @brief Determines if this message is a remote request
    *
-   * These bytes are reserved and only zeros may be written to them.
+   * In general, using remote request frames are bad practice and cause issues
+   * on the CAN BUS.
    *
    */
-  std::array<hal::byte, 3> reserved{};
+  bool remote_request = false;
+
   /**
    * @brief The number of valid elements in the payload
    *
@@ -256,6 +260,14 @@ struct can_message
    * invalid and can be discarded.
    */
   u8 length = 0;
+
+  /**
+   * @brief Reserved aligning byte allocated to 4 for potential further changes
+   *
+   * Never set this value to anything other than 0.
+   */
+  u8 reserved0 = 0;
+
   /**
    * @brief Message data contents
    *
@@ -263,94 +275,43 @@ struct can_message
   std::array<hal::byte, 8> payload{};
 
   /**
-   * @brief Enables default comparison
+   * @brief Compares a can message to itself to verify if they are the same
    *
-   */
-  constexpr bool operator<=>(can_message const&) const = default;
-
-  /**
-   * @brief Set message ID
+   * NOTE: This comparison only checks the valid payload bytes in the payload
+   * based on the length. If the length is 1 and the second byte in the payload
+   * between messages do not match, then the can messages are still considered
+   * equal.
    *
-   * @param p_id - 29 to 11 bit message ID
-   * @return constexpr can_message& - reference to self for function chaining
+   * @param p_other - the other can_message to compare against
+   * @return true - the two can messages are identical
+   * @return false - the two can messages are not identical
    */
-  constexpr can_message& id(hal::u32 p_id)
+  constexpr bool operator==(can_message const& p_other) const
   {
-    id_and_flags &= ~id_mask;  // clear id bits
-    p_id &= id_mask;           // clear bit not associated with id bits
-    id_and_flags |= p_id;      // place p_id into id_and_flags
-    return *this;
-  }
-
-  /**
-   * @brief Set the messages remote request flag
-   *
-   * @param p_is_remote_request - set to true to set message as a remote
-   * request.
-   * @return constexpr can_message& - reference to self for function chaining
-   */
-  constexpr can_message& remote_request(bool p_is_remote_request)
-  {
-    if (p_is_remote_request) {
-      id_and_flags |= remote_request_mask;
-    } else {
-      id_and_flags &= ~remote_request_mask;
+    if (length != p_other.length) {
+      return false;
     }
-    return *this;
-  }
-  /**
-   * @brief Set the messages extended flag
-   *
-   * @param p_is_extended - set to true to set this message as an extended
-   * message ID.
-   * @return constexpr can_message& - reference to self for function chaining
-   */
-  constexpr can_message& extended(bool p_is_extended)
-  {
-    if (p_is_extended) {
-      id_and_flags |= extended_mask;
-    } else {
-      id_and_flags &= ~extended_mask;
+    if (id != p_other.id) {
+      return false;
     }
-    return *this;
-  }
+    if (remote_request != p_other.remote_request) {
+      return false;
+    }
+    if (extended != p_other.extended) {
+      return false;
+    }
+    for (std::size_t i = 0; i < length; i++) {
+      if (payload[i] != p_other.payload[i]) {
+        return false;
+      }
+    }
 
-  /**
-   * @return constexpr hal::u32 - returns the message ID
-   */
-  constexpr hal::u32 id() const
-  {
-    auto const id = id_and_flags & id_mask;
-    return id;
-  }
-
-  /**
-   * @brief Return the remote request flag state
-   *
-   * @return true - this message is a remote request message
-   * @return false - this message is NOT a remote request message
-   */
-  constexpr bool remote_request() const
-  {
-    auto const is_remote_request = id_and_flags & remote_request_mask;
-    return is_remote_request;
-  }
-
-  /**
-   * @brief Return the message extended ID flag state
-   *
-   * @return true - this message is an extended ID message
-   * @return false - this message is NOT an extended ID message
-   */
-  constexpr bool extended() const
-  {
-    auto const is_extended = id_and_flags & extended_mask;
-    return is_extended;
+    return true;
   }
 };
 
 constexpr auto can_message_size = sizeof(can_message);
-static_assert(can_message_size == 16, "can message size must be 16 bytes!");
+static_assert(can_message_size == 16, "sizeof(hal::can_message) != 16 Bytes");
 
 /**
  * @brief Controller Area Network (CAN bus) hardware abstraction interface with

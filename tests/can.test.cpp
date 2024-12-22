@@ -128,17 +128,17 @@ boost::ut::suite<"can_test"> can_test = []() {
 
 namespace {
 
-constexpr auto expected_can_message = []() -> hal::can_message {
-  hal::can_message result{};
-  result.remote_request(false).extended(false).id(22);
-  result.length = 3;
-  result.payload = {
+constexpr hal::can_message expected_can_message = {
+  .id = 22,
+  .extended = false,
+  .remote_request = false,
+  .length = 3,
+  .payload = {
     0xCC,
     0xDD,
     0xEE,
-  };
-  return result;
-}();
+  },
+};
 
 struct test_can_transceiver : public hal::can_transceiver
 {
