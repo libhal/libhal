@@ -1,7 +1,2 @@
-If:
-  PathMatch: demos/.*
-  CompileFlags:
-    CompilationDatabase: demos
-Else:
-  CompileFlags:
-    CompilationDatabase: .
+CompileFlags:
+  CompilationDatabase: .
