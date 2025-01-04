@@ -128,40 +128,22 @@ public:
     driver_write(p_data);
   }
 
-private:
-  virtual void driver_write(std::span<hal::byte const> p_data) = 0;
-};
-
-/**
- * @brief USB Bulk IN Endpoint Interface
- *
- * This class represents a bulk IN endpoint of a USB device. Bulk IN endpoints
- * are used for large, non-time-critical data transfers from the device to the
- * host.
- *
- * Use cases:
- * - Transferring large amounts of data
- * - Sending data when timing is not critical
- * - Ideal for devices like printers, scanners, or external storage
- */
-class usb_bulk_in_endpoint
-{
-public:
-  virtual ~usb_bulk_in_endpoint() = default;
   /**
-   * @brief Write data to the bulk IN endpoint
+   * @brief The number of the endpoint
    *
-   * Used to send data from the device to the host over a bulk IN endpoint.
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality.
    *
-   * @param p_data The data to be written
+   * @return hal::u8 - the endpoint number
    */
-  void write(std::span<hal::byte const> p_data)
+  hal::u8 number()
   {
-    driver_write(p_data);
+    return driver_number();
   }
 
 private:
   virtual void driver_write(std::span<hal::byte const> p_data) = 0;
+  virtual hal::u8 driver_number() = 0;
 };
 
 /**
@@ -194,9 +176,69 @@ public:
     driver_on_receive(p_callback);
   }
 
+  /**
+   * @brief The number of the endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality.
+   *
+   * @return hal::u8 - the endpoint number
+   */
+  hal::u8 number()
+  {
+    return driver_number();
+  }
+
 private:
   virtual void driver_on_receive(
     hal::callback<void(std::span<hal::byte>)> p_callback) = 0;
+  virtual hal::u8 driver_number() = 0;
+};
+
+/**
+ * @brief USB Bulk IN Endpoint Interface
+ *
+ * This class represents a bulk IN endpoint of a USB device. Bulk IN endpoints
+ * are used for large, non-time-critical data transfers from the device to the
+ * host.
+ *
+ * Use cases:
+ * - Transferring large amounts of data
+ * - Sending data when timing is not critical
+ * - Ideal for devices like printers, scanners, or external storage
+ */
+class usb_bulk_in_endpoint
+{
+public:
+  virtual ~usb_bulk_in_endpoint() = default;
+  /**
+   * @brief Write data to the bulk IN endpoint
+   *
+   * Used to send data from the device to the host over a bulk IN endpoint.
+   *
+   * @param p_data The data to be written
+   */
+  void write(std::span<hal::byte const> p_data)
+  {
+    driver_write(p_data);
+  }
+
+  /**
+   * @brief The number of the endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality.
+   *
+   * @return hal::u8 - the endpoint number
+   */
+  hal::u8 number()
+  {
+    return driver_number();
+  }
+
+private:
+  virtual void driver_write(std::span<hal::byte const> p_data) = 0;
+  virtual hal::u8 driver_number() = 0;
 };
 
 /**
@@ -227,8 +269,22 @@ public:
     driver_on_receive(p_callback);
   }
 
+  /**
+   * @brief The number of the endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality.
+   *
+   * @return hal::u8 - the endpoint number
+   */
+  hal::u8 number()
+  {
+    return driver_number();
+  }
+
 private:
   virtual void driver_on_receive(
     hal::callback<void(std::span<hal::byte>)> p_callback) = 0;
+  virtual hal::u8 driver_number() = 0;
 };
 }  // namespace hal::experimental
