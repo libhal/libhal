@@ -20,6 +20,10 @@
 
 #include "third_party/inplace_function.hpp"
 
+/**
+ * @defgroup Functional List of functional and function capturing APIs
+ *
+ */
 namespace hal {
 /**
  * @ingroup Functional
