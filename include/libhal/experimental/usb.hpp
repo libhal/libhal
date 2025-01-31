@@ -21,6 +21,13 @@
 #include "../units.hpp"
 
 namespace hal::experimental {
+
+struct endpoint_info
+{
+  u16 size;
+  u8 number;
+};
+
 /**
  * @brief USB Control Endpoint Interface
  *
@@ -78,6 +85,7 @@ public:
   {
     driver_write(p_data);
   }
+
   /**
    * @brief Set a callback function for incoming USB requests
    *
@@ -91,12 +99,39 @@ public:
     driver_on_request(p_callback);
   }
 
+  /**
+   * @brief Get info about this endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality as well as their packet size.
+   *
+   * @return info_t - endpoint information
+   */
+  endpoint_info info()
+  {
+    return driver_info();
+  }
+
+  /**
+   * @brief The number of the endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality.
+   *
+   * @return hal::u8 - the endpoint number
+   */
+  hal::u8 number()
+  {
+    return info().number;
+  }
+
 private:
   virtual void driver_connect(bool p_should_connect) = 0;
   virtual void driver_set_address(std::uint8_t p_address) = 0;
   virtual void driver_write(std::span<hal::byte const> p_data) = 0;
   virtual void driver_on_request(
     hal::callback<void(std::span<hal::byte>)> p_callback) = 0;
+  virtual endpoint_info driver_info() = 0;
 };
 
 /**
@@ -129,6 +164,19 @@ public:
   }
 
   /**
+   * @brief Get info about this endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality as well as their packet size.
+   *
+   * @return info_t - endpoint information
+   */
+  endpoint_info info()
+  {
+    return driver_info();
+  }
+
+  /**
    * @brief The number of the endpoint
    *
    * Used during enumeration to tell the host which endpoints are used for
@@ -138,12 +186,12 @@ public:
    */
   hal::u8 number()
   {
-    return driver_number();
+    return info().number;
   }
 
 private:
   virtual void driver_write(std::span<hal::byte const> p_data) = 0;
-  virtual hal::u8 driver_number() = 0;
+  virtual endpoint_info driver_info() = 0;
 };
 
 /**
@@ -177,22 +225,22 @@ public:
   }
 
   /**
-   * @brief The number of the endpoint
+   * @brief Get info about this endpoint
    *
    * Used during enumeration to tell the host which endpoints are used for
-   * specific functionality.
+   * specific functionality as well as their packet size.
    *
-   * @return hal::u8 - the endpoint number
+   * @return info_t - endpoint information
    */
-  hal::u8 number()
+  endpoint_info info()
   {
-    return driver_number();
+    return driver_info();
   }
 
 private:
   virtual void driver_on_receive(
     hal::callback<void(std::span<hal::byte>)> p_callback) = 0;
-  virtual hal::u8 driver_number() = 0;
+  virtual endpoint_info driver_info() = 0;
 };
 
 /**
@@ -233,12 +281,25 @@ public:
    */
   hal::u8 number()
   {
-    return driver_number();
+    return info().number;
+  }
+
+  /**
+   * @brief Get info about this endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality as well as their packet size.
+   *
+   * @return info_t - endpoint information
+   */
+  endpoint_info info()
+  {
+    return driver_info();
   }
 
 private:
   virtual void driver_write(std::span<hal::byte const> p_data) = 0;
-  virtual hal::u8 driver_number() = 0;
+  virtual endpoint_info driver_info() = 0;
 };
 
 /**
@@ -279,12 +340,25 @@ public:
    */
   hal::u8 number()
   {
-    return driver_number();
+    return info().number;
+  }
+
+  /**
+   * @brief Get info about this endpoint
+   *
+   * Used during enumeration to tell the host which endpoints are used for
+   * specific functionality as well as their packet size.
+   *
+   * @return info_t - endpoint information
+   */
+  endpoint_info info()
+  {
+    return driver_info();
   }
 
 private:
   virtual void driver_on_receive(
     hal::callback<void(std::span<hal::byte>)> p_callback) = 0;
-  virtual hal::u8 driver_number() = 0;
+  virtual endpoint_info driver_info() = 0;
 };
 }  // namespace hal::experimental
