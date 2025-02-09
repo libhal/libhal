@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <tl/function_ref.hpp>
 
 #include "third_party/inplace_function.hpp"
@@ -61,11 +59,11 @@ using inplace_function = stdext::inplace_function<F, Capacity>;
  * @brief Definition of a standard libhal owning callback object
  *
  * This is an inplace_function with its capacity set to two pointers. Callable
- * objects must fit within the size of two integers to be able to construct this
+ * objects must fit within the size of two pointers to be able to construct this
  * polymorphic callable object.
  *
  * @tparam F - function type or call signature
  */
 template<typename F>
-using callback = inplace_function<F, sizeof(std::intptr_t) * 2>;
+using callback = inplace_function<F, sizeof(void*) * 2>;
 }  // namespace hal

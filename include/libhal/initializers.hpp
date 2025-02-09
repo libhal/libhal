@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 #include <array>
 #include <span>
 #include <type_traits>
@@ -18,7 +16,7 @@ namespace hal {
  *
  * @tparam value - constant value of the selector
  */
-template<std::int64_t value>
+template<u64 value>
 struct selector_t
 {
   /// Compile time storage for the value
@@ -27,9 +25,9 @@ struct selector_t
   /**
    * @brief Extracts the value of the initializer object
    *
-   * @return constexpr std::int64_t - value of the selector
+   * @return constexpr u64 - value of the selector
    */
-  constexpr std::int64_t operator()() const
+  constexpr u64 operator()() const
   {
     return value;
   }
@@ -45,7 +43,7 @@ struct selector_t
  *
  * @tparam value - port number
  */
-template<std::int64_t value>
+template<u64 value>
 struct port_t : selector_t<value>
 {};
 
@@ -57,7 +55,7 @@ struct port_t : selector_t<value>
  *
  * @tparam value - pin number
  */
-template<std::int64_t value>
+template<u64 value>
 struct pin_t : selector_t<value>
 {};
 
@@ -70,7 +68,7 @@ struct pin_t : selector_t<value>
  *
  * @tparam value - bus number
  */
-template<std::int64_t value>
+template<u64 value>
 struct bus_t : selector_t<value>
 {};
 
@@ -82,7 +80,7 @@ struct bus_t : selector_t<value>
  *
  * @tparam value - channel number
  */
-template<std::int64_t value>
+template<u64 value>
 struct channel_t : selector_t<value>
 {};
 
@@ -94,7 +92,7 @@ struct channel_t : selector_t<value>
  *
  * @tparam value - buffer size in bytes
  */
-template<std::int64_t value>
+template<u64 value>
 struct buffer_t : selector_t<value>
 {};
 
@@ -170,7 +168,7 @@ concept buffer_param = std::is_same_v<buffer_t<T::val>, T>;
  *
  * @tparam value - port number
  */
-template<std::int64_t value>
+template<u64 value>
 inline constexpr port_t<value> port{};
 
 /**
@@ -182,7 +180,7 @@ inline constexpr port_t<value> port{};
  *
  * @tparam value - pin number
  */
-template<std::int64_t value>
+template<u64 value>
 inline constexpr pin_t<value> pin{};
 
 /**
@@ -194,7 +192,7 @@ inline constexpr pin_t<value> pin{};
  *
  * @tparam value - bus number
  */
-template<std::int64_t value>
+template<u64 value>
 inline constexpr bus_t<value> bus{};
 
 /**
@@ -206,7 +204,7 @@ inline constexpr bus_t<value> bus{};
  *
  * @tparam value - bus number
  */
-template<std::int64_t value>
+template<u64 value>
 inline constexpr channel_t<value> channel{};
 
 /**
@@ -218,7 +216,7 @@ inline constexpr channel_t<value> channel{};
  *
  * @tparam value - buffer size in bytes
  */
-template<std::int64_t value>
+template<u64 value>
 inline constexpr buffer_t<value> buffer{};
 
 /**
