@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include "units.hpp"
 
 namespace hal {
@@ -57,10 +55,10 @@ public:
   /**
    * @brief Get the current value of the steady clock
    *
-   * @return std::uint64_t - Number of counts that the steady clock has counted
+   * @return u64 - Number of counts that the steady clock has counted
    * since it started.
    */
-  [[nodiscard]] std::uint64_t uptime()
+  [[nodiscard]] u64 uptime()
   {
     return driver_uptime();
   }
@@ -69,6 +67,6 @@ public:
 
 private:
   virtual hertz driver_frequency() = 0;
-  virtual std::uint64_t driver_uptime() = 0;
+  virtual u64 driver_uptime() = 0;
 };
 }  // namespace hal

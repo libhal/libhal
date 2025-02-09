@@ -14,10 +14,10 @@
 
 #pragma once
 
-#include <cstdint>
-
 #include <system_error>
 #include <type_traits>
+
+#include "units.hpp"
 
 /**
  * @defgroup Error Error
@@ -80,10 +80,10 @@ private:
 
   void const* m_instance = nullptr;
   std::errc m_error_code{};
-  std::uint32_t m_reserved0{};
-  std::uint32_t m_reserved1{};
-  std::uint32_t m_reserved2{};
-  std::uint32_t m_reserved3{};
+  u32 m_reserved0{};
+  u32 m_reserved1{};
+  u32 m_reserved2{};
+  u32 m_reserved3{};
 };
 
 /**
@@ -175,13 +175,13 @@ private:
   std::errc m_error_code{};
   /// Reserved memory for future use without breaking the ABI
   /// To keep the layout the same with `exception_abi_origin_v0`, these MUST
-  /// stay std::uint32_t into the future. Their names can be changed, and their
-  /// contents can be any format, but they must stay std::uint32_t for the
+  /// stay u32 into the future. Their names can be changed, and their
+  /// contents can be any format, but they must stay u32 for the
   /// static_assert check.
-  std::uint32_t m_reserved0{};
-  std::uint32_t m_reserved1{};
-  std::uint32_t m_reserved2{};
-  std::uint32_t m_reserved3{};
+  u32 m_reserved0{};
+  u32 m_reserved1{};
+  u32 m_reserved2{};
+  u32 m_reserved3{};
 };
 
 static_assert(sizeof(exception_abi_origin_v0) == sizeof(exception));
@@ -265,13 +265,13 @@ struct no_such_device : public exception
    * @param p_instance - must point to the instance of the driver that threw
    * this exception.
    */
-  constexpr no_such_device(std::uint32_t p_address, void const* p_instance)
+  constexpr no_such_device(u32 p_address, void const* p_instance)
     : exception(std::errc::no_such_device, p_instance)
     , address(p_address)
   {
   }
 
-  std::uint32_t address;
+  u32 address;
 };
 
 /**
@@ -512,13 +512,13 @@ struct argument_out_of_domain : public exception
  */
 struct message_size : public exception
 {
-  message_size(std::uint32_t p_max_size, void const* p_instance)
+  message_size(u32 p_max_size, void const* p_instance)
     : exception(std::errc::message_size, p_instance)
     , max_size(p_max_size)
   {
   }
 
-  std::uint32_t max_size;
+  u32 max_size;
 };
 
 /**

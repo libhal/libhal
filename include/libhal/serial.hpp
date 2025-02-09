@@ -15,7 +15,6 @@
 #pragma once
 
 #include <cstddef>
-#include <cstdint>
 #include <span>
 
 #include "units.hpp"
@@ -102,7 +101,7 @@ public:
      * The size of this buffer indicates the number of bytes read The address
      * points to the start of the buffer passed into the read() function.
      */
-    std::span<hal::byte> data;
+    std::span<byte> data;
 
     /**
      * @brief Number of enqueued and available to be read out bytes
@@ -123,7 +122,7 @@ public:
   struct write_t
   {
     /// The portion of the buffer transmitted
-    std::span<hal::byte const> data;
+    std::span<byte const> data;
   };
 
   /**
@@ -148,7 +147,7 @@ public:
    * @param p_data - data to be transmitted over the serial port
    * @return write_t - serial write response
    */
-  write_t write(std::span<hal::byte const> p_data)
+  write_t write(std::span<byte const> p_data)
   {
     return driver_write(p_data);
   }
@@ -181,7 +180,7 @@ public:
    * @throws hal::io_error - if a frame error occurred at any point during
    * reception of the bytes held currently.
    */
-  [[nodiscard]] read_t read(std::span<hal::byte> p_data)
+  [[nodiscard]] read_t read(std::span<byte> p_data)
   {
     return driver_read(p_data);
   }
@@ -205,8 +204,8 @@ public:
 
 private:
   virtual void driver_configure(settings const& p_settings) = 0;
-  virtual write_t driver_write(std::span<hal::byte const> p_data) = 0;
-  virtual read_t driver_read(std::span<hal::byte> p_data) = 0;
+  virtual write_t driver_write(std::span<byte const> p_data) = 0;
+  virtual read_t driver_read(std::span<byte> p_data) = 0;
   virtual void driver_flush() = 0;
 };
 }  // namespace hal
