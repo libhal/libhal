@@ -310,7 +310,7 @@ public:
    * content from the endpoint until a result is size zero.
    *
    * @param p_buffer - buffer to fill with data
-   * @return std::span<u8> - the same buffer that was passed into the read
+   * @return std::span<u8 const> - the same buffer that was passed into the read
    * function but with its size equal to the number of bytes read from the OUT
    * endpoint. The size will be 0 if no more data was present in the endpoint.
    */
@@ -407,7 +407,7 @@ public:
    * content from the endpoint until a result is size zero.
    *
    * @param p_buffer - buffer to fill with data
-   * @return std::span<u8> - the same buffer that was passed into the read
+   * @return std::span<u8 const> - the same buffer that was passed into the read
    * function but with its size equal to the number of bytes read from the OUT
    * endpoint. The size will be 0 if no more data was present in the endpoint.
    */
