@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <optional>
 #include <span>
 
 #include "../functional.hpp"
