@@ -336,7 +336,7 @@ private:
  * - Sending data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-class usb_bulk_in_endpoint
+class usb_bulk_in_endpoint : public usb_endpoint
 {
 public:
   virtual ~usb_bulk_in_endpoint() = default;
@@ -368,7 +368,7 @@ private:
  * - Handling data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-class usb_bulk_out_endpoint
+class usb_bulk_out_endpoint : public usb_endpoint
 {
 public:
   struct on_receive_tag
