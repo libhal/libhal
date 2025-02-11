@@ -22,7 +22,6 @@
 #include "../units.hpp"
 
 namespace hal::experimental {
-
 /**
  * @brief Basic information about an usb endpoint
  *
@@ -68,6 +67,52 @@ struct usb_endpoint_info
   {
     return number & 0xF;
   }
+};
+
+/**
+ * @brief USB Manager Interface
+ *
+ * This class controls core aspects of the USB hardware. This interface provides
+ * the `connect` and `set_address` APIs were are necessary during enumeration.
+ *
+ */
+class usb_manager
+{
+public:
+  virtual ~usb_manager() = default;
+  /**
+   * @brief Signal to connect/enable USB peripheral
+   *
+   * Used to initiate a connection to a host machine and begin enumeration.
+   * Can be used to perform a disconnect and reconnect to the host/hub.
+   *
+   * Enumeration only involves the control endpoints and cannot happen without
+   * it, thus the responsibility to initiate enumeration is on the control
+   * endpoint.
+   *
+   * @param p_should_connect
+   */
+  void connect(bool p_should_connect)
+  {
+    driver_connect(p_should_connect);
+  }
+
+  /**
+   * @brief Set the USB device address
+   *
+   * Used to set the device address during the USB enumeration process. This
+   * address must come from a USB request on the control endpoint by the HOST.
+   *
+   * @param p_address The address to set for the USB device
+   */
+  void set_address(u8 p_address)
+  {
+    driver_set_address(p_address);
+  }
+
+private:
+  virtual void driver_connect(bool p_should_connect) = 0;
+  virtual void driver_set_address(u8 p_address) = 0;
 };
 
 /**
@@ -136,39 +181,10 @@ private:
 class usb_control_endpoint : public usb_endpoint
 {
 public:
-  struct on_request_tag
+  struct on_receive_tag
   {};
 
   virtual ~usb_control_endpoint() = default;
-  /**
-   * @brief Signal to connect/enable USB peripheral
-   *
-   * Used to initiate a connection to a host machine and begin enumeration.
-   * Can be used to perform a disconnect and reconnect to the host/hub.
-   *
-   * Enumeration only involves the control endpoints and cannot happen without
-   * it, thus the responsibility to initiate enumeration is on the control
-   * endpoint.
-   *
-   * @param p_should_connect
-   */
-  void connect(bool p_should_connect)
-  {
-    driver_connect(p_should_connect);
-  }
-
-  /**
-   * @brief Set the USB device address
-   *
-   * Used to set the device address during the USB enumeration process. This
-   * address must come from a USB request on the control endpoint by the HOST.
-   *
-   * @param p_address The address to set for the USB device
-   */
-  void set_address(u8 p_address)
-  {
-    driver_set_address(p_address);
-  }
 
   /**
    * @brief Write data to the control endpoint
@@ -188,44 +204,44 @@ public:
   }
 
   /**
-   * @brief Set a callback function for incoming USB requests
+   * @brief Read contents of endpoint
    *
-   * Used to handle incoming USB requests on the control endpoint.
+   * This function is callable from within the `on_receive` callback, meaning
+   * this API should be callable within that interrupt service routine.
    *
-   * @param p_callback The callback function to be called when a request is
-   * received
+   * When data is available in the endpoint, the endpoint will NAK all following
+   * HOST commands to send more data. When all data from the endpoint has been
+   * read, the endpoint will become valid again and can ACK the HOST packets.
+   *
+   * If a user of this interface wants to drain all of the data from the
+   * endpoint, then the application interface should continually pass read
+   * content from the endpoint until a result is size zero.
+   *
+   * @param p_buffer - buffer to fill with data
+   * @return std::span<u8 const> - the same buffer that was passed into the read
+   * function but with its size equal to the number of bytes read from the OUT
+   * endpoint. The size will be 0 if no more data was present in the endpoint.
    */
-  void on_request(callback<void(on_request_tag)> p_callback)
+  [[nodiscard]] std::span<u8 const> read(std::span<u8> p_buffer)
   {
-    driver_on_request(p_callback);
+    return driver_read(p_buffer);
   }
 
   /**
-   * @brief Read 8 bytes of the USB request data from the control endpoint
+   * @brief Set a callback function for when USB requests are received
    *
-   * The read operation is set to 8 bytes because standard USB requests are
-   * limited to a size of 8 bytes. The data stages for standard USB interfaces
-   * is also limited to a max of 7 bytes which comes from CDC-ACM.
-   *
-   * If the read occurs for the data stage of a USB request, the number of bytes
-   * will be smaller than 8, thus the remaining bytes will be set to the value
-   * 0.
-   *
-   * @return std::optional<std::array<u8, 8>> - the 8 bytes of the USB request
-   * or data stage. Returns `std::nullopt` if there is no data available in the
-   * endpoint.
+   * @param p_callback The callback function to be called when a USB request
+   * command is received on the control endpoint.
    */
-  [[nodiscard]] std::optional<std::array<u8, 8>> read()
+  void on_receive(callback<void(on_receive_tag)> p_callback)
   {
-    return driver_read();
+    driver_on_receive(p_callback);
   }
 
 private:
-  virtual void driver_connect(bool p_should_connect) = 0;
-  virtual void driver_set_address(u8 p_address) = 0;
   virtual void driver_write(std::span<byte const> p_data) = 0;
-  virtual void driver_on_request(callback<void(on_request_tag)> p_callback) = 0;
-  virtual std::optional<std::array<u8, 8>> driver_read() = 0;
+  virtual std::span<u8 const> driver_read(std::span<u8> p_buffer) = 0;
+  virtual void driver_on_receive(callback<void(on_receive_tag)> p_callback) = 0;
 };
 
 /**
