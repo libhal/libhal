@@ -22,7 +22,6 @@
 #include "../units.hpp"
 
 namespace hal::experimental {
-
 /**
  * @brief Basic information about an usb endpoint
  *
@@ -68,6 +67,52 @@ struct usb_endpoint_info
   {
     return number & 0xF;
   }
+};
+
+/**
+ * @brief USB Manager Interface
+ *
+ * This class controls core aspects of the USB hardware. This interface provides
+ * the `connect` and `set_address` APIs were are necessary during enumeration.
+ *
+ */
+class usb_manager
+{
+public:
+  virtual ~usb_manager() = default;
+  /**
+   * @brief Signal to connect/enable USB peripheral
+   *
+   * Used to initiate a connection to a host machine and begin enumeration.
+   * Can be used to perform a disconnect and reconnect to the host/hub.
+   *
+   * Enumeration only involves the control endpoints and cannot happen without
+   * it, thus the responsibility to initiate enumeration is on the control
+   * endpoint.
+   *
+   * @param p_should_connect
+   */
+  void connect(bool p_should_connect)
+  {
+    driver_connect(p_should_connect);
+  }
+
+  /**
+   * @brief Set the USB device address
+   *
+   * Used to set the device address during the USB enumeration process. This
+   * address must come from a USB request on the control endpoint by the HOST.
+   *
+   * @param p_address The address to set for the USB device
+   */
+  void set_address(u8 p_address)
+  {
+    driver_set_address(p_address);
+  }
+
+private:
+  virtual void driver_connect(bool p_should_connect) = 0;
+  virtual void driver_set_address(u8 p_address) = 0;
 };
 
 /**
@@ -136,96 +181,90 @@ private:
 class usb_control_endpoint : public usb_endpoint
 {
 public:
-  struct on_request_tag
+  struct on_receive_tag
   {};
 
   virtual ~usb_control_endpoint() = default;
-  /**
-   * @brief Signal to connect/enable USB peripheral
-   *
-   * Used to initiate a connection to a host machine and begin enumeration.
-   * Can be used to perform a disconnect and reconnect to the host/hub.
-   *
-   * Enumeration only involves the control endpoints and cannot happen without
-   * it, thus the responsibility to initiate enumeration is on the control
-   * endpoint.
-   *
-   * @param p_should_connect
-   */
-  void connect(bool p_should_connect)
-  {
-    driver_connect(p_should_connect);
-  }
 
   /**
-   * @brief Set the USB device address
+   * @brief Write data to the control endpoint's memory
    *
-   * Used to set the device address during the USB enumeration process. This
-   * address must come from a USB request on the control endpoint by the HOST.
+   * This API will copy the contents of the span of byte spans into the endpoint
+   * memory. When the endpoint memory is full, this API will ACK a HOST IN
+   * packet and the data in the endpoint will be transmitted. This is repeated
+   * until no more data is left. To finish the transfer of data, call the
+   * `flush()` API.
    *
-   * @param p_address The address to set for the USB device
+   * @param p_data - data to be written to the endpoint memory and sent over
+   * USB.
    */
-  void set_address(u8 p_address)
-  {
-    driver_set_address(p_address);
-  }
-
-  /**
-   * @brief Write data to the control endpoint
-   *
-   * Used to send data from the device to the host over the control endpoint.
-   * If the data is more than the size of the control IN endpoint, then the
-   * transfer will be sent to the HOST in chunks based on the endpoint size. If
-   * the size of the data transferred is divisible by the endpoint chunk size an
-   * additional zero-length-packet will be sent to the HOST to denote the end of
-   * data.
-   *
-   * @param p_data The data to be written
-   */
-  void write(std::span<byte const> p_data)
+  void write(std::span<std::span<byte const>> p_data)
   {
     driver_write(p_data);
   }
 
   /**
-   * @brief Set a callback function for incoming USB requests
+   * @brief version of `write()` that takes a single input argument
    *
-   * Used to handle incoming USB requests on the control endpoint.
-   *
-   * @param p_callback The callback function to be called when a request is
-   * received
+   * @param p_data - span of bytes to be written to the endpoint
    */
-  void on_request(callback<void(on_request_tag)> p_callback)
+  void write(std::span<byte const> p_data)
   {
-    driver_on_request(p_callback);
+    std::array<decltype(p_data), 1> span_of_span{ p_data };
+    return driver_write(span_of_span);
   }
 
   /**
-   * @brief Read 8 bytes of the USB request data from the control endpoint
+   * @brief Flush the endpoint buffer and its contents
    *
-   * The read operation is set to 8 bytes because standard USB requests are
-   * limited to a size of 8 bytes. The data stages for standard USB interfaces
-   * is also limited to a max of 7 bytes which comes from CDC-ACM.
+   * If the endpoint is empty will send a zero-length-packet or ZLP.
    *
-   * If the read occurs for the data stage of a USB request, the number of bytes
-   * will be smaller than 8, thus the remaining bytes will be set to the value
-   * 0.
-   *
-   * @return std::optional<std::array<u8, 8>> - the 8 bytes of the USB request
-   * or data stage. Returns `std::nullopt` if there is no data available in the
-   * endpoint.
    */
-  [[nodiscard]] std::optional<std::array<u8, 8>> read()
+  void flush()
   {
-    return driver_read();
+    return driver_flush();
+  }
+
+  /**
+   * @brief Read contents of endpoint
+   *
+   * This API is not to be assumed to be callable from within the `on_receive`
+   * callback.
+   *
+   * When data is available in the endpoint, the endpoint will be configured to
+   * NAK all following HOST packet requests. When all data from the endpoint has
+   * been read, the endpoint will become valid again and can ACK the HOST
+   * packets.
+   *
+   * If a caller wants to drain all of the data from the endpoint's memory, then
+   * the caller should continually call read until it returns an empty span.
+   *
+   * @param p_buffer - buffer to fill with data
+   * @return std::span<u8 const> - the same buffer that was passed into the read
+   * function but with its size equal to the number of bytes read from the OUT
+   * endpoint. The size will be 0 if no more data was present in the endpoint.
+   */
+  [[nodiscard]] std::span<u8 const> read(std::span<u8> p_buffer)
+  {
+    return driver_read(p_buffer);
+  }
+
+  /**
+   * @brief Set a callback function for when USB requests are received
+   *
+   * @param p_callback The callback function to be called when a USB request
+   * command is received on the control endpoint.
+   */
+  void on_receive(callback<void(on_receive_tag)> p_callback)
+  {
+    driver_on_receive(p_callback);
   }
 
 private:
-  virtual void driver_connect(bool p_should_connect) = 0;
-  virtual void driver_set_address(u8 p_address) = 0;
-  virtual void driver_write(std::span<byte const> p_data) = 0;
-  virtual void driver_on_request(callback<void(on_request_tag)> p_callback) = 0;
-  virtual std::optional<std::array<u8, 8>> driver_read() = 0;
+  virtual void driver_write(std::span<std::span<byte const>> p_data) = 0;
+  virtual void driver_flush() = 0;
+  virtual std::span<u8 const> driver_read(std::span<u8> p_buffer) = 0;
+  virtual void driver_on_receive(callback<void(on_receive_tag)> p_callback) = 0;
 };
 
 /**
@@ -244,21 +283,49 @@ class usb_interrupt_in_endpoint : public usb_endpoint
 {
 public:
   virtual ~usb_interrupt_in_endpoint() = default;
+
   /**
-   * @brief Write data to the interrupt IN endpoint
+   * @brief Write data to the control endpoint's memory
    *
-   * Used to send data from the device to the host over an interrupt IN
-   * endpoint.
+   * This API will copy the contents of the span of byte spans into the endpoint
+   * memory. When the endpoint memory is full, this API will ACK a HOST IN
+   * packet and the data in the endpoint will be transmitted. This is repeated
+   * until no more data is left. To finish the transfer of data, call the
+   * `flush()` API.
    *
-   * @param p_data The data to be written
+   * @param p_data - data to be written to the endpoint memory and sent over
+   * USB.
    */
-  void write(std::span<byte const> p_data)
+  void write(std::span<std::span<byte const>> p_data)
   {
     driver_write(p_data);
   }
 
+  /**
+   * @brief version of `write()` that takes a single input argument
+   *
+   * @param p_data - span of bytes to be written to the endpoint
+   */
+  void write(std::span<byte const> p_data)
+  {
+    std::array<decltype(p_data), 1> span_of_span{ p_data };
+    return driver_write(span_of_span);
+  }
+
+  /**
+   * @brief Flush the endpoint buffer and its contents
+   *
+   * If the endpoint is empty will send a zero-length-packet or ZLP.
+   *
+   */
+  void flush()
+  {
+    return driver_flush();
+  }
+
 private:
-  virtual void driver_write(std::span<byte const> p_data) = 0;
+  virtual void driver_write(std::span<std::span<byte const>> p_data) = 0;
+  virtual void driver_flush() = 0;
 };
 
 /**
@@ -300,16 +367,16 @@ public:
   /**
    * @brief Read contents of endpoint
    *
-   * This function is callable from within the `on_receive` callback, meaning
-   * this API should be callable within that interrupt service routine.
+   * This API is not to be assumed to be callable from within the `on_receive`
+   * callback.
    *
-   * When data is available in the endpoint, the endpoint will NAK all following
-   * HOST commands to send more data. When all data from the endpoint has been
-   * read, the endpoint will become valid again and can ACK the HOST packets.
+   * When data is available in the endpoint, the endpoint will be configured to
+   * NAK all following HOST packet requests. When all data from the endpoint has
+   * been read, the endpoint will become valid again and can ACK the HOST
+   * packets.
    *
-   * If a user of this interface wants to drain all of the data from the
-   * endpoint, then the application interface should continually pass read
-   * content from the endpoint until a result is size zero.
+   * If a caller wants to drain all of the data from the endpoint's memory, then
+   * the caller should continually call read until it returns an empty span.
    *
    * @param p_buffer - buffer to fill with data
    * @return std::span<u8 const> - the same buffer that was passed into the read
@@ -342,20 +409,49 @@ class usb_bulk_in_endpoint : public usb_endpoint
 {
 public:
   virtual ~usb_bulk_in_endpoint() = default;
+
   /**
-   * @brief Write data to the bulk IN endpoint
+   * @brief Write data to the control endpoint's memory
    *
-   * Used to send data from the device to the host over a bulk IN endpoint.
+   * This API will copy the contents of the span of byte spans into the endpoint
+   * memory. When the endpoint memory is full, this API will ACK a HOST IN
+   * packet and the data in the endpoint will be transmitted. This is repeated
+   * until no more data is left. To finish the transfer of data, call the
+   * `flush()` API.
    *
-   * @param p_data The data to be written
+   * @param p_data - data to be written to the endpoint memory and sent over
+   * USB.
    */
-  void write(std::span<byte const> p_data)
+  void write(std::span<std::span<byte const>> p_data)
   {
     driver_write(p_data);
   }
 
+  /**
+   * @brief version of `write()` that takes a single input argument
+   *
+   * @param p_data - span of bytes to be written to the endpoint
+   */
+  void write(std::span<byte const> p_data)
+  {
+    std::array<decltype(p_data), 1> span_of_span{ p_data };
+    return driver_write(span_of_span);
+  }
+
+  /**
+   * @brief Flush the endpoint buffer and its contents
+   *
+   * If the endpoint is empty will send a zero-length-packet or ZLP.
+   *
+   */
+  void flush()
+  {
+    return driver_flush();
+  }
+
 private:
-  virtual void driver_write(std::span<byte const> p_data) = 0;
+  virtual void driver_write(std::span<std::span<byte const>> p_data) = 0;
+  virtual void driver_flush() = 0;
 };
 
 /**
@@ -397,16 +493,16 @@ public:
   /**
    * @brief Read contents of endpoint
    *
-   * This function is callable from within the `on_receive` callback, meaning
-   * this API should be callable within that interrupt service routine.
+   * This API is not to be assumed to be callable from within the `on_receive`
+   * callback.
    *
-   * When data is available in the endpoint, the endpoint will NAK all following
-   * HOST commands to send more data. When all data from the endpoint has been
-   * read, the endpoint will become valid again and can ACK the HOST packets.
+   * When data is available in the endpoint, the endpoint will be configured to
+   * NAK all following HOST packet requests. When all data from the endpoint has
+   * been read, the endpoint will become valid again and can ACK the HOST
+   * packets.
    *
-   * If a user of this interface wants to drain all of the data from the
-   * endpoint, then the application interface should continually pass read
-   * content from the endpoint until a result is size zero.
+   * If a caller wants to drain all of the data from the endpoint's memory, then
+   * the caller should continually call read until it returns an empty span.
    *
    * @param p_buffer - buffer to fill with data
    * @return std::span<u8 const> - the same buffer that was passed into the read
@@ -422,4 +518,16 @@ private:
   virtual void driver_on_receive(callback<void(on_receive_tag)> p_callback) = 0;
   virtual std::span<u8 const> driver_read(std::span<u8> p_buffer) = 0;
 };
+
+template<class T>
+concept out_endpoint_type =
+  std::is_base_of_v<hal::experimental::usb_control_endpoint, T> ||
+  std::is_base_of_v<hal::experimental::usb_bulk_out_endpoint, T> ||
+  std::is_base_of_v<hal::experimental::usb_interrupt_out_endpoint, T>;
+
+template<class T>
+concept in_endpoint_type =
+  std::is_base_of_v<hal::experimental::usb_control_endpoint, T> ||
+  std::is_base_of_v<hal::experimental::usb_bulk_in_endpoint, T> ||
+  std::is_base_of_v<hal::experimental::usb_interrupt_in_endpoint, T>;
 }  // namespace hal::experimental
