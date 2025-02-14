@@ -49,4 +49,58 @@ boost::ut::suite<"hal::adc"> adc_test = []() {
     expect(that % expected_value == sample);
   };
 };
+
+class test_adc16 : public hal::adc16
+{
+public:
+  constexpr static u16 m_returned_position = ((1U << 16U) - 1U) / 2U;
+  ~test_adc16() override = default;
+
+private:
+  u16 driver_read() override
+  {
+    return m_returned_position;
+  }
+};
+
+boost::ut::suite<"hal::adc16"> adc16_test = []() {
+  using namespace boost::ut;
+  "::read()"_test = []() {
+    // Setup
+    test_adc16 test;
+
+    // Exercise
+    auto sample = test.read();
+
+    // Verify
+    expect(that % expected_value == sample);
+  };
+};
+
+class test_adc24 : public hal::adc24
+{
+public:
+  constexpr static u32 m_returned_position = ((1U << 24U) - 1U) / 2U;
+  ~test_adc24() override = default;
+
+private:
+  u32 driver_read() override
+  {
+    return m_returned_position;
+  }
+};
+
+boost::ut::suite<"hal::adc24"> adc24_test = []() {
+  using namespace boost::ut;
+  "::read()"_test = []() {
+    // Setup
+    test_adc24 test;
+
+    // Exercise
+    auto sample = test.read();
+
+    // Verify
+    expect(that % expected_value == sample);
+  };
+};
 }  // namespace hal
