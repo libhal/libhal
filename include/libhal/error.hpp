@@ -338,14 +338,13 @@ struct resource_unavailable_try_again : public exception
 
 /**
  * @ingroup Error
- * @brief Raised when a hardware resource cannot be constructed or acquired
- * because it is currently in use.
+ * @brief Raised when a hardware resource is in use and cannot be acquired.
  *
  * # When to Raise this
  *
  * This exception should be raised when application code attempts to construct
- * or acquire a hardware resource and that hardware resource is already in use
- * by another driver.
+ * or acquire a hardware resource that is already in use by another driver
+ * object.
  *
  * # How to recover from this?
  *
@@ -353,7 +352,9 @@ struct resource_unavailable_try_again : public exception
  *
  * If an alternative resource exists that the application an take advantage of,
  * then the application can catch this exception and attempt to acquire the
- * alternative resource. For example, consider `hal::can_identifier_filter` and
+ * alternative resource.
+ *
+ * For example, consider `hal::can_identifier_filter` and
  * `hal::can_mask_filter`. One could use a mask filter in place of an identifier
  * filter. If an attempt to acquire an identifier filter fails, then the code
  * could fallback to acquiring a mask filter.
@@ -361,9 +362,8 @@ struct resource_unavailable_try_again : public exception
  * ## 2. Otherwise, this is a runtime bug
  *
  * If none of the above apply to your application, then this exception is
- * considered bug in the application. The application should handle this error
- * as it would any other bugs in the application, which could be to allow the
- * application to log the issue and terminate.
+ * considered a bug in the application. The application should handle this error
+ * as it would any other bugs in the application.
  */
 struct device_or_resource_busy : public exception
 {
