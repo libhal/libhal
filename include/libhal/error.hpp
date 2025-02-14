@@ -310,27 +310,16 @@ struct io_error : public exception
 
 /**
  * @ingroup Error
- * @brief Raised when a resource is unavailable but another attempt would work
- *
- * Resources are typically busses, peripherals, and shared hardware devices.
- *
- * # How do to recover from this?
- *
- * ## 1. Retry!
- *
- * Consider I2C. I2C has the ability to have multiple controllers on the bus. If
- * two controllers attempt to control the bus at the same time, arbitration will
- * occur. One of the I2C controllers will succeed and the other will get a
- * hal::resource_unavailable_try_again exception. To handle this, simply attempt
- * the transaction again until a timeout occurs (time or retry based).
- *
- * ## 2. Else?
- *
- * This exception should only be raised for arbitration reasons and not I/O
- * reasons, so the only option is to retry. The time it takes for a retry to
- * work depends strongly on the applications and the drivers use.  If this does
- * not work for the application, then a change in architecture, drivers, or part
- * selection may be required.
+ * @brief Raised when a resource is unavailable but another attempt may work
+ * @deprecated I2c no longer uses this exception when another controller on the
+ * bus is currently performing a transaction. The new behavior is to wait for
+ * the bus to become available. `hal::io_waiter` can be used to get out of the
+ * i2c if a deadline has been exceeded. There are no other interfaces for which
+ * this exception makes sense and thus an example describing when to use this
+ * and how to recover from it does not exist. Until such an example is found,
+ * this error type should not be thrown and should be considered deprecated. If
+ * such a use case becomes known, then this comment will be updated, deprecation
+ * notice will be removed, and this type can be used in those situations.
  *
  */
 struct resource_unavailable_try_again : public exception
@@ -343,6 +332,43 @@ struct resource_unavailable_try_again : public exception
    */
   resource_unavailable_try_again(void const* p_instance)
     : exception(std::errc::resource_unavailable_try_again, p_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
+ * @brief Raised when a hardware resource cannot be constructed or acquired
+ * because it is currently in use.
+ *
+ * # When to Raise this
+ *
+ * This exception should be raised when application code attempts to construct
+ * or acquire a hardware resource and that hardware resource is already in use
+ * by another driver.
+ *
+ * # How to recover from this?
+ *
+ * ## 1. Use an alternative resource
+ *
+ * If an alternative resource exists that the application an take advantage of,
+ * then the application can catch this exception and attempt to acquire the
+ * alternative resource. For example, consider `hal::can_identifier_filter` and
+ * `hal::can_mask_filter`. One could use a mask filter in place of an identifier
+ * filter. If an attempt to acquire an identifier filter fails, then the code
+ * could fallback to acquiring a mask filter.
+ *
+ * ## 2. Otherwise, this is a runtime bug
+ *
+ * If none of the above apply to your application, then this exception is
+ * considered bug in the application. The application should handle this error
+ * as it would any other bugs in the application, which could be to allow the
+ * application to log the issue and terminate.
+ */
+struct device_or_resource_busy : public exception
+{
+  device_or_resource_busy(void const* p_instance)
+    : exception(std::errc::device_or_resource_busy, p_instance)
   {
   }
 };
