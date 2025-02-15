@@ -20,18 +20,16 @@
 
 namespace hal {
 namespace {
-constexpr auto expected_value = float(0.5);
-
 class test_adc : public hal::adc
 {
 public:
-  constexpr static float m_returned_position{ 0.5f };
+  constexpr static float returned_position{ 0.5f };
   ~test_adc() override = default;
 
 private:
   float driver_read() override
   {
-    return m_returned_position;
+    return returned_position;
   }
 };
 }  // namespace
@@ -46,20 +44,20 @@ boost::ut::suite<"hal::adc"> adc_test = []() {
     auto sample = test.read();
 
     // Verify
-    expect(that % expected_value == sample);
+    expect(that % test_adc::returned_position == sample);
   };
 };
 
 class test_adc16 : public hal::adc16
 {
 public:
-  constexpr static u16 m_returned_position = ((1U << 16U) - 1U) / 2U;
+  constexpr static u16 returned_position = ((1U << 16U) - 1U) / 2U;
   ~test_adc16() override = default;
 
 private:
   u16 driver_read() override
   {
-    return m_returned_position;
+    return returned_position;
   }
 };
 
@@ -73,20 +71,20 @@ boost::ut::suite<"hal::adc16"> adc16_test = []() {
     auto sample = test.read();
 
     // Verify
-    expect(that % expected_value == sample);
+    expect(that % test_adc16::returned_position == sample);
   };
 };
 
 class test_adc24 : public hal::adc24
 {
 public:
-  constexpr static u32 m_returned_position = ((1U << 24U) - 1U) / 2U;
+  constexpr static u32 returned_position = ((1U << 24U) - 1U) / 2U;
   ~test_adc24() override = default;
 
 private:
   u32 driver_read() override
   {
-    return m_returned_position;
+    return returned_position;
   }
 };
 
@@ -100,7 +98,7 @@ boost::ut::suite<"hal::adc24"> adc24_test = []() {
     auto sample = test.read();
 
     // Verify
-    expect(that % expected_value == sample);
+    expect(that % test_adc24::returned_position == sample);
   };
 };
 }  // namespace hal
