@@ -20,7 +20,7 @@
 
 namespace hal {
 namespace {
-class test_dac16 : public hal::dac
+class test_dac16 : public hal::dac16
 {
 public:
   static constexpr auto expected_value = u16(5123);
@@ -28,7 +28,7 @@ public:
   ~test_dac16() override = default;
 
 private:
-  void driver_write(float p_value) override
+  void driver_write(u16 p_value) override
   {
     m_passed_value = p_value;
   }
