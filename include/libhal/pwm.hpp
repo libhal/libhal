@@ -96,10 +96,10 @@ private:
  * This interface allows control over a single or group of pwm channels.
  * Currently this interface only provides support for frequency control.
  */
-class pwm_manager
+class pwm_group_manager
 {
 public:
-  virtual ~pwm_manager() = default;
+  virtual ~pwm_group_manager() = default;
 
   /**
    * @brief Set the waveform frequency for pwm channels managed by this driver

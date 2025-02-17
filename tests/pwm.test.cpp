@@ -58,12 +58,12 @@ boost::ut::suite<"pwm16_channel_test"> pwm16_channel_test = []() {
 };
 
 namespace {
-class test_pwm_manager : public hal::pwm_manager
+class test_pwm_group_manager : public hal::pwm_group_manager
 {
 public:
   static constexpr auto expected_frequency = 15'250;
   u32 m_frequency{};
-  ~test_pwm_manager() override = default;
+  ~test_pwm_group_manager() override = default;
 
 private:
   void driver_frequency(u32 p_frequency) override
@@ -73,17 +73,18 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"pwm_manager_test"> pwm_manager_test = []() {
+boost::ut::suite<"pwm_group_manager_test"> pwm_group_manager_test = []() {
   using namespace boost::ut;
   "pwm interface test"_test = []() {
     // Setup
-    test_pwm_manager test;
+    test_pwm_group_manager test;
 
     // Exercise
-    test.frequency(test_pwm_manager::expected_frequency);
+    test.frequency(test_pwm_group_manager::expected_frequency);
 
     // Verify
-    expect(that % test_pwm_manager::expected_frequency == test.m_frequency);
+    expect(that % test_pwm_group_manager::expected_frequency ==
+           test.m_frequency);
   };
 };
 }  // namespace hal
