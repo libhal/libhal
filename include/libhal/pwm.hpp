@@ -138,7 +138,7 @@ public:
   }
 
 private:
-  void driver_frequency(u32 p_frequency);
+  virtual void driver_frequency(u32 p_frequency) = 0;
 };
 
 /**
