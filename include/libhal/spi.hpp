@@ -172,11 +172,17 @@ public:
     u32 clock_rate = 100_kHz;
 
     /**
-     * @brief Mode select field
+     * @brief Bus mode select field
      *
-     * Use this to select the spi bus mode.
+     * Use this to select how the spi data and clock are sampled.
      */
-    mode mode = mode::m0;
+    mode bus_mode = mode::m0;
+
+    /**
+     * @brief Enables default comparison
+     *
+     */
+    bool operator<=>(settings const&) const = default;
   };
 
   /**

@@ -120,7 +120,7 @@ class test_spi_channel : public hal::spi_channel
 public:
   static constexpr hal::spi_channel::settings expected_settings{
     .clock_rate = 12_kHz,
-    .mode = hal::spi_channel::mode::m2,
+    .bus_mode = hal::spi_channel::mode::m2,
   };
 
   bool m_chip_select = false;
@@ -176,8 +176,6 @@ boost::ut::suite<"spi_channel_test"> spi_channel_test = []() {
   expect(that % expected_out.size() == test.m_data_out.size());
   expect(that % expected_in.size() == test.m_data_in.size());
   expect(expected_filler == test.m_filler);
-  expect(test_spi_channel::expected_settings.clock_rate ==
-         test.m_settings.clock_rate);
-  expect(test_spi_channel::expected_settings.mode == test.m_settings.mode);
+  expect(test_spi_channel::expected_settings == test.m_settings);
 };
 }  // namespace hal
