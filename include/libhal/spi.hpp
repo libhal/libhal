@@ -104,58 +104,58 @@ public:
   static constexpr hal::byte default_filler = hal::byte{ 0xFF };
 
   /**
+   * @brief Mode settings which control when data is sampled and shifted out
+   *
+   */
+  enum class mode : u8
+  {
+    /**
+     * @brief spi mode 0
+     *
+     * - Data is shifted out on: falling SCLK, and when CS activates
+     * - Data is sampled on: rising SCLK
+     * - CPOL (clock polarity): 0
+     * - CPHA (clock phase): 0
+     */
+    m0,
+
+    /**
+     * @brief spi mode 1
+     *
+     * - Data is shifted out on: rising SCLK
+     * - Data is sampled on: falling SCLK
+     * - CPOL (clock polarity): 0
+     * - CPHA (clock phase): 1
+     */
+    m1,
+
+    /**
+     * @brief spi mode 2
+     *
+     * - Data is shifted out on: rising SCLK, and when CS activates
+     * - Data is sampled on: falling SCLK
+     * - CPOL (clock polarity): 1
+     * - CPHA (clock phase): 0
+     */
+    m2,
+
+    /**
+     * @brief spi mode 3
+     *
+     * - Data is shifted out on: falling SCLK
+     * - Data is sampled on: rising SCLK
+     * - CPOL (clock polarity): 1
+     * - CPHA (clock phase): 1
+     */
+    m3,
+  };
+
+  /**
    * @brief Generic settings for a standard SPI device.
    *
    */
   struct settings
   {
-    /**
-     * @brief Mode settings which control when data is sampled and shifted out
-     *
-     */
-    enum class mode : u8
-    {
-      /**
-       * @brief spi mode 0
-       *
-       * - Data is shifted out on: falling SCLK, and when CS activates
-       * - Data is sampled on: rising SCLK
-       * - CPOL (clock polarity): 0
-       * - CPHA (clock phase): 0
-       */
-      m0,
-
-      /**
-       * @brief spi mode 1
-       *
-       * - Data is shifted out on: rising SCLK
-       * - Data is sampled on: falling SCLK
-       * - CPOL (clock polarity): 0
-       * - CPHA (clock phase): 1
-       */
-      m1,
-
-      /**
-       * @brief spi mode 2
-       *
-       * - Data is shifted out on: rising SCLK, and when CS activates
-       * - Data is sampled on: falling SCLK
-       * - CPOL (clock polarity): 1
-       * - CPHA (clock phase): 0
-       */
-      m2,
-
-      /**
-       * @brief spi mode 3
-       *
-       * - Data is shifted out on: falling SCLK
-       * - Data is sampled on: rising SCLK
-       * - CPOL (clock polarity): 1
-       * - CPHA (clock phase): 1
-       */
-      m3,
-    };
-
     /**
      * @brief Best-effort clock rate to set the spi bus to
      *
@@ -176,7 +176,7 @@ public:
      *
      * Use this to select the spi bus mode.
      */
-    mode select = mode::m0;
+    mode mode = mode::m0;
   };
 
   /**
@@ -209,39 +209,45 @@ public:
   u32 clock_rate();
 
   /**
-   * @brief Send and receive data between a selected device on the spi bus.
-   *
-   * This function will block until the entire transfer is finished. This API
-   * will only work if `chip_select(true)` was called prior, otherwise, this API
-   * does nothing.
-   *
-   * TODO(kammce): consider throwing an exception if `chip_select(false)` when
-   * performing a transfer
-   *
-   * @param p_data_out - buffer to write data to the bus. If this is set to
-   * null/empty then writing is ignored and the p_filler will be written to
-   * the bus. If the length is less than p_data_in, then p_filler will be
-   * written to the bus after this buffer has been sent.
-   * @param p_data_in - buffer to read the data off of the bus. If this is
-   * null/empty, then the transfer will be write only and the incoming data will
-   * be ignored. If the length of this buffer is less than p_data_out, once this
-   * buffer has been filled, the rest of the received bytes on the bus will be
-   * dropped.
-   * @param p_filler - filler data placed on the bus in place of actual write
-   * data when p_data_out has been exhausted.
-   */
-  void transfer(std::span<hal::byte const> p_data_out,
-                std::span<hal::byte> p_data_in = {},
-                hal::byte p_filler = default_filler)
-  {
-    return driver_transfer(p_data_out, p_data_in, p_filler);
-  }
-
-  /**
    * @brief Control both chip select & exclusive access to the spi bus
    *
-   * Use this API in order to utilize the `transfer()` API. Implementations of
-   * this interface must default to `chip_select(false)` on object construction.
+   * This API controls access over a shared spi bus and controls the state of
+   * the channel's chip select voltage signal. When this API is called with the
+   * value `true`, this function returns when the spi channel gains exclusive
+   * control over the spi bus. Implementation must do the following:
+   *
+   * 1. Wait until the bus is no longer currently in use. This happens when
+   *    another `spi_channel` object that uses the same spi bus is currently
+   *    using the bus.
+   * 2. Acquire exclusive access over the bus in such a way that other
+   *    `spi_channel` objects using the same underlying spi are blocked until
+   *    the bus is available.
+   * 3. Assert the chip select signal. libhal considers "chip select" as
+   *    negative polarity meaning that a LOW voltage is required to assert them.
+   *    If the chip select is driven by a `hal::output_pin` then call the API
+   *    `hal::output_pin::level(false)` should be called to assert the chip
+   *    select.
+   * 4. Return
+   *
+   * Implementations are encouraged to use a `hal::basic_lock` for steps 1
+   * and 2.
+   *
+   * If this API is called with the value `false` and exclusive access has been
+   * granted over the bus, then following should occur:
+   *
+   * 1. De-assert chip select signal. If the chip select is driven by a
+   *    `hal::output_pin` then call the API `hal::output_pin::level(true)`
+   *    should be called to assert the chip select.
+   * 2. Release access to the bus. If a `hal::basic_lock` is used, then call the
+   *    `hal::basic_lock::unlock()` API.
+   *
+   * If exclusive access has not been granted over the bus and this is called
+   * with the value `false`, then nothing should occur. Implementations can
+   * utilize a boolean variable or the state of their chip select to determine
+   * if the bus previously acquired.
+   *
+   * On construction, the chip select state should be as if this API was called
+   * with `false`.
    *
    * @param p_select - if set to true will acquire exclusive access to the spi
    * bus and asserts chip select. If another channel already has exclusive
@@ -256,8 +262,51 @@ public:
   }
 
   /**
-   * @brief lock() API to satisfy half of C++'s BasicLockable trait.
+   * @brief Send and receive data between a selected device on the spi bus.
    *
+   * This function will block until the entire transfer is finished. This API's
+   * behavior changes depending on the last call to `chip_select()`:
+   *
+   * If `chip_select(true)` was called, then this function transfers the data on
+   * the bus as defined by the parameter descriptions.
+   *
+   * If `chip_select(false)` was called prior to this API being called, then
+   * this function will temporarily acquire access over the bus in the following
+   * way:
+   *
+   * 1. Wait to gain exclusive control over the bus
+   * 2. Assert chip select
+   * 3. Perform data transfer over the bus
+   * 4. De-assert chip select
+   * 5. Release exclusive control over the bus
+   * 6. Return
+   *
+   * This temporary access ensures that this API is always safe to call without
+   * concern of bus contention.
+   *
+   * @param p_data_out - buffer to write data to the bus. If this is set to
+   * null/empty then writing is ignored and the p_filler will be written to
+   * the bus. If the length is less than p_data_in, then p_filler will be
+   * written to the bus after this buffer has been sent.
+   * @param p_data_in - buffer to read the data off of the bus. If this is
+   * null/empty, then the transfer will be write only and the incoming data will
+   * be ignored. If the length of this buffer is less than p_data_out, once this
+   * buffer has been filled, the rest of the received bytes on the bus will be
+   * dropped.
+   * @param p_filler - filler data placed on the bus in place of actual write
+   * data when p_data_out has been exhausted.
+   */
+  void transfer(std::span<byte const> p_data_out,
+                std::span<byte> p_data_in = {},
+                byte p_filler = default_filler)
+  {
+    return driver_transfer(p_data_out, p_data_in, p_filler);
+  }
+
+  /**
+   * @brief API to satisfy the `lock()` API of C++'s BasicLockable trait.
+   *
+   * Calls `chip_select(true)`
    */
   void lock()
   {
@@ -265,8 +314,9 @@ public:
   }
 
   /**
-   * @brief unlock() API to satisfy the other half of C++'s BasicLockable trait.
+   * @brief API to satisfy the `unlock()` API of C++'s BasicLockable trait.
    *
+   * Calls `chip_select(false)`
    */
   void unlock()
   {
@@ -276,10 +326,10 @@ public:
 private:
   void driver_configure(settings const& p_settings);
   u32 driver_clock_rate();
-  void driver_transfer(std::span<hal::byte const> p_data_out,
-                       std::span<hal::byte> p_data_in,
-                       hal::byte p_filler);
   void driver_chip_select(bool p_select);
+  void driver_transfer(std::span<byte const> p_data_out,
+                       std::span<byte> p_data_in,
+                       byte p_filler);
 };
 
 /**
@@ -404,8 +454,8 @@ public:
    * @param p_filler - filler data placed on the bus in place of actual write
    * data when p_data_out has been exhausted.
    */
-  void transfer(std::span<hal::byte const> p_data_out,
-                std::span<hal::byte> p_data_in,
+  void transfer(std::span<byte const> p_data_out,
+                std::span<byte> p_data_in,
                 hal::byte p_filler = default_filler)
   {
     return driver_transfer(p_data_out, p_data_in, p_filler);
