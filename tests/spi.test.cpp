@@ -37,7 +37,7 @@ public:
   std::span<hal::byte const> m_data_out{};
   std::span<hal::byte> m_data_in{};
   hal::byte m_filler{};
-  bool m_return_error_status{ false };
+
   ~test_spi() override = default;
 
 private:
@@ -110,5 +110,72 @@ boost::ut::suite<"spi_test"> spi_test = []() {
     expect(expected_settings2.clock_polarity == test.m_settings.clock_polarity);
     expect(expected_settings2.clock_phase == test.m_settings.clock_phase);
   };
+};
+}  // namespace hal
+
+namespace hal {
+namespace {
+class test_spi_channel : public hal::spi_channel
+{
+public:
+  static constexpr hal::spi_channel::settings expected_settings{
+    .clock_rate = 12_kHz,
+    .bus_mode = hal::spi_channel::mode::m2,
+  };
+
+  bool m_chip_select = false;
+  settings m_settings{};
+  std::span<hal::byte const> m_data_out{};
+  std::span<hal::byte> m_data_in{};
+  hal::byte m_filler{};
+
+  ~test_spi_channel() override = default;
+
+private:
+  void driver_configure(settings const& p_settings) override
+  {
+    m_settings = p_settings;
+  }
+
+  u32 driver_clock_rate() override
+  {
+    return m_settings.clock_rate;
+  }
+
+  void driver_chip_select(bool p_select) override
+  {
+    m_chip_select = p_select;
+  }
+
+  void driver_transfer(std::span<byte const> p_data_out,
+                       std::span<byte> p_data_in,
+                       byte p_filler) override
+  {
+    m_data_out = p_data_out;
+    m_data_in = p_data_in;
+    m_filler = p_filler;
+  }
+};
+}  // namespace
+
+boost::ut::suite<"spi_channel_test"> spi_channel_test = []() {
+  using namespace boost::ut;
+  // Setup
+  test_spi_channel test;
+  std::array<hal::byte, 4> const expected_out{ 'a', 'b' };
+  std::array<hal::byte, 4> expected_in{ '1', '2' };
+  auto const expected_filler = ' ';
+
+  // Exercise
+  test.configure(test_spi_channel::expected_settings);
+  test.transfer(expected_out, expected_in, expected_filler);
+
+  // Verify
+  expect(that % expected_out.data() == test.m_data_out.data());
+  expect(that % expected_in.data() == test.m_data_in.data());
+  expect(that % expected_out.size() == test.m_data_out.size());
+  expect(that % expected_in.size() == test.m_data_in.size());
+  expect(expected_filler == test.m_filler);
+  expect(test_spi_channel::expected_settings == test.m_settings);
 };
 }  // namespace hal
