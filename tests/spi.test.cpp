@@ -137,15 +137,16 @@ private:
     m_settings = p_settings;
   }
 
-  u32 driver_clock_rate()
+  u32 driver_clock_rate() override
   {
     return m_settings.clock_rate;
   }
 
-  void driver_chip_select(bool p_select)
+  void driver_chip_select(bool p_select) override
   {
     m_chip_select = p_select;
   }
+
   void driver_transfer(std::span<byte const> p_data_out,
                        std::span<byte> p_data_in,
                        byte p_filler) override

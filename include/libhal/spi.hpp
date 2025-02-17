@@ -69,7 +69,7 @@ namespace hal {
  * number of cycles can vary, so manual chip select control allows more precise
  * and  memory-efficient operations.
  *
- * ## Chip Select as Bus Access Control (❌ INCOMPLETE ❌)
+ * ## Chip Select as Bus Access Control
  *
  * A single spi bus can communicate with different devices via a chip select
  * pin. The chip select pin acts like a binary decoder where only one output is
@@ -185,9 +185,18 @@ public:
    * The settings passed to this API will be stored by the implementation of
    * this interface for use when `chip_select(true)` is called.
    *
-   * @param p_settings - settings to configure the spi channel
+   * On construction, the default settings are defined by the default values
+   * within the `settings` structure.
+   *
+   * @param p_settings - settings to configure the spi bus to when control is
+   * acquired by this channel.
+   * @throws hal::operation_not_supported - if the mode cannot be accommodated
+   * by the spi bus hardware or implementation of spi.
    */
-  void configure(settings const& p_settings);
+  void configure(settings const& p_settings)
+  {
+    return driver_configure(p_settings);
+  }
 
   /**
    * @brief Return the clock rate that the SPI channel will operate at when a
@@ -206,7 +215,10 @@ public:
    * @return u32 - the approximate clock rate of this spi channel when
    * `chip_select(true)` is called.
    */
-  u32 clock_rate();
+  u32 clock_rate()
+  {
+    return driver_clock_rate();
+  }
 
   /**
    * @brief Control both chip select & exclusive access to the spi bus
@@ -222,6 +234,7 @@ public:
    * 2. Acquire exclusive access over the bus in such a way that other
    *    `spi_channel` objects using the same underlying spi are blocked until
    *    the bus is available.
+   * 3. Configure spi bus to the settings of this spi channel.
    * 3. Assert the chip select signal. libhal considers "chip select" as
    *    negative polarity meaning that a LOW voltage is required to assert them.
    *    If the chip select is driven by a `hal::output_pin` then call the API
@@ -245,6 +258,10 @@ public:
    * with the value `false`, then nothing should occur. Implementations can
    * utilize a boolean variable or the state of their chip select to determine
    * if the bus previously acquired.
+   *
+   * Notice that there is no step to configure the spi bus on de-assertion. This
+   * is because configuration should only occur during bus acquisition. There is
+   * no need to perform work twice.
    *
    * On construction, the chip select state should be as if this API was called
    * with `false`.
@@ -323,13 +340,15 @@ public:
     chip_select(false);
   }
 
+  virtual ~spi_channel() = default;
+
 private:
-  void driver_configure(settings const& p_settings);
-  u32 driver_clock_rate();
-  void driver_chip_select(bool p_select);
-  void driver_transfer(std::span<byte const> p_data_out,
-                       std::span<byte> p_data_in,
-                       byte p_filler);
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual u32 driver_clock_rate() = 0;
+  virtual void driver_chip_select(bool p_select) = 0;
+  virtual void driver_transfer(std::span<byte const> p_data_out,
+                               std::span<byte> p_data_in,
+                               byte p_filler) = 0;
 };
 
 /**
