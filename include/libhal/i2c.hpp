@@ -189,4 +189,42 @@ private:
     transaction(p_address, p_data_out, p_data_in, hal::never_timeout());
   }
 };
+
+class i2c_target
+{
+public:
+  struct transaction_tag
+  {};
+
+  /**
+   * @brief Set the address that the i2c target will respond to
+   *
+   * @param p_address - Address between
+   */
+  void address(u16 p_address)
+  {
+    return driver_address(p_address);
+  }
+  void write_buffer(std::span<byte> p_buffer)
+  {
+    return driver_write_buffer(p_buffer);
+  }
+  void read_buffer(std::span<byte const> p_buffer)
+  {
+    return driver_read_buffer(p_buffer);
+  }
+  void on_transaction(
+    std::optional<hal::callback<void(transaction_tag)>> const& p_callback)
+  {
+    return driver_on_transaction(p_callback);
+  }
+
+private:
+  virtual ~i2c_target() = default;
+  virtual void driver_address(u8 p_address) = 0;
+  virtual void driver_write_buffer(std::span<byte> p_buffer) = 0;
+  virtual void driver_read_buffer(std::span<byte const> p_buffer) = 0;
+  virtual void driver_on_transaction(
+    std::optional<hal::callback<void(transaction_tag)>> const& p_callback) = 0;
+};
 }  // namespace hal
