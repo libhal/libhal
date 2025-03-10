@@ -22,7 +22,7 @@ Following the
 [🚀 Getting Started](https://libhal.github.io/getting_started/)
 instructions.
 
-## 📥 Adding `libhal` to your project
+## 📥 Adding `libhal` to your conan project
 
 This section assumes you are using the
 [`libhal-starter`](https://github.com/libhal/libhal-starter)
@@ -36,11 +36,8 @@ Add the following to your `requirements()` method to the `ConanFile` class:
 ```
 
 The version number can be changed to whatever is appropriate for your
-application. If you don't know, using the latest is usually a good choice.
-
-Normally, this is not done, as usually libhal is into the code base via
-implementation libraries such `libhal-lpc40` and `libhal-stm32f1` for
-peripheral drivers, or, `libhal-esp8266` and `libhal-mpu` for device drivers.
+application. If you don't know what version to use, consider using the
+[🚀 latest](https://github.com/libhal/libhal/releases/latest) release.
 
 ## 📥 Adding `libhal` to your library
 
