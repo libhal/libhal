@@ -63,7 +63,7 @@ conan create . --version=latest
 Replace `latest` with the SEMVER version that fits the changes you've made. Or
 just choose a number greater than whats been released.
 
-> [NOTE]
+> [!NOTE]
 > Setting the build type using the flag `-s build_type` only modifies the build
 > type of the unit tests. Since this library is header only, the only files
 > that are distributed to applications and libraries are the headers.
