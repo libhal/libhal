@@ -14,9 +14,14 @@
 
 #pragma once
 
+#include "libhal/error.hpp"
 #include "units.hpp"
 
 namespace hal {
+
+// Forward declare this so that the invalidated implementation can see the class
+class invalidated_output_pin;
+
 /**
  * @brief Digital output pin hardware abstraction.
  *
@@ -30,6 +35,8 @@ namespace hal {
 class output_pin
 {
 public:
+  using invalidated = invalidated_output_pin;
+
   /// Generic settings for output pins
   struct settings
   {
@@ -94,5 +101,26 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_level(bool p_high) = 0;
   virtual bool driver_level() = 0;
+};
+
+class invalidated_output_pin : public hal::output_pin
+{
+public:
+  invalidated_output_pin() = default;
+  ~invalidated_output_pin() override = default;
+
+private:
+  void driver_configure(settings const&) override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
+  void driver_level(bool) override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
+  bool driver_level() override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
 };
 }  // namespace hal

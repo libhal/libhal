@@ -607,6 +607,20 @@ struct unknown : public exception
 
 /**
  * @ingroup Error
+ * @brief Exception for lifetime violations
+ *
+ */
+class lifetime_violation : public hal::exception
+{
+public:
+  lifetime_violation(void const* p_instance)
+    : exception(std::errc::bad_address, p_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
  * @brief libhal function for throwing exceptions with static analysis
  *
  * The types that can be thrown must follow these rules:
