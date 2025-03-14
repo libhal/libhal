@@ -69,11 +69,11 @@ union aligned_storage_helper
   };
   struct double4
   {
-    double a[4];
+    std::array<double, 4> a;
   };
   template<class T>
   using maybe = std::conditional_t<(Cap >= sizeof(T)), T, char>;
-  char real_data[Cap];
+  std::array<char, Cap> real_data;
   maybe<int> a;
   maybe<long> b;
   maybe<long long> c;
@@ -87,7 +87,15 @@ union aligned_storage_helper
 template<size_t Cap, size_t Align = alignof(aligned_storage_helper<Cap>)>
 struct aligned_storage
 {
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
   using type = std::aligned_storage_t<Cap, Align>;
+// your code for which the warning gets suppressed
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 };
 
 template<size_t Cap, size_t Align = alignof(aligned_storage_helper<Cap>)>
