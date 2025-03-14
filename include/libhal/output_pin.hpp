@@ -14,9 +14,18 @@
 
 #pragma once
 
+#include "libhal/error.hpp"
+#include "tracked_ptr.hpp"
 #include "units.hpp"
 
 namespace hal {
+
+// Forward declare this so that the fatal implementation can see the class
+class output_pin;
+class fatal_output_pin;
+
+unique_observer<fatal_output_pin>& get_fatal_output_pin();
+
 /**
  * @brief Digital output pin hardware abstraction.
  *
@@ -30,6 +39,8 @@ namespace hal {
 class output_pin
 {
 public:
+  static constexpr auto fatal_observer = get_fatal_output_pin;
+
   /// Generic settings for output pins
   struct settings
   {
@@ -95,4 +106,31 @@ private:
   virtual void driver_level(bool p_high) = 0;
   virtual bool driver_level() = 0;
 };
+
+class fatal_output_pin : public hal::output_pin
+{
+public:
+  fatal_output_pin() = default;
+  ~fatal_output_pin() override = default;
+
+private:
+  void driver_configure(settings const&) override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
+  void driver_level(bool) override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
+  bool driver_level() override
+  {
+    hal::safe_throw(hal::lifetime_violation(this));
+  }
+};
+
+inline unique_observer<fatal_output_pin>& get_fatal_output_pin()
+{
+  static unique_observer<fatal_output_pin> fatal_object;
+  return fatal_object;
+}
 }  // namespace hal
