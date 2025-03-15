@@ -44,7 +44,7 @@ public:
       throw std::runtime_error("p_data is too big for this test API! Must be "
                                "smaller than m_working_buffer");
     }
-    std::copy(p_data.begin(), p_data.end(), m_working_buffer.begin());
+    std::ranges::copy(p_data, m_working_buffer.begin());
     m_cursor = p_data.size();
   }
 
