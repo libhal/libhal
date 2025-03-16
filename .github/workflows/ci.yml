@@ -10,14 +10,17 @@ on:
     - cron: "0 12 * * 0"
 
 jobs:
-  library_check:
-    uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
+  # library_check:
+  #   uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
+  #   secrets: inherit
+  # deploy_check:
+  #   uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
+  #   with:
+  #     compiler: gcc
+  #     arch: x86_64
+  #     compiler_version: 12.3
+  #     compiler_package: ""
+  #     os: Linux
+  generate_docs:
+    uses: ./.github/workflows/api_docs.yml
     secrets: inherit
-  deploy_check:
-    uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
-    with:
-      compiler: gcc
-      arch: x86_64
-      compiler_version: 12.3
-      compiler_package: ""
-      os: Linux
