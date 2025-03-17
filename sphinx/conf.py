@@ -17,7 +17,6 @@ html_theme_options = {
         "version_match": os.environ.get('LIBHAL_API_VERSION'),
     },
     "check_switcher": False,
-    "show_version_warning_banner": True,
 }
 
 extensions = ["breathe", "myst_parser"]
