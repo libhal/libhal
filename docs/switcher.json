@@ -1,12 +1,13 @@
 [
   {
-    "name": "main (experimental)",
+    "name": "main",
     "version": "main",
     "url": "https://libhal.github.io/libhal/api/main/"
   },
   {
     "name": "4.10",
     "version": "4.10",
+    "preferred": "4.10",
     "url": "https://libhal.github.io/libhal/api/4.10/"
   }
 ]
