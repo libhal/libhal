@@ -1,0 +1,935 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Error &#8212; libhal  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/extra.css?v=2ded0ca0" />
+    <link rel="stylesheet" type="text/css" href="../_static/extra.css?v=2ded0ca0" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'libhal/error';</script>
+    <link rel="icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Functional" href="functional.html" />
+    <link rel="prev" title="Distance Sensor" href="distance_sensor.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/logo.png" class="logo__image only-light" alt="libhal  documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="libhal  documentation - Home"/>
+  
+  
+</a></div>
+    
+      <div class="navbar-item">
+<nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="2" aria-label="Site Navigation">
+    </p>
+    <ul class="bd-navbar-elements navbar-nav">
+        <li class="nav-item dropdown">
+            <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                Guides
+            </button>
+            <ul id="pst-nav-more-links" class="dropdown-menu">
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external" href=/>
+                        🏡 Introduction
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external" href="/getting_started/">
+                        🚀 Getting Started
+                    </a>
+                </li>
+
+                <li class=" nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/user_guide/fundamentals">
+                        📖 User Guide
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/contributor_guide/philosophy">
+                        📚 Contributor Guides
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/project_information/status">
+                        📊 Project Information
+                    </a>
+                </li>
+
+            </ul>
+        </li>
+    </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="accelerometer.html">Accelerometer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adc.html">Analog Digital Converter (ADC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="angular_velocity_sensor.html">Angular Velocity Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="can.html">Controlled Area Network (CAN)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dac.html">Digital Analog Converter (DAC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distance_sensor.html">Distance Sensor</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Error</a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html">Functional</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gyroscope.html">Gyroscope</a></li>
+<li class="toctree-l1"><a class="reference internal" href="i2c.html">Inter-integrated Circuit (I2C)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_pin.html">Input Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interrupt_pin.html">Interrupt Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="magnetometer.html">Magnetometer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="motor.html">Motor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_pin.html">Output Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pwm.html">Pulse Width Modulation (PWM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rotation_sensor.html">Rotational Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serial.html">Serial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="servo.html">Servo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spi.html">Serial Peripheral Interface (SPI)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="steady_clock.html">Steady Clock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="temperature_sensor.html">Temperature Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timeout.html">Timeout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="units.html">Units</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">libhal Hardware Interface API Documentation</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Error</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="error">
+<h1>Error<a class="headerlink" href="#error" title="Link to this heading">#</a></h1>
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">#</a></h2>
+<p>Defined in namespace <code class="docutils literal notranslate"><span class="pre">hal</span></code></p>
+<p><em>#include &lt;libhal/error.hpp&gt;</em></p>
+<dl>
+<dt class="sig sig-object cpp">
+<span class="target" id="group___error"></span><em><span class="pre">group</span></em> <span class="sig-name descname"><span class="pre">Error</span></span></dt>
+<dd><div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-functions">Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4I0E10safe_throwvRR8thrown_t">
+<span id="_CPPv3I0E10safe_throwRR8thrown_t"></span><span id="_CPPv2I0E10safe_throwRR8thrown_t"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">thrown_t</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="group___error_1gac93217938e83502b7dc1418d34e5cb52"></span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">safe_throw</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4I0E10safe_throwvRR8thrown_t" title="safe_throw::thrown_t"><span class="n"><span class="pre">thrown_t</span></span></a><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">p_thrown_object</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4I0E10safe_throwvRR8thrown_t" title="Link to this definition">#</a><br /></dt>
+<dd><p>libhal function for throwing exceptions with static analysis </p>
+<p>The types that can be thrown must follow these rules:</p>
+<p><ol class="loweralpha simple">
+<li><p>Must be trivially destructible</p></li>
+<li><p>Must have <a class="reference internal" href="#classhal_1_1exception"><span class="std std-ref">hal::exception</span></a> as a base class for the type.</p></li>
+</ol>
+</p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>thrown_t</strong> – - type of the object to be thrown. </p>
+</dd>
+<dt class="field-even">Parameters<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>p_thrown_object</strong> – - object to throw. </p>
+</dd>
+<dt class="field-odd">Throws<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span><span class="cpp-expr sig sig-inline cpp"><a class="reference internal" href="#_CPPv4I0E10safe_throwvRR8thrown_t" title="safe_throw::thrown_t"><span class="n">thrown_t</span></a></span></span> – - the passed p_thrown_object. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal9exceptionE">
+<span id="_CPPv3N3hal9exceptionE"></span><span id="_CPPv2N3hal9exceptionE"></span><span id="hal::exception"></span><span class="target" id="classhal_1_1exception"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">exception</span></span></span><a class="headerlink" href="#_CPPv4N3hal9exceptionE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Base exception class for all hal related exceptions. </p>
+<p>Subclassed by <a class="reference internal" href="#structhal_1_1argument__out__of__domain"><span class="std std-ref">hal::argument_out_of_domain</span></a>, <a class="reference internal" href="#structhal_1_1device__or__resource__busy"><span class="std std-ref">hal::device_or_resource_busy</span></a>, <a class="reference internal" href="#structhal_1_1io__error"><span class="std std-ref">hal::io_error</span></a>, <a class="reference internal" href="#structhal_1_1message__size"><span class="std std-ref">hal::message_size</span></a>, <a class="reference internal" href="#structhal_1_1no__such__device"><span class="std std-ref">hal::no_such_device</span></a>, <a class="reference internal" href="#structhal_1_1not__connected"><span class="std std-ref">hal::not_connected</span></a>, <a class="reference internal" href="#structhal_1_1operation__not__permitted"><span class="std std-ref">hal::operation_not_permitted</span></a>, <a class="reference internal" href="#structhal_1_1operation__not__supported"><span class="std std-ref">hal::operation_not_supported</span></a>, <a class="reference internal" href="#structhal_1_1resource__unavailable__try__again"><span class="std std-ref">hal::resource_unavailable_try_again</span></a>, <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">hal::timed_out</span></a>, <a class="reference internal" href="#structhal_1_1unknown"><span class="std std-ref">hal::unknown</span></a></p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3hal9exception8instanceEv">
+<span id="_CPPv3NK3hal9exception8instanceEv"></span><span id="_CPPv2NK3hal9exception8instanceEv"></span><span id="hal::exception::instanceC"></span><span class="target" id="classhal_1_1exception_1ae5ab9168ba57e0a76efb8910ee956914"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="sig-name descname"><span class="n"><span class="pre">instance</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3hal9exception8instanceEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>address of the object that threw an exception </p>
+<p>If the exception was thrown by a function, this will be a nullptr. The purpose of this field is to allow exception handlers additional insight about what may have gone wrong with the system.</p>
+<p>Use cases:</p>
+<p><ol class="lowerroman simple">
+<li><p>Logging: a. Log the instance object address raw b. Use the instance address to determine which driver failed and craft a more accurate log message.</p></li>
+<li><p>Recovery: a. Compare the instance address against drivers which are known to throw recoverable errors. When the driver or object is found, perform operations on that driver to bring the system back into a normal state.</p></li>
+</ol>
+</p>
+<p>NOTE: about using this for recovery. The instance address should not be used directly but only with objects that are still accessible by the error handler. This address should be used for lookup. DO NOT COST away the const or C-cast this into an object for use. If the object you mean to manipulate is not at least within the scope catch handler, then the lifetime of that object cannot be guaranteed and is considered the strongest form of UB. </p>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3hal9exception10error_codeEv">
+<span id="_CPPv3NK3hal9exception10error_codeEv"></span><span id="_CPPv2NK3hal9exception10error_codeEv"></span><span id="hal::exception::error_codeC"></span><span class="target" id="classhal_1_1exception_1a56a21ebd26b8e131d2c8dc1b697a45df"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">errc</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">error_code</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><a class="headerlink" href="#_CPPv4NK3hal9exception10error_codeEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Convert this exception to the closest C++ error code. </p>
+<p>Main Use Case: Translation from C++ exceptions to C error codes</p>
+<p>Lets consider a situation when a C++ program must interface with C code or code that uses a C API to operate. Normally C++ code calls C code, but if C++ code is given to a C API like a callback and that C api expects an error code back for its own error handling purposes, this class function provides that error code. Simply catch the <a class="reference internal" href="#classhal_1_1exception"><span class="std std-ref">hal::exception</span></a>, and return an error code. Perform any other recovery or handling required to make the system perform as expected.</p>
+<p>Other use cases:</p>
+<p><ol class="lowerroman simple">
+<li><p>Logging</p></li>
+</ol>
+</p>
+<p>Log the error code value (or the stringified version) of this exception to alert developers of the kind of underlying exception that was thrown.</p>
+<p><ol class="lowerroman simple">
+<li><p>Recovery</p></li>
+</ol>
+</p>
+<p>This can technically be used for recovery, but it is HIGHLY RECOMMENDED to use the derived classes in their own catch blocks to recover from a specific error rather than using the base class and extracting its error code.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>std::errc - error code represented by the exception </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal14no_such_deviceE">
+<span id="_CPPv3N3hal14no_such_deviceE"></span><span id="_CPPv2N3hal14no_such_deviceE"></span><span id="hal::no_such_device"></span><span class="target" id="structhal_1_1no__such__device"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">no_such_device</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal14no_such_deviceE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when an device was expected to exist and did not. </p>
+<section id="structhal_1_1no__such__device_1autotoc_md0">
+<h3>How to recover from this?<a class="headerlink" href="#structhal_1_1no__such__device_1autotoc_md0" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1no__such__device_1autotoc_md1">
+<span id="structhal_1_1no__such__device_1autotoc_md0"></span><h4>1. Scanning<a class="headerlink" href="#structhal_1_1no__such__device_1autotoc_md1" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1no__such__device_1autotoc_md1">Lets consider I2C. A developer may want a system that can scan a bus for devices and determine if a device is present. Normally, in I2C, devices will acknowledge the <a class="reference internal" href="i2c.html#classhal_1_1i2c"><span class="std std-ref">i2c</span></a> bus controller if they see their address on the bus. So this is a rare type of error. But when scanning, its quite common as many of the available addresses will not have devices to listen on them. In this case, the error can be handled locally to the call and each call that does not result in an exception is an address with a device.</p>
+</section>
+<section id="structhal_1_1no__such__device_1autotoc_md2">
+<h4>2. Polling after reset<a class="headerlink" href="#structhal_1_1no__such__device_1autotoc_md2" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1no__such__device_1autotoc_md2">Lets consider I2C. In this situation, lets consider a device that must be reset in order for a configuration setting to be used. In this situation, a driver may have to poll on a device, attempting to get it to acknowledge it before it can use the device. This happens when a driver resets a device before configuring it to put it in a known state. This could also happen for drivers that determine that the ROM settings of a device are not configured to a stat that it can handle, it modifies the ROM and then requests a software reset of the device.</p>
+<p>To handle this, simply do:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">number_of_attempts</span><span class="p">;</span><span class="w"> </span><span class="n">i</span><span class="o">++</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">   </span><span class="k">try</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="n">hal</span><span class="o">::</span><span class="n">read</span><span class="p">(</span><span class="n">i2c</span><span class="p">,</span><span class="w"> </span><span class="n">m_address</span><span class="p">,</span><span class="w"> </span><span class="n">buffer</span><span class="p">);</span>
+<span class="w">   </span><span class="p">}</span><span class="w"> </span><span class="k">catch</span><span class="w"> </span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">hal</span><span class="o">::</span><span class="n">no_such_device</span><span class="o">&amp;</span><span class="p">)</span><span class="w"> </span><span class="p">{</span>
+<span class="w">     </span><span class="k">continue</span><span class="p">;</span>
+<span class="w">   </span><span class="p">}</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>or use <code class="docutils literal notranslate"><span class="pre">hal::probe(i2c)</span></code> in the while loop that performs the try catch for you and returns a bool if it was successfully able to communicate with the device.</p>
+</section>
+<section id="structhal_1_1no__such__device_1autotoc_md3">
+<h4>3. Temporary/Intermittent<a class="headerlink" href="#structhal_1_1no__such__device_1autotoc_md3" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1no__such__device_1autotoc_md3">There are some cases where communication with a device is intermittent in nature. In these cases, such an exception is temporary in nature and another attempt at communication should work appropriately. In these situations, drivers should either handle the error locally and poll on the device to until it ACKs or until a timeout time. The user may request at the construction of the object to skip catching the error and allow it propagate out of the driver such that user code can handle.</p>
+</section>
+<section id="structhal_1_1no__such__device_1autotoc_md4">
+<h4>4. Else, not recoverable<a class="headerlink" href="#structhal_1_1no__such__device_1autotoc_md4" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1no__such__device_1autotoc_md4">If none of the above apply to your application, this error is considered, generally non-recoverable and will terminate your application. This would be an unexpected bug due to hardware misconfiguration or some runtime hardware fault. </p>
+</section>
+</section>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal14no_such_device14no_such_deviceE3u32PKv">
+<span id="_CPPv3N3hal14no_such_device14no_such_deviceE3u32PKv"></span><span id="_CPPv2N3hal14no_such_device14no_such_deviceE3u32PKv"></span><span id="hal::no_such_device::no_such_device__u32.voidCPCE"></span><span class="target" id="structhal_1_1no__such__device_1afba123bc2fee25891e7c378d1b5b3c6d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">no_such_device</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">u32</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">p_address</span></span>, <span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">p_instance</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal14no_such_device14no_such_deviceE3u32PKv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">timed_out</span></a> exception. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>p_address</strong> – - the address of the device represented in 32-bits. For I2C this can be the 7-bit device address. </p></li>
+<li><p><strong>p_instance</strong> – - must point to the instance of the driver that threw this exception. </p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal8io_errorE">
+<span id="_CPPv3N3hal8io_errorE"></span><span id="_CPPv2N3hal8io_errorE"></span><span id="hal::io_error"></span><span class="target" id="structhal_1_1io__error"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">io_error</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal8io_errorE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised to indicate an issue with low level I/O. </p>
+<p>I/O errors are error at a low fundamental level. For I2C that could mean that the signals it saw on the bus did not align with the protocol. This exception is reserved for errors that can be detected that are purely a hardware communication error in nature. This are usually considered NOT recoverable.</p>
+<p>Unless the system, application, or developer understands exactly how to recover from this error, this error should be allowed to terminate the application. Systems should be designed to use an appropriate terminate handler to manage what happens during termination and attempt to put the system in a reliable or safe state.</p>
+<p>In very specific niche situations could this be recoverable. Such as testing a system to determine the maximum clock rate before data corruption begins to occur. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal8io_error8io_errorEPKv">
+<span id="_CPPv3N3hal8io_error8io_errorEPKv"></span><span id="_CPPv2N3hal8io_error8io_errorEPKv"></span><span id="hal::io_error::io_error__voidCP"></span><span class="target" id="structhal_1_1io__error_1a00499903b2535efb36abc684c72599cc"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">io_error</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">p_instance</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal8io_error8io_errorEPKv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">timed_out</span></a> exception. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_instance</strong> – - must point to the instance of the driver that threw this exception. If this was thrown from a free function pass nullptr. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal30resource_unavailable_try_againE">
+<span id="_CPPv3N3hal30resource_unavailable_try_againE"></span><span id="_CPPv2N3hal30resource_unavailable_try_againE"></span><span id="hal::resource_unavailable_try_again"></span><span class="target" id="structhal_1_1resource__unavailable__try__again"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resource_unavailable_try_again</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal30resource_unavailable_try_againE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when a resource is unavailable but another attempt may work. </p>
+<p><dl>
+<dt class="sig sig-object cpp">
+<em><span class="pre">Deprecated:</span></em></dt>
+<dd><p>I2c no longer uses this exception when another controller on the bus is currently performing a transaction. The new behavior is to wait for the bus to become available. <code class="docutils literal notranslate"><span class="pre">hal::io_waiter</span></code> can be used to get out of the <a class="reference internal" href="i2c.html#classhal_1_1i2c"><span class="std std-ref">i2c</span></a> if a deadline has been exceeded. There are no other interfaces for which this exception makes sense and thus an example describing when to use this and how to recover from it does not exist. Until such an example is found, this error type should not be thrown and should be considered deprecated. If such a use case becomes known, then this comment will be updated, deprecation notice will be removed, and this type can be used in those situations.</p>
+</dd></dl>
+
+</p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv">
+<span id="_CPPv3N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv"></span><span id="_CPPv2N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv"></span><span id="hal::resource_unavailable_try_again::resource_unavailable_try_again__voidCP"></span><span class="target" id="structhal_1_1resource__unavailable__try__again_1ae2d034e88de2fa42fdab345efc3aa850"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">resource_unavailable_try_again</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">p_instance</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">timed_out</span></a> exception. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_instance</strong> – - must point to the instance of the driver that threw this exception. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal23device_or_resource_busyE">
+<span id="_CPPv3N3hal23device_or_resource_busyE"></span><span id="_CPPv2N3hal23device_or_resource_busyE"></span><span id="hal::device_or_resource_busy"></span><span class="target" id="structhal_1_1device__or__resource__busy"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">device_or_resource_busy</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal23device_or_resource_busyE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when a hardware resource is in use and cannot be acquired. </p>
+<section id="structhal_1_1device__or__resource__busy_1autotoc_md5">
+<h3>When to Raise this<a class="headerlink" href="#structhal_1_1device__or__resource__busy_1autotoc_md5" title="Link to this heading">#</a></h3>
+<p id="structhal_1_1device__or__resource__busy_1autotoc_md5">This exception should be raised when application code attempts to construct or acquire a hardware resource that is already in use by another driver object.</p>
+</section>
+<section id="structhal_1_1device__or__resource__busy_1autotoc_md6">
+<h3>How to recover from this?<a class="headerlink" href="#structhal_1_1device__or__resource__busy_1autotoc_md6" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1device__or__resource__busy_1autotoc_md7">
+<span id="structhal_1_1device__or__resource__busy_1autotoc_md6"></span><h4>1. Use an alternative resource<a class="headerlink" href="#structhal_1_1device__or__resource__busy_1autotoc_md7" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1device__or__resource__busy_1autotoc_md7">If an alternative resource exists that the application an take advantage of, then the application can catch this exception and attempt to acquire the alternative resource.</p>
+<p>For example, consider <code class="docutils literal notranslate"><span class="pre">hal::can_identifier_filter</span></code> and <code class="docutils literal notranslate"><span class="pre">hal::can_mask_filter</span></code>. One could use a mask filter in place of an identifier filter. If an attempt to acquire an identifier filter fails, then the code could fallback to acquiring a mask filter.</p>
+</section>
+<section id="structhal_1_1device__or__resource__busy_1autotoc_md8">
+<h4>2. Otherwise, this is a runtime bug<a class="headerlink" href="#structhal_1_1device__or__resource__busy_1autotoc_md8" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1device__or__resource__busy_1autotoc_md8">If none of the above apply to your application, then this exception is considered a bug in the application. The application should handle this error as it would any other bugs in the application. </p>
+</section>
+</section>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal9timed_outE">
+<span id="_CPPv3N3hal9timed_outE"></span><span id="_CPPv2N3hal9timed_outE"></span><span id="hal::timed_out"></span><span class="target" id="structhal_1_1timed__out"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">timed_out</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal9timed_outE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when an operation reaches a deadline before completing. </p>
+<p>Time outs can be generated from time sources such as a <a class="reference internal" href="steady_clock.html#classhal_1_1steady__clock"><span class="std std-ref">hal::steady_clock</span></a> or <a class="reference internal" href="timer.html#classhal_1_1timer"><span class="std std-ref">hal::timer</span></a> as well as external sources such as an interrupt or input pin.</p>
+<p>NOTE: Do not throw exceptions in an interrupt context! Interrupts have priority over the entire scheduler and must be made to be as small as possible. If an interrupt is needed to signal a timeout, the interrupt should set a some flag, signal, semaphore etc that indicates to the application that something is done.</p>
+<section id="structhal_1_1timed__out_1autotoc_md9">
+<h3>How do to recover from this?<a class="headerlink" href="#structhal_1_1timed__out_1autotoc_md9" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1timed__out_1autotoc_md10">
+<span id="structhal_1_1timed__out_1autotoc_md9"></span><h4>1. Context Required<a class="headerlink" href="#structhal_1_1timed__out_1autotoc_md10" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1timed__out_1autotoc_md10">This entirely depends on your application. If a timeout is too small, it may not give calling code enough time to perform the operation. But in many cases, the meaning of a timeout depends on the operation that was called. The caller should have context for what a timeout means. If the calling function does not know how to handle a timeout with its level context, it should inform the developer via documentation that its functions can throw a <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">hal::timed_out</span></a> exception and what it means. </p>
+</section>
+</section>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal9timed_out9timed_outEPKv">
+<span id="_CPPv3N3hal9timed_out9timed_outEPKv"></span><span id="_CPPv2N3hal9timed_out9timed_outEPKv"></span><span id="hal::timed_out::timed_out__voidCP"></span><span class="target" id="structhal_1_1timed__out_1a91f0efb71ff385d1f317ebc9df6c763d"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">timed_out</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">p_instance</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal9timed_out9timed_outEPKv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structhal_1_1timed__out"><span class="std std-ref">timed_out</span></a> exception. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_instance</strong> – - must point to the instance of the driver timed out. If the timeout occurred from a free function, pass nullptr. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal23operation_not_supportedE">
+<span id="_CPPv3N3hal23operation_not_supportedE"></span><span id="_CPPv2N3hal23operation_not_supportedE"></span><span id="hal::operation_not_supported"></span><span class="target" id="structhal_1_1operation__not__supported"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">operation_not_supported</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal23operation_not_supportedE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised exclusively when a driver cannot configure itself based on the settings passed to it. </p>
+<section id="structhal_1_1operation__not__supported_1autotoc_md11">
+<h3>How do to recover from this?<a class="headerlink" href="#structhal_1_1operation__not__supported_1autotoc_md11" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1operation__not__supported_1autotoc_md12">
+<span id="structhal_1_1operation__not__supported_1autotoc_md11"></span><h4>1. Adjust settings at runtime if applicable<a class="headerlink" href="#structhal_1_1operation__not__supported_1autotoc_md12" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1operation__not__supported_1autotoc_md12">This option requires the settings for a driver to be fluid. In most cases, a configuration is a HARD requirement and cannot be simply adjusted to get the code to work. But in some cases, settings can be adjusted such as an spi clock rate. Most devices can deal with a wide range of clock rates for spi, so adjusting the clock rate could work if the application can handle this change as well.</p>
+</section>
+<section id="structhal_1_1operation__not__supported_1autotoc_md13">
+<h4>2. Else?<a class="headerlink" href="#structhal_1_1operation__not__supported_1autotoc_md13" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1operation__not__supported_1autotoc_md13">Normally, the configuration settings of an application are determined early at boot. So if a driver was expected to work with a specific setting such as a baud rate for <a class="reference internal" href="serial.html#classhal_1_1serial"><span class="std std-ref">hal::serial</span></a>, but it could not achieve that rate due to the peripheral clock rate being too low or an overall limitation on the hardware, then the application was never valid to begin with. This is then would be considered a bug and NOT RECOVERABLE. Either the code must be modified or the hardware changed to resolve this error.</p>
+</section>
+</section>
+<section id="structhal_1_1operation__not__supported_1autotoc_md14">
+<h3>How to Log this?<a class="headerlink" href="#structhal_1_1operation__not__supported_1autotoc_md14" title="Link to this heading">#</a></h3>
+<p id="structhal_1_1operation__not__supported_1autotoc_md14">Get the address of the offending object using the <code class="docutils literal notranslate"><a class="reference internal" href="#classhal_1_1exception_1ae5ab9168ba57e0a76efb8910ee956914"><span class="std std-ref"><span class="pre">instance()</span></span></a></code> function and compare it to the series of objects used within the try block and log a message for any object in the try that matches the instance address. If the settings are also accessible and within scope, that can be logged as well to inform a user of the application what went wrong and for what driver. </p>
+</section>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal23operation_not_supported23operation_not_supportedEPKv">
+<span id="_CPPv3N3hal23operation_not_supported23operation_not_supportedEPKv"></span><span id="_CPPv2N3hal23operation_not_supported23operation_not_supportedEPKv"></span><span id="hal::operation_not_supported::operation_not_supported__voidCP"></span><span class="target" id="structhal_1_1operation__not__supported_1a328e5086b8b3fcc38b5deaed754974ec"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">operation_not_supported</span></span></span><span class="sig-paren">(</span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">*</span></span><span class="n sig-param"><span class="pre">p_instance</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal23operation_not_supported23operation_not_supportedEPKv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Construct a new <a class="reference internal" href="#structhal_1_1operation__not__supported"><span class="std std-ref">operation_not_supported</span></a> exception. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_instance</strong> – - must point to the instance of the driver that could not be configured with the configuration settings passed to it. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal23operation_not_permittedE">
+<span id="_CPPv3N3hal23operation_not_permittedE"></span><span id="_CPPv2N3hal23operation_not_permittedE"></span><span id="hal::operation_not_permitted"></span><span class="target" id="structhal_1_1operation__not__permitted"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">operation_not_permitted</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal23operation_not_permittedE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when an operation could not be performed because it is no longer permitted to use a resource. </p>
+<section id="structhal_1_1operation__not__permitted_1autotoc_md15">
+<h3>How do to recover from this?<a class="headerlink" href="#structhal_1_1operation__not__permitted_1autotoc_md15" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1operation__not__permitted_1autotoc_md16">
+<span id="structhal_1_1operation__not__permitted_1autotoc_md15"></span><h4>1. hal::can<a class="headerlink" href="#structhal_1_1operation__not__permitted_1autotoc_md16" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1operation__not__permitted_1autotoc_md16">See the API docs for <code class="docutils literal notranslate"><a class="reference internal" href="can.html#classhal_1_1can_1a2c6d5d0762493074dfc9d8e2089b5172"><span class="std std-ref"><span class="pre">hal::can::bus_on()</span></span></a></code> and <code class="docutils literal notranslate"><a class="reference internal" href="can.html#classhal_1_1can_1a4c18508d28a693894810cf3d8e27d6c6"><span class="std std-ref"><span class="pre">hal::can::send()</span></span></a></code> for details on how to recover from this. It will explain in detail how to recover from this situation.</p>
+</section>
+<section id="structhal_1_1operation__not__permitted_1autotoc_md17">
+<h4>2. Else?<a class="headerlink" href="#structhal_1_1operation__not__permitted_1autotoc_md17" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1operation__not__permitted_1autotoc_md17">This would be context specific and the API that throws this error should explain why the operation is not permitted and how to allow the operation to become permitted. </p>
+</section>
+</section>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal22argument_out_of_domainE">
+<span id="_CPPv3N3hal22argument_out_of_domainE"></span><span id="_CPPv2N3hal22argument_out_of_domainE"></span><span id="hal::argument_out_of_domain"></span><span class="target" id="structhal_1_1argument__out__of__domain"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">argument_out_of_domain</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal22argument_out_of_domainE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when an input passed to a function is outside the domain of the function. </p>
+<p>Thrown by interfaces and drivers with necessarily unbounded inputs. For example, <a class="reference internal" href="servo.html#classhal_1_1servo"><span class="std std-ref">hal::servo</span></a> takes a position variable centered at a zero position. A servo will have a bounded range. But servos also have a variety of possible ranges and thus the interface must allow for an unbounded set of input positions. When an input position is given that exceeds what the servo can perform, it raises this exception.</p>
+<section id="structhal_1_1argument__out__of__domain_1autotoc_md18">
+<h3>How to recover from this?<a class="headerlink" href="#structhal_1_1argument__out__of__domain_1autotoc_md18" title="Link to this heading">#</a></h3>
+<p id="structhal_1_1argument__out__of__domain_1autotoc_md18">TBD: but in most cases this is a bug in the application and not recoverable. In general, this is only recoverable if an application is trying to determine the bounds of a servo. </p>
+</section>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal12message_sizeE">
+<span id="_CPPv3N3hal12message_sizeE"></span><span id="_CPPv2N3hal12message_sizeE"></span><span id="hal::message_size"></span><span class="target" id="structhal_1_1message__size"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">message_size</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal12message_sizeE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when a message, packet, or payload is greater than what can be sent. </p>
+<section id="structhal_1_1message__size_1autotoc_md19">
+<h3>How do to recover from this?<a class="headerlink" href="#structhal_1_1message__size_1autotoc_md19" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1message__size_1autotoc_md20">
+<span id="structhal_1_1message__size_1autotoc_md19"></span><h4>Attempt Largest Packet Size, Trim &amp; Retry<a class="headerlink" href="#structhal_1_1message__size_1autotoc_md20" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1message__size_1autotoc_md20">This error can be recovered from by catching the exception and using the <code class="docutils literal notranslate"><span class="pre">max_size</span></code> field to split your packets into smaller chunks and then calling the API with each chunk in order.</p>
+<p>A good policy for using libhal libraries is to ask for forgiveness not permission. Meaning attempt to send the greatest amount of data at once and see if you can get away with it. Wrap such calls to send/transfer like APIs with a catch for this exception type and use it to determine the new largest packet size to send. </p>
+</section>
+</section>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal13not_connectedE">
+<span id="_CPPv3N3hal13not_connectedE"></span><span id="_CPPv2N3hal13not_connectedE"></span><span id="hal::not_connected"></span><span class="target" id="structhal_1_1not__connected"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">not_connected</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal13not_connectedE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when an operation is attempted on an unestablished connection. </p>
+<p>This error is typically encountered in network programming, serial communication, or other contexts where a logical or physical connection is required before communication can occur. It signifies that the connection expected for the operation is not currently established.</p>
+<section id="structhal_1_1not__connected_1autotoc_md21">
+<h3>How to recover from this?<a class="headerlink" href="#structhal_1_1not__connected_1autotoc_md21" title="Link to this heading">#</a></h3>
+<section id="structhal_1_1not__connected_1autotoc_md22">
+<span id="structhal_1_1not__connected_1autotoc_md21"></span><h4>Check Connection Status, Re-establish &amp; Retry<a class="headerlink" href="#structhal_1_1not__connected_1autotoc_md22" title="Link to this heading">#</a></h4>
+<p id="structhal_1_1not__connected_1autotoc_md22">Recovery from this error involves ensuring that the connection has been successfully established before retrying the operation. This might include:</p>
+<p><ul class="simple">
+<li><p>Checking the connection status through appropriate API calls.</p></li>
+<li><p>Attempting to re-establish the connection using the connection setup or initialization function.</p></li>
+<li><p>Once the connection is confirmed or successfully re-established, retry the failed operation.</p></li>
+</ul>
+</p>
+<p>It’s advisable to implement a robust error handling mechanism that includes connection status checks, retries with exponential backoff, and clear feedback to the user or system when a connection cannot be established within a reasonable amount of attempts. </p>
+</section>
+</section>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal7unknownE">
+<span id="_CPPv3N3hal7unknownE"></span><span id="_CPPv2N3hal7unknownE"></span><span id="hal::unknown"></span><span class="target" id="structhal_1_1unknown"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">unknown</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><a class="reference internal" href="#_CPPv4N3hal9exceptionE" title="hal::exception"><span class="n"><span class="pre">exception</span></span></a><a class="headerlink" href="#_CPPv4N3hal7unknownE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Raised when the error does not match any known or expected error from a device or system. </p>
+<p>This error should ONLY be used when a system returns an error code that is not apart of a defined list of expected errors. For example, lets consider a C api that returns an int from 0 to 5 and each is mapped to a specific error. Now lets consider that the API is called and the number 18375 is returned. In this case, this is an unknown error value and thus this exception can be thrown.</p>
+<p>If this is not the case, use any other <a class="reference internal" href="#classhal_1_1exception"><span class="std std-ref">hal::exception</span></a> that fits. </p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal5errorE">
+<span id="_CPPv3N3hal5errorE"></span><span id="_CPPv2N3hal5errorE"></span><span id="hal::error"></span><span class="target" id="namespacehal_1_1error"></span><span class="k"><span class="pre">namespace</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">error</span></span></span><a class="headerlink" href="#_CPPv4N3hal5errorE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Error objects, templates, and constants. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-variables">Variables</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4I_DpDaEN3hal5error14invalid_optionE">
+<span id="_CPPv3I_DpDaEN3hal5error14invalid_optionE"></span><span id="_CPPv2I_DpDaEN3hal5error14invalid_optionE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">auto</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">options</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="namespacehal_1_1error_1a151ae365408ad61b9f503cd1047ec39d"></span><span class="k"><span class="pre">constexpr</span></span><span class="w"> </span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invalid_option</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><a class="reference internal" href="#_CPPv4I_DpDaEN3hal5error16invalid_option_tE" title="hal::error::invalid_option_t"><span class="n"><span class="pre">invalid_option_t</span></span></a><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4I_DpDaEN3hal5error14invalid_optionE" title="hal::error::invalid_option::options"><span class="n"><span class="pre">options</span></span></a><span class="p"><span class="pre">...</span></span><span class="p"><span class="pre">&gt;</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">value</span></span><a class="headerlink" href="#_CPPv4I_DpDaEN3hal5error14invalid_optionE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Helper definition to simplify the usage of <a class="reference internal" href="#structhal_1_1error_1_1invalid__option__t"><span class="std std-ref">invalid_option_t</span></a>. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>options</strong> – ignored by the application but needed to create a non-trivial specialization of this class which allows its usage in static_assert. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4I_DpDaEN3hal5error16invalid_option_tE">
+<span id="_CPPv3I_DpDaEN3hal5error16invalid_option_tE"></span><span id="_CPPv2I_DpDaEN3hal5error16invalid_option_tE"></span><span class="k"><span class="pre">template</span></span><span class="p"><span class="pre">&lt;</span></span><span class="kt"><span class="pre">auto</span></span><span class="p"><span class="pre">...</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">options</span></span></span><span class="p"><span class="pre">&gt;</span></span><br /><span class="target" id="structhal_1_1error_1_1invalid__option__t"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">invalid_option_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="k"><span class="pre">public</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">false_type</span></span><a class="headerlink" href="#_CPPv4I_DpDaEN3hal5error16invalid_option_tE" title="Link to this definition">#</a><br /></dt>
+<dd><div class="docutils container">
+<em>#include &lt;error.hpp&gt;</em></div>
+<p>Used for defining static_asserts that should always fail, but only if the static_assert line is hit via <code class="docutils literal notranslate"><span class="pre">if</span> <span class="pre">constexpr</span></code> control block. Prefer to NOT use this directly but to use <code class="docutils literal notranslate"><span class="pre">invalid_option</span></code> instead. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Template Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>options</strong> – ignored by the application but needed to create a non-trivial specialization of this class which allows its usage in static_assert. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="distance_sensor.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Distance Sensor</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="functional.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Functional</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#documentation">Documentation</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4I0E10safe_throwvRR8thrown_t"><code class="docutils literal notranslate"><span class="pre">safe_throw()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal9exceptionE"><code class="docutils literal notranslate"><span class="pre">hal::exception</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK3hal9exception8instanceEv"><code class="docutils literal notranslate"><span class="pre">instance()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK3hal9exception10error_codeEv"><code class="docutils literal notranslate"><span class="pre">error_code()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal14no_such_deviceE"><code class="docutils literal notranslate"><span class="pre">hal::no_such_device</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal14no_such_device14no_such_deviceE3u32PKv"><code class="docutils literal notranslate"><span class="pre">no_such_device()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal8io_errorE"><code class="docutils literal notranslate"><span class="pre">hal::io_error</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal8io_error8io_errorEPKv"><code class="docutils literal notranslate"><span class="pre">io_error()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal30resource_unavailable_try_againE"><code class="docutils literal notranslate"><span class="pre">hal::resource_unavailable_try_again</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv"><code class="docutils literal notranslate"><span class="pre">resource_unavailable_try_again()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal23device_or_resource_busyE"><code class="docutils literal notranslate"><span class="pre">hal::device_or_resource_busy</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal9timed_outE"><code class="docutils literal notranslate"><span class="pre">hal::timed_out</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal9timed_out9timed_outEPKv"><code class="docutils literal notranslate"><span class="pre">timed_out()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal23operation_not_supportedE"><code class="docutils literal notranslate"><span class="pre">hal::operation_not_supported</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal23operation_not_supported23operation_not_supportedEPKv"><code class="docutils literal notranslate"><span class="pre">operation_not_supported()</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal23operation_not_permittedE"><code class="docutils literal notranslate"><span class="pre">hal::operation_not_permitted</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal22argument_out_of_domainE"><code class="docutils literal notranslate"><span class="pre">hal::argument_out_of_domain</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal12message_sizeE"><code class="docutils literal notranslate"><span class="pre">hal::message_size</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal13not_connectedE"><code class="docutils literal notranslate"><span class="pre">hal::not_connected</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal7unknownE"><code class="docutils literal notranslate"><span class="pre">hal::unknown</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal5errorE"><code class="docutils literal notranslate"><span class="pre">hal::error</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4I_DpDaEN3hal5error14invalid_optionE"><code class="docutils literal notranslate"><span class="pre">invalid_option</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4I_DpDaEN3hal5error16invalid_option_tE"><code class="docutils literal notranslate"><span class="pre">hal::error::invalid_option_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/libhal/error.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
