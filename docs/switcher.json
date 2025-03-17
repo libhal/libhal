@@ -7,7 +7,7 @@
   {
     "name": "4.10",
     "version": "4.10",
-    "preferred": "4.10",
+    "preferred": true,
     "url": "https://libhal.github.io/libhal/api/4.10/"
   }
 ]
