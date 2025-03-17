@@ -6,8 +6,7 @@
   },
   {
     "name": "stable",
-    "version": "4.10",
-    "preferred": true,
-    "url": "https://libhal.github.io/libhal/api/4.10/"
+    "version": "4.10.0",
+    "url": "https://libhal.github.io/libhal/api/4.10.0/"
   }
 ]
