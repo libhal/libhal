@@ -1,0 +1,742 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="./" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>libhal API documentation &#8212; libhal  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="_static/extra.css?v=2ded0ca0" />
+    <link rel="stylesheet" type="text/css" href="_static/extra.css?v=2ded0ca0" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'index';</script>
+    <link rel="icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="libhal Hardware Interface API Documentation" href="libhal/index.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="#">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="_static/logo.png" class="logo__image only-light" alt="libhal  documentation - Home"/>
+    <img src="_static/logo.png" class="logo__image only-dark pst-js-only" alt="libhal  documentation - Home"/>
+  
+  
+</a></div>
+    
+      <div class="navbar-item">
+<nav class="navbar-nav">
+    <p class="sidebar-header-items__title" role="heading" aria-level="2" aria-label="Site Navigation">
+    </p>
+    <ul class="bd-navbar-elements navbar-nav">
+        <li class="nav-item dropdown">
+            <button class="btn dropdown-toggle nav-item" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                Guides
+            </button>
+            <ul id="pst-nav-more-links" class="dropdown-menu">
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external" href=/>
+                        🏡 Introduction
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external" href="/getting_started/">
+                        🚀 Getting Started
+                    </a>
+                </li>
+
+                <li class=" nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/user_guide/fundamentals">
+                        📖 User Guide
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/contributor_guide/philosophy">
+                        📚 Contributor Guides
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a class="nav-link dropdown-item nav-external"
+                        href="/project_information/status">
+                        📊 Project Information
+                    </a>
+                </li>
+
+            </ul>
+        </li>
+    </ul>
+</nav></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="libhal/index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="libhal/index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none"></div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="libhal-api-documentation">
+<h1>libhal API documentation<a class="headerlink" href="#libhal-api-documentation" title="Link to this heading">#</a></h1>
+<a class="reference internal image-reference" href="_images/logo.png"><img alt="libhal logo" class="align-center" src="_images/logo.png" style="width: 200px;" />
+</a>
+<p><strong>Welcome to libhal API documentation</strong></p>
+<p>Here you will find an organized list of the interfaces used in libhal.
+This includes soft drivers which are drivers that are not tied to specific
+hardware. This will also include utility functions.</p>
+<div class="toctree-wrapper compound">
+<p aria-level="2" class="caption" role="heading"><span class="caption-text">libhal Docs</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="libhal/index.html">Libhal Interfaces</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="libhal/accelerometer.html">Accelerometer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/accelerometer.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/accelerometer.html#_CPPv4N3hal13accelerometerE"><code class="docutils literal notranslate"><span class="pre">hal::accelerometer</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/accelerometer.html#_CPPv4N3hal13accelerometer4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/accelerometer.html#_CPPv4N3hal13accelerometer6read_tE"><code class="docutils literal notranslate"><span class="pre">hal::accelerometer::read_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/adc.html">Analog Digital Converter (ADC)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/adc.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/adc.html#_CPPv4N3hal3adcE"><code class="docutils literal notranslate"><span class="pre">hal::adc</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/adc.html#_CPPv4N3hal3adc4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/angular_velocity_sensor.html">Angular Velocity Sensor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/angular_velocity_sensor.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/angular_velocity_sensor.html#_CPPv4N3hal23angular_velocity_sensorE"><code class="docutils literal notranslate"><span class="pre">hal::angular_velocity_sensor</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/angular_velocity_sensor.html#_CPPv4N3hal23angular_velocity_sensor4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/can.html">Controlled Area Network (CAN)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/can.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3canE"><code class="docutils literal notranslate"><span class="pre">hal::can</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can4id_tE"><code class="docutils literal notranslate"><span class="pre">id_t</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can7handlerE"><code class="docutils literal notranslate"><span class="pre">handler</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can6bus_onEv"><code class="docutils literal notranslate"><span class="pre">bus_on()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can4sendERK9message_t"><code class="docutils literal notranslate"><span class="pre">send()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can10on_receiveEN3hal8callbackI7handlerEE"><code class="docutils literal notranslate"><span class="pre">on_receive()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can9message_tE"><code class="docutils literal notranslate"><span class="pre">hal::can::message_t</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/can.html#_CPPv4N3hal3can8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::can::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/dac.html">Digital Analog Converter (DAC)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/dac.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/dac.html#_CPPv4N3hal3dacE"><code class="docutils literal notranslate"><span class="pre">hal::dac</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/dac.html#_CPPv4N3hal3dac5writeEf"><code class="docutils literal notranslate"><span class="pre">write()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/distance_sensor.html">Distance Sensor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/distance_sensor.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/distance_sensor.html#_CPPv4N3hal15distance_sensorE"><code class="docutils literal notranslate"><span class="pre">hal::distance_sensor</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/distance_sensor.html#_CPPv4N3hal15distance_sensor4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/error.html">Error</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/error.html#documentation">Documentation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4I0E10safe_throwvRR8thrown_t"><code class="docutils literal notranslate"><span class="pre">safe_throw()</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal9exceptionE"><code class="docutils literal notranslate"><span class="pre">hal::exception</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4NK3hal9exception8instanceEv"><code class="docutils literal notranslate"><span class="pre">instance()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4NK3hal9exception10error_codeEv"><code class="docutils literal notranslate"><span class="pre">error_code()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal14no_such_deviceE"><code class="docutils literal notranslate"><span class="pre">hal::no_such_device</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal14no_such_device14no_such_deviceE3u32PKv"><code class="docutils literal notranslate"><span class="pre">no_such_device()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal8io_errorE"><code class="docutils literal notranslate"><span class="pre">hal::io_error</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal8io_error8io_errorEPKv"><code class="docutils literal notranslate"><span class="pre">io_error()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal30resource_unavailable_try_againE"><code class="docutils literal notranslate"><span class="pre">hal::resource_unavailable_try_again</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal30resource_unavailable_try_again30resource_unavailable_try_againEPKv"><code class="docutils literal notranslate"><span class="pre">resource_unavailable_try_again()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal23device_or_resource_busyE"><code class="docutils literal notranslate"><span class="pre">hal::device_or_resource_busy</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal9timed_outE"><code class="docutils literal notranslate"><span class="pre">hal::timed_out</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal9timed_out9timed_outEPKv"><code class="docutils literal notranslate"><span class="pre">timed_out()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal23operation_not_supportedE"><code class="docutils literal notranslate"><span class="pre">hal::operation_not_supported</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal23operation_not_supported23operation_not_supportedEPKv"><code class="docutils literal notranslate"><span class="pre">operation_not_supported()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal23operation_not_permittedE"><code class="docutils literal notranslate"><span class="pre">hal::operation_not_permitted</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal22argument_out_of_domainE"><code class="docutils literal notranslate"><span class="pre">hal::argument_out_of_domain</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal12message_sizeE"><code class="docutils literal notranslate"><span class="pre">hal::message_size</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal13not_connectedE"><code class="docutils literal notranslate"><span class="pre">hal::not_connected</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal7unknownE"><code class="docutils literal notranslate"><span class="pre">hal::unknown</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/error.html#_CPPv4N3hal5errorE"><code class="docutils literal notranslate"><span class="pre">hal::error</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4I_DpDaEN3hal5error14invalid_optionE"><code class="docutils literal notranslate"><span class="pre">invalid_option</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/error.html#_CPPv4I_DpDaEN3hal5error16invalid_option_tE"><code class="docutils literal notranslate"><span class="pre">hal::error::invalid_option_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/functional.html">Functional</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/functional.html#documentation">Documentation</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/functional.html#_CPPv4I0E12function_ref"><code class="docutils literal notranslate"><span class="pre">function_ref</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/functional.html#_CPPv4I0_6size_tE16inplace_function"><code class="docutils literal notranslate"><span class="pre">inplace_function</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/functional.html#_CPPv4I0E8callback"><code class="docutils literal notranslate"><span class="pre">callback</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/gyroscope.html">Gyroscope</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/gyroscope.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/gyroscope.html#_CPPv4N3hal9gyroscopeE"><code class="docutils literal notranslate"><span class="pre">hal::gyroscope</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/gyroscope.html#_CPPv4N3hal9gyroscope4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/gyroscope.html#_CPPv4N3hal9gyroscope6read_tE"><code class="docutils literal notranslate"><span class="pre">hal::gyroscope::read_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/i2c.html">Inter-integrated Circuit (I2C)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/i2c.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/i2c.html#_CPPv4N3hal3i2cE"><code class="docutils literal notranslate"><span class="pre">hal::i2c</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/i2c.html#_CPPv4N3hal3i2c9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/i2c.html#_CPPv4N3hal3i2c11transactionEN3hal4byteENSt4spanIKN3hal4byteEEENSt4spanIN3hal4byteEEE"><code class="docutils literal notranslate"><span class="pre">transaction()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/i2c.html#_CPPv4N3hal3i2c11transactionEN3hal4byteENSt4spanIKN3hal4byteEEENSt4spanIN3hal4byteEEEN3hal12function_refIN3hal16timeout_functionEEE"><code class="docutils literal notranslate"><span class="pre">transaction()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/i2c.html#_CPPv4N3hal3i2c8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::i2c::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/input_pin.html">Input Pin</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/input_pin.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/input_pin.html#_CPPv4N3hal9input_pinE"><code class="docutils literal notranslate"><span class="pre">hal::input_pin</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/input_pin.html#_CPPv4N3hal9input_pin9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/input_pin.html#_CPPv4N3hal9input_pin5levelEv"><code class="docutils literal notranslate"><span class="pre">level()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/input_pin.html#_CPPv4N3hal9input_pin8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::input_pin::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/interrupt_pin.html">Interrupt Pin</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/interrupt_pin.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pinE"><code class="docutils literal notranslate"><span class="pre">hal::interrupt_pin</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pin12trigger_edgeE"><code class="docutils literal notranslate"><span class="pre">trigger_edge</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pin7handlerE"><code class="docutils literal notranslate"><span class="pre">handler</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pin9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pin10on_triggerEN3hal8callbackI7handlerEE"><code class="docutils literal notranslate"><span class="pre">on_trigger()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/interrupt_pin.html#_CPPv4N3hal13interrupt_pin8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::interrupt_pin::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/magnetometer.html">Magnetometer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/magnetometer.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/magnetometer.html#_CPPv4N3hal12magnetometerE"><code class="docutils literal notranslate"><span class="pre">hal::magnetometer</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/magnetometer.html#_CPPv4N3hal12magnetometer4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/magnetometer.html#_CPPv4N3hal12magnetometer6read_tE"><code class="docutils literal notranslate"><span class="pre">hal::magnetometer::read_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/motor.html">Motor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/motor.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/motor.html#_CPPv4N3hal5motorE"><code class="docutils literal notranslate"><span class="pre">hal::motor</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/motor.html#_CPPv4N3hal5motor5powerEf"><code class="docutils literal notranslate"><span class="pre">power()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/output_pin.html">Output Pin</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/output_pin.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/output_pin.html#_CPPv4N3hal10output_pinE"><code class="docutils literal notranslate"><span class="pre">hal::output_pin</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/output_pin.html#_CPPv4N3hal10output_pin9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/output_pin.html#_CPPv4N3hal10output_pin5levelEb"><code class="docutils literal notranslate"><span class="pre">level()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/output_pin.html#_CPPv4N3hal10output_pin5levelEv"><code class="docutils literal notranslate"><span class="pre">level()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/output_pin.html#_CPPv4N3hal10output_pin8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::output_pin::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/pwm.html">Pulse Width Modulation (PWM)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/pwm.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/pwm.html#_CPPv4N3hal3pwmE"><code class="docutils literal notranslate"><span class="pre">hal::pwm</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/pwm.html#_CPPv4N3hal3pwm9frequencyE5hertz"><code class="docutils literal notranslate"><span class="pre">frequency()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/pwm.html#_CPPv4N3hal3pwm10duty_cycleEf"><code class="docutils literal notranslate"><span class="pre">duty_cycle()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/rotation_sensor.html">Rotational Sensor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/rotation_sensor.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/rotation_sensor.html#_CPPv4N3hal15rotation_sensorE"><code class="docutils literal notranslate"><span class="pre">hal::rotation_sensor</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/rotation_sensor.html#_CPPv4N3hal15rotation_sensor4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/rotation_sensor.html#_CPPv4N3hal15rotation_sensor6read_tE"><code class="docutils literal notranslate"><span class="pre">hal::rotation_sensor::read_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/serial.html">Serial</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/serial.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serialE"><code class="docutils literal notranslate"><span class="pre">hal::serial</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial5writeENSt4spanIK4byteEE"><code class="docutils literal notranslate"><span class="pre">write()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial4readENSt4spanI4byteEE"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial5flushEv"><code class="docutils literal notranslate"><span class="pre">flush()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial6read_tE"><code class="docutils literal notranslate"><span class="pre">hal::serial::read_t</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::serial::settings</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/serial.html#_CPPv4N3hal6serial7write_tE"><code class="docutils literal notranslate"><span class="pre">hal::serial::write_t</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/servo.html">Servo</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/servo.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/servo.html#_CPPv4N3hal5servoE"><code class="docutils literal notranslate"><span class="pre">hal::servo</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/servo.html#_CPPv4N3hal5servo8positionEN3hal7degreesE"><code class="docutils literal notranslate"><span class="pre">position()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/spi.html">Serial Peripheral Interface (SPI)</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/spi.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/spi.html#_CPPv4N3hal3spiE"><code class="docutils literal notranslate"><span class="pre">hal::spi</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/spi.html#_CPPv4N3hal3spi9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/spi.html#_CPPv4N3hal3spi8transferENSt4spanIK4byteEENSt4spanI4byteEEN3hal4byteE"><code class="docutils literal notranslate"><span class="pre">transfer()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/spi.html#_CPPv4N3hal3spi14default_fillerE"><code class="docutils literal notranslate"><span class="pre">default_filler</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/spi.html#_CPPv4N3hal3spi8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::spi::settings</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/steady_clock.html">Steady Clock</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/steady_clock.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/steady_clock.html#_CPPv4N3hal12steady_clockE"><code class="docutils literal notranslate"><span class="pre">hal::steady_clock</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/steady_clock.html#_CPPv4N3hal12steady_clock9frequencyEv"><code class="docutils literal notranslate"><span class="pre">frequency()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/steady_clock.html#_CPPv4N3hal12steady_clock6uptimeEv"><code class="docutils literal notranslate"><span class="pre">uptime()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/temperature_sensor.html">Temperature Sensor</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/temperature_sensor.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/temperature_sensor.html#_CPPv4N3hal18temperature_sensorE"><code class="docutils literal notranslate"><span class="pre">hal::temperature_sensor</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/temperature_sensor.html#_CPPv4N3hal18temperature_sensor4readEv"><code class="docutils literal notranslate"><span class="pre">read()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/timeout.html">Timeout</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/timeout.html#core-functionality">Core Functionality</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/timeout.html#_CPPv416timeout_function"><code class="docutils literal notranslate"><span class="pre">timeout_function</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/timeout.html#_CPPv413work_function"><code class="docutils literal notranslate"><span class="pre">work_function</span></code></a></li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/timeout.html#_CPPv410work_state"><code class="docutils literal notranslate"><span class="pre">work_state</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timeout.html#_CPPv4N10work_state11in_progressE"><code class="docutils literal notranslate"><span class="pre">in_progress</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timeout.html#_CPPv4N10work_state6failedE"><code class="docutils literal notranslate"><span class="pre">failed</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timeout.html#_CPPv4N10work_state8finishedE"><code class="docutils literal notranslate"><span class="pre">finished</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l4"><a class="reference internal" href="libhal/timeout.html#_CPPv413never_timeoutv"><code class="docutils literal notranslate"><span class="pre">never_timeout()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/timer.html">Timer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/timer.html#hardware-interface">Hardware Interface</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="libhal/timer.html#_CPPv4N3hal5timerE"><code class="docutils literal notranslate"><span class="pre">hal::timer</span></code></a><ul>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timer.html#_CPPv4N3hal5timer10is_runningEv"><code class="docutils literal notranslate"><span class="pre">is_running()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timer.html#_CPPv4N3hal5timer6cancelEv"><code class="docutils literal notranslate"><span class="pre">cancel()</span></code></a></li>
+<li class="toctree-l5"><a class="reference internal" href="libhal/timer.html#_CPPv4N3hal5timer8scheduleEN3hal8callbackIFvvEEEN3hal13time_durationE"><code class="docutils literal notranslate"><span class="pre">schedule()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="libhal/units.html">Units</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="libhal/units.html#core-functionality">Core Functionality</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="right-next"
+       href="libhal/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">libhal Hardware Interface API Documentation</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/index.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
