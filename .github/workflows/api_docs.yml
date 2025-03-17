@@ -28,8 +28,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          ref: ${{ github.ref_name }}
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
