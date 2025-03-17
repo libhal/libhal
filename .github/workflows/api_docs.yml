@@ -24,16 +24,12 @@ on:
 
 permissions:
   contents: write
-env:
-  CURRENT_VERSION: "4.10"
-  PRODUCTION: true
 
 jobs:
   api_docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: git fetch origin gh-pages --depth=1
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
@@ -43,17 +39,6 @@ jobs:
       - run: git config user.email ci-bot@example.com
 
       - run: rm -rf sphinx/doxygen
-      - run: rm -rf sphinx/html
       - run: mkdir sphinx/doxygen
-      - run: mkdir sphinx/html
       - run: doxygen Doxyfile
-      - run: sphinx-build -b html sphinx html
-
-      - run: mike delete -b gh-pages $CURRENT_VERSION
-        continue-on-error: true
-      - run: mike deploy -b gh-pages $CURRENT_VERSION
-      - run: mike set-default -b gh-pages $CURRENT_VERSION
-
-      - name: 📥 Deploy version'd API docs
-        if: ${{ inputs.version != ''}}
-        run: mike deploy -b gh-pages --push --update-aliases $CURRENT_VERSION latest
+      - run: sphinx-build -b html sphinx docs/api/latest
