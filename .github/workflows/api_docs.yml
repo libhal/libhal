@@ -15,7 +15,6 @@
 name: 📚 Deploy APIs
 
 on:
-  workflow_call:
   workflow_dispatch:
   release:
     types: [published]
@@ -51,6 +50,15 @@ jobs:
         with:
           name: "api_files"
           path: "docs/api/"
+
+      # Enter `docs/`
+      - run: cd docs/
+      - run: wget https://raw.githubusercontent.com/libhal/ci/refs/heads/main/scripts/add_version_to_switcher.py
+      - run: add_version_to_switcher.py ${{ github.ref_name }}
+      - run: rm add_version_to_switcher.py
+      - run: cd ..
+      # Exit `docs/`
+
       - run: git config user.name ci-bot
       - run: git config user.email ci-bot@example.com
       - run: git add .
