@@ -54,7 +54,7 @@ jobs:
       # Enter `docs/`
       - run: cd docs/
       - run: wget https://raw.githubusercontent.com/libhal/ci/refs/heads/main/scripts/add_version_to_switcher.py
-      - run: add_version_to_switcher.py ${{ github.ref_name }}
+      - run: python3 add_version_to_switcher.py ${{ github.ref_name }}
       - run: rm add_version_to_switcher.py
       - run: cd ..
       # Exit `docs/`
