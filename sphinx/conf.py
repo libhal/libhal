@@ -1,33 +1,29 @@
 from sphinx.application import Sphinx
 import os
 
+if not os.environ.get('LIBHAL_API_VERSION'):
+    print("\nEnvironment variable 'LIBHAL_API_VERSION' must be set!")
+    exit(1)
+
 html_theme = 'pydata_sphinx_theme'
 html_theme_options = {
-    "navbar_start": ["navbar-logo", "guide_links"],
+    "navbar_start": ["navbar-logo", "guide_links", "version-switcher"],
     "navbar_center": ["navbar-nav"],
     "navbar_end": ["navbar-icon-links"],
     "navbar_persistent": ["search-button-field", "theme-switcher"],
-    "header_links_before_dropdown": 3
+    "header_links_before_dropdown": 3,
+    "switcher": {
+        "json_url": "https://libhal.github.io/libhal/switcher.json",
+        "version_match": os.environ.get('LIBHAL_API_VERSION'),
+    },
+    "check_switcher": False,
 }
 
 extensions = ["breathe", "myst_parser"]
 
 
-def generate_back_uri():
-    if not os.environ.get('PRODUCTION') or not os.environ.get('CURRENT_VERSION'):
-        return "/"
-
-    uri = "/" + os.environ['CURRENT_VERSION'] + "/"
-    return uri
-
-
 def setup(app: Sphinx):
     app.add_css_file("extra.css")
-    app.connect('builder-inited', inject_custom_function)
-
-
-def inject_custom_function(app: Sphinx):
-    app.builder.templates.environment.globals['generate_back_uri'] = generate_back_uri
 
 
 html_css_files = [
