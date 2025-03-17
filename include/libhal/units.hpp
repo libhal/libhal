@@ -83,7 +83,7 @@ using gauss = float;
  * used.
  *
  */
-enum class pin_resistor
+enum class pin_resistor  // NOLINT(performance-enum-size)
 {
   /// No pull up. This will cause the pin to float. This may be desirable if the
   /// pin has an external resistor attached or if the signal is sensitive to

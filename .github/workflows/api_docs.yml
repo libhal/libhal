@@ -1,0 +1,66 @@
+# Copyright 2024 Khalil Estell
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 📚 Deploy APIs
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  generate_api_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - run: sudo apt install doxygen
+      - run: pip install -r sphinx/requirements.txt
+      - run: doxygen Doxyfile
+      - run: LIBHAL_API_VERSION=${{ github.ref_name }} sphinx-build -b html sphinx docs/api/${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "api_files"
+          path: "docs/api/"
+
+  publish_api_docs:
+    needs: [generate_api_docs]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: gh-pages
+      - uses: actions/download-artifact@v4
+        with:
+          name: "api_files"
+          path: "docs/api/"
+
+      # Enter `docs/`
+      - run: cd docs/
+      - run: wget https://raw.githubusercontent.com/libhal/ci/refs/heads/main/scripts/add_version_to_switcher.py
+      - run: add_version_to_switcher.py ${{ github.ref_name }}
+      - run: rm add_version_to_switcher.py
+      - run: cd ..
+      # Exit `docs/`
+
+      - run: git config user.name ci-bot
+      - run: git config user.email ci-bot@example.com
+      - run: git add .
+      - run: git commit -m "API Docs for version ${{ github.ref_name }}"
+      - run: git push origin gh-pages

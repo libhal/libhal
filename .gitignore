@@ -58,3 +58,9 @@ conanbuildinfo.txt
 # CMake
 CMakeUserPresets.json
 
+# Python Virtual
+.venv/
+.env/
+
+# Doxygen
+*/doxygen/*

@@ -1,0 +1,62 @@
+h1 {
+    color: orange;
+    font-size: 2em;
+}
+
+
+/* anything related to the dark theme */
+html[data-theme="dark"] {
+
+    /* whatever you want to change */
+    img {
+        background: transparent !important;
+    }
+}
+
+html[data-theme="light"] {
+
+    /* whatever you want to change */
+    img {
+        background: transparent !important;
+    }
+
+
+}
+
+.md-typeset h2 {
+    font-size: 1.5em;
+}
+
+a code {
+    color: #2980B9;
+}
+
+a:hover code {
+    color: #3091d1;
+}
+
+a:visited code {
+    color: #9B59B6;
+}
+
+.md-header__topic {
+    font-size: 1.6em;
+    font-weight: 100 !important;
+}
+
+.md-logo {
+    margin: 0px !important;
+    padding: 0px !important;
+}
+
+.md-logo img {
+    height: 2.2rem !important;
+}
+
+.md-tabs__link {
+    font-size: .8rem !important;
+}
+
+.wy-nav-content {
+    max-width: none;
+}

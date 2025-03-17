@@ -98,11 +98,14 @@ public:
      *
      * CAN Bit Quanta Timing Diagram of:
      *
+     * ```
+     *
      *                               | <--- sjw ---> |
      *         ____    ______    __________    __________
      *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_
      *       \______/\________/\____________/\____________/
      *                                       ^ Sample point
+     * ```
      *
      * A can bus bit is separated into the segments:
      *
