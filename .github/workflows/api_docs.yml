@@ -33,9 +33,6 @@ jobs:
           python-version: 3.x
       - run: sudo apt install doxygen
       - run: pip install -r sphinx/requirements.txt
-      - run: git config user.name ci-bot
-      - run: git config user.email ci-bot@example.com
-
       - run: doxygen Doxyfile
       - run: LIBHAL_API_VERSION=${{ github.ref_name }} sphinx-build -b html sphinx docs/api/${{ github.ref_name }}
       - uses: actions/upload-artifact@v4
@@ -54,3 +51,8 @@ jobs:
         with:
           name: "api_files"
           path: "docs/api/"
+      - run: git config user.name ci-bot
+      - run: git config user.email ci-bot@example.com
+      - run: git add .
+      - run: git commit -m "API Docs for version ${{ github.ref_name }}"
+      - run: git push origin gh-pages
