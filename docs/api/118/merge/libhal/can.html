@@ -1,0 +1,744 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Controlled Area Network (CAN) &#8212; libhal  documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/extra.css?v=2ded0ca0" />
+    <link rel="stylesheet" type="text/css" href="../_static/extra.css?v=2ded0ca0" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'libhal/can';</script>
+    <script>
+        DOCUMENTATION_OPTIONS.theme_version = '0.16.1';
+        DOCUMENTATION_OPTIONS.theme_switcher_json_url = 'https://libhal.github.io/libhal/switcher.json';
+        DOCUMENTATION_OPTIONS.theme_switcher_version_match = '118/merge';
+        DOCUMENTATION_OPTIONS.show_version_warning_banner =
+            false;
+        </script>
+    <link rel="icon" href="../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Digital Analog Converter (DAC)" href="dac.html" />
+    <link rel="prev" title="Angular Velocity Sensor" href="angular_velocity_sensor.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/logo.png" class="logo__image only-light" alt="libhal  documentation - Home"/>
+    <img src="../_static/logo.png" class="logo__image only-dark pst-js-only" alt="libhal  documentation - Home"/>
+  
+  
+</a></div>
+    
+      <div class="navbar-item">
+<nav class="navbar-nav">
+  <p
+    class="sidebar-header-items__title"
+    role="heading"
+    aria-level="2"
+    aria-label="Site Navigation"
+  ></p>
+  <ul class="bd-navbar-elements navbar-nav">
+    <li class="nav-item dropdown">
+      <button
+        class="btn dropdown-toggle nav-item"
+        type="button"
+        data-bs-toggle="dropdown"
+        aria-expanded="false"
+        aria-controls="pst-nav-more-links"
+      >
+        Guides
+      </button>
+      <ul id="pst-nav-more-links" class="dropdown-menu">
+        <li class="nav-item">
+          <a
+            class="nav-link dropdown-item nav-external"
+            href="https://libhal.github.io/"
+          >
+            🏡 Introduction
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a
+            class="nav-link dropdown-item nav-external"
+            href="https://libhal.github.io/getting_started/"
+          >
+            🚀 Getting Started
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a
+            class="nav-link dropdown-item nav-external"
+            href="https://libhal.github.io/user_guide/fundamentals/"
+          >
+            📖 User Guide
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a
+            class="nav-link dropdown-item nav-external"
+            href="https://libhal.github.io/contributor_guide/philosophy/"
+          >
+            📚 Contributor Guides
+          </a>
+        </li>
+
+        <li class="nav-item">
+          <a
+            class="nav-link dropdown-item nav-external"
+            href="https://libhal.github.io/project_information/status/"
+          >
+            📊 Project Information
+          </a>
+        </li>
+      </ul>
+    </li>
+  </ul>
+</nav></div>
+    
+      <div class="navbar-item">
+<div class="version-switcher__container dropdown pst-js-only">
+  <button id="pst-version-switcher-button-2"
+    type="button"
+    class="version-switcher__button btn btn-sm dropdown-toggle"
+    data-bs-toggle="dropdown"
+    aria-haspopup="listbox"
+    aria-controls="pst-version-switcher-list-2"
+    aria-label="Version switcher list"
+  >
+    Choose version  <!-- this text may get changed later by javascript -->
+    <span class="caret"></span>
+  </button>
+  <div id="pst-version-switcher-list-2"
+    class="version-switcher__menu dropdown-menu list-group-flush py-0"
+    role="listbox" aria-labelledby="pst-version-switcher-button-2">
+    <!-- dropdown will be populated by javascript on page load -->
+  </div>
+</div></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+        </div>
+      
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    Libhal Interfaces
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><p aria-level="2" class="caption" role="heading"><span class="caption-text">Interfaces</span></p>
+<ul class="current nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="accelerometer.html">Accelerometer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="adc.html">Analog Digital Converter (ADC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="angular_velocity_sensor.html">Angular Velocity Sensor</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Controlled Area Network (CAN)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="dac.html">Digital Analog Converter (DAC)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="distance_sensor.html">Distance Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="error.html">Error</a></li>
+<li class="toctree-l1"><a class="reference internal" href="functional.html">Functional</a></li>
+<li class="toctree-l1"><a class="reference internal" href="gyroscope.html">Gyroscope</a></li>
+<li class="toctree-l1"><a class="reference internal" href="i2c.html">Inter-integrated Circuit (I2C)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="input_pin.html">Input Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="interrupt_pin.html">Interrupt Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="magnetometer.html">Magnetometer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="motor.html">Motor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="output_pin.html">Output Pin</a></li>
+<li class="toctree-l1"><a class="reference internal" href="pwm.html">Pulse Width Modulation (PWM)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="rotation_sensor.html">Rotational Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="serial.html">Serial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="servo.html">Servo</a></li>
+<li class="toctree-l1"><a class="reference internal" href="spi.html">Serial Peripheral Interface (SPI)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="steady_clock.html">Steady Clock</a></li>
+<li class="toctree-l1"><a class="reference internal" href="temperature_sensor.html">Temperature Sensor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timeout.html">Timeout</a></li>
+<li class="toctree-l1"><a class="reference internal" href="timer.html">Timer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="units.html">Units</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item">
+<div id="ethical-ad-placement"
+      class="flat"
+      data-ea-publisher="readthedocs"
+      data-ea-type="readthedocs-sidebar"
+      data-ea-manual="true">
+</div></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">libhal Hardware Interface API Documentation</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Controlled Area Network (CAN)</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="controlled-area-network-can">
+<h1>Controlled Area Network (CAN)<a class="headerlink" href="#controlled-area-network-can" title="Link to this heading">#</a></h1>
+<section id="hardware-interface">
+<h2>Hardware Interface<a class="headerlink" href="#hardware-interface" title="Link to this heading">#</a></h2>
+<p>Defined in namespace <code class="docutils literal notranslate"><span class="pre">hal</span></code></p>
+<p><em>#include &lt;libhal/can.hpp&gt;</em></p>
+<dl class="cpp class">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3canE">
+<span id="_CPPv3N3hal3canE"></span><span id="_CPPv2N3hal3canE"></span><span id="hal::can"></span><span class="target" id="classhal_1_1can"></span><span class="k"><span class="pre">class</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">can</span></span></span><a class="headerlink" href="#_CPPv4N3hal3canE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Controller Area Network (CAN bus) hardware abstraction interface. </p>
+<p><dl>
+<dt class="sig sig-object cpp">
+<em><span class="pre">Deprecated:</span></em></dt>
+<dd><p>This interface has too much responsibility and has been split up into <code class="docutils literal notranslate"><span class="pre">hal::can_transceiver</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_interrupt</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_bus_manager</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_identifier_filter</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_extended_identifier_filter</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_mask_filter</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_extended_mask_filter</span></code>, <code class="docutils literal notranslate"><span class="pre">hal::can_range_filter</span></code>, and <code class="docutils literal notranslate"><span class="pre">hal::can_extended_range_filter</span></code>. </p>
+</dd></dl>
+
+</p>
+<p>This interface does not provide APIs for CAN message hardware filtering. The hardware implementation for CAN message filter varies wildly across devices and thus a common API is infeasible. So we rely on the concrete classes, the implementations of this interface to provide APIs for setting the CAN filter for the specific hardware. Hardware filtering is a best effort with the resources available. It is often not possible to filter every possible ID in hardware that your application is interested in. Thus, must expect that the CAN message receive buffer. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-types">Public Types</p>
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can4id_tE">
+<span id="_CPPv3N3hal3can4id_tE"></span><span id="_CPPv2N3hal3can4id_tE"></span><span class="target" id="classhal_1_1can_1ac47065837842b7a745e2cf8c7c0372cf"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">id_t</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">uint32_t</span></span><a class="headerlink" href="#_CPPv4N3hal3can4id_tE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Can message ID type trait. </p>
+<p>This was added for backwards API compatibility. </p>
+</dd></dl>
+
+<dl class="cpp type">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can7handlerE">
+<span id="_CPPv3N3hal3can7handlerE"></span><span id="_CPPv2N3hal3can7handlerE"></span><span class="target" id="classhal_1_1can_1a9c93102e40fe4b117b6b6f1b03000b62"></span><span class="k"><span class="pre">using</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">handler</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="p"><span class="pre">(</span></span><a class="reference internal" href="#_CPPv4N3hal3can9message_tE" title="hal::can::message_t"><span class="n"><span class="pre">message_t</span></span></a><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n"><span class="pre">p_message</span></span><span class="p"><span class="pre">)</span></span><a class="headerlink" href="#_CPPv4N3hal3can7handlerE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Receive handler for can messages. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9configureERK8settings">
+<span id="_CPPv3N3hal3can9configureERK8settings"></span><span id="_CPPv2N3hal3can9configureERK8settings"></span><span id="hal::can::configure__settingsCR"></span><span class="target" id="classhal_1_1can_1a56208ae797ba7a936a9fd96329bc52d2"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">configure</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3hal3can8settingsE" title="hal::can::settings"><span class="n"><span class="pre">settings</span></span></a><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">p_settings</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal3can9configureERK8settings" title="Link to this definition">#</a><br /></dt>
+<dd><p>Configure this can bus port to match the settings supplied. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_settings</strong> – - settings to apply to can driver </p>
+</dd>
+<dt class="field-even">Throws<span class="colon">:</span></dt>
+<dd class="field-even"><p><span><span class="cpp-expr sig sig-inline cpp"><span class="n">hal</span><span class="p">::</span><a class="reference internal" href="error.html#_CPPv4N3hal23operation_not_supportedE" title="hal::operation_not_supported"><span class="n">operation_not_supported</span></a></span></span> – - if the settings could not be achieved. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can6bus_onEv">
+<span id="_CPPv3N3hal3can6bus_onEv"></span><span id="_CPPv2N3hal3can6bus_onEv"></span><span id="hal::can::bus_on"></span><span class="target" id="classhal_1_1can_1a2c6d5d0762493074dfc9d8e2089b5172"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">bus_on</span></span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal3can6bus_onEv" title="Link to this definition">#</a><br /></dt>
+<dd><p>Transition the CAN device from “bus-off” to “bus-on”. </p>
+<p>Can devices have two counters to determine system health. These two counters are the “transmit error counter” and the “receive error counter”. Transmission errors can occur when the device attempts to communicate on the bus and either does not get an acknowledge or sees an unexpected or erroneous signal on the bus during its own transmission. When transmission errors reach 255 counts, the device will go into the “bus-off” state.</p>
+<p>In the “bus-off” state, the CAN peripheral can no longer communicate on the bus. Any calls to <code class="docutils literal notranslate"><a class="reference internal" href="#classhal_1_1can_1a4c18508d28a693894810cf3d8e27d6c6"><span class="std std-ref"><span class="pre">send()</span></span></a></code> will throw the error <code class="docutils literal notranslate"><a class="reference internal" href="error.html#structhal_1_1operation__not__permitted"><span class="std std-ref"><span class="pre">hal::operation_not_permitted</span></span></a></code>. If this occurs, this function must be called to re-enable bus communication. </p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Calling this function when the device is already in “bus-on” will
+have no effect. This function is not necessary to call after creating the
+CAN driver as the driver should already be “bus-on” on creation.</p>
+</div>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can4sendERK9message_t">
+<span id="_CPPv3N3hal3can4sendERK9message_t"></span><span id="_CPPv2N3hal3can4sendERK9message_t"></span><span id="hal::can::send__message_tCR"></span><span class="target" id="classhal_1_1can_1a4c18508d28a693894810cf3d8e27d6c6"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">send</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3hal3can9message_tE" title="hal::can::message_t"><span class="n"><span class="pre">message_t</span></span></a><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">&amp;</span></span><span class="n sig-param"><span class="pre">p_message</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal3can4sendERK9message_t" title="Link to this definition">#</a><br /></dt>
+<dd><p>Send a can message. </p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_message</strong> – - the message to be sent </p>
+</dd>
+<dt class="field-even">Throws<span class="colon">:</span></dt>
+<dd class="field-even"><p><span><span class="cpp-expr sig sig-inline cpp"><span class="n">hal</span><span class="p">::</span><a class="reference internal" href="error.html#_CPPv4N3hal23operation_not_permittedE" title="hal::operation_not_permitted"><span class="n">operation_not_permitted</span></a></span></span> – - if the can device has entered the “bus-off” state. This can happen if a critical fault in the bus has occurred. A call to <code class="docutils literal notranslate"><a class="reference internal" href="#classhal_1_1can_1a2c6d5d0762493074dfc9d8e2089b5172"><span class="std std-ref"><span class="pre">bus_on()</span></span></a></code> will need to be issued to attempt to talk on the bus again. See <code class="docutils literal notranslate"><a class="reference internal" href="#classhal_1_1can_1a2c6d5d0762493074dfc9d8e2089b5172"><span class="std std-ref"><span class="pre">bus_on()</span></span></a></code> for more details. </p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can10on_receiveEN3hal8callbackI7handlerEE">
+<span id="_CPPv3N3hal3can10on_receiveEN3hal8callbackI7handlerEE"></span><span id="_CPPv2N3hal3can10on_receiveEN3hal8callbackI7handlerEE"></span><span id="hal::can::on_receive__hal::callback:handler:"></span><span class="target" id="classhal_1_1can_1a8d428d2300fa5994e1acf3c3a467490c"></span><span class="k"><span class="pre">inline</span></span><span class="w"> </span><span class="kt"><span class="pre">void</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">on_receive</span></span></span><span class="sig-paren">(</span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">callback</span></span><span class="p"><span class="pre">&lt;</span></span><a class="reference internal" href="#_CPPv4N3hal3can7handlerE" title="hal::can::handler"><span class="n"><span class="pre">handler</span></span></a><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="n sig-param"><span class="pre">p_handler</span></span><span class="sig-paren">)</span><a class="headerlink" href="#_CPPv4N3hal3can10on_receiveEN3hal8callbackI7handlerEE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Set the message reception handler. </p>
+<p>All messages received before a message handler is installed are dropped.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>p_handler</strong> – - this handler will be called when a message has been received. </p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9message_tE">
+<span id="_CPPv3N3hal3can9message_tE"></span><span id="_CPPv2N3hal3can9message_tE"></span><span id="hal::can::message_t"></span><span class="target" id="structhal_1_1can_1_1message__t"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">message_t</span></span></span><a class="headerlink" href="#_CPPv4N3hal3can9message_tE" title="Link to this definition">#</a><br /></dt>
+<dd><p>A standard CAN message. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3hal3can9message_tssERK9message_t">
+<span id="_CPPv3NK3hal3can9message_tssERK9message_t"></span><span id="_CPPv2NK3hal3can9message_tssERK9message_t"></span><span class="target" id="structhal_1_1can_1_1message__t_1aadf60ee637dcba8a52a60e2efcfec354"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">&lt;=&gt;</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3hal3can9message_tE" title="hal::can::message_t"><span class="n"><span class="pre">message_t</span></span></a><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="p"><span class="pre">&amp;</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">default</span></span><a class="headerlink" href="#_CPPv4NK3hal3can9message_tssERK9message_t" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enables default comparison. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9message_t2idE">
+<span id="_CPPv3N3hal3can9message_t2idE"></span><span id="_CPPv2N3hal3can9message_t2idE"></span><span id="hal::can::message_t::id__id_t"></span><span class="target" id="structhal_1_1can_1_1message__t_1a7d33139d3c5f9b10d31ee7c809b0d6cf"></span><a class="reference internal" href="#_CPPv4N3hal3can4id_tE" title="hal::can::id_t"><span class="n"><span class="pre">id_t</span></span></a><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">id</span></span></span><a class="headerlink" href="#_CPPv4N3hal3can9message_t2idE" title="Link to this definition">#</a><br /></dt>
+<dd><p>ID of the message. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9message_t7payloadE">
+<span id="_CPPv3N3hal3can9message_t7payloadE"></span><span id="_CPPv2N3hal3can9message_t7payloadE"></span><span id="hal::can::message_t::payload__std::array:hal::byte.8:"></span><span class="target" id="structhal_1_1can_1_1message__t_1a69041bbe8912dcc037acac5f9402071e"></span><span class="n"><span class="pre">std</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">array</span></span><span class="p"><span class="pre">&lt;</span></span><span class="n"><span class="pre">hal</span></span><span class="p"><span class="pre">::</span></span><span class="n"><span class="pre">byte</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="m"><span class="pre">8</span></span><span class="p"><span class="pre">&gt;</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">payload</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="p"><span class="pre">{</span></span><span class="p"><span class="pre">}</span></span><a class="headerlink" href="#_CPPv4N3hal3can9message_t7payloadE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Message data contents. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9message_t6lengthE">
+<span id="_CPPv3N3hal3can9message_t6lengthE"></span><span id="_CPPv2N3hal3can9message_t6lengthE"></span><span id="hal::can::message_t::length__uint8_t"></span><span class="target" id="structhal_1_1can_1_1message__t_1a2c66f4827afe85cb1db5d9894666e70a"></span><span class="n"><span class="pre">uint8_t</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">length</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">0</span></span><a class="headerlink" href="#_CPPv4N3hal3can9message_t6lengthE" title="Link to this definition">#</a><br /></dt>
+<dd><p>The number of valid elements in the payload. </p>
+<p>Can be between 0 and 8. A length value above 8 should be considered invalid and can be discarded. </p>
+</dd></dl>
+
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can9message_t17is_remote_requestE">
+<span id="_CPPv3N3hal3can9message_t17is_remote_requestE"></span><span id="_CPPv2N3hal3can9message_t17is_remote_requestE"></span><span id="hal::can::message_t::is_remote_request__b"></span><span class="target" id="structhal_1_1can_1_1message__t_1acb62ec09361d220eb9de285498298baf"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">is_remote_request</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">false</span></span><a class="headerlink" href="#_CPPv4N3hal3can9message_t17is_remote_requestE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Determines if the message is a remote request frame. </p>
+<p>If true, then length and payload are ignored. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+<dl class="cpp struct">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can8settingsE">
+<span id="_CPPv3N3hal3can8settingsE"></span><span id="_CPPv2N3hal3can8settingsE"></span><span id="hal::can::settings"></span><span class="target" id="structhal_1_1can_1_1settings"></span><span class="k"><span class="pre">struct</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">settings</span></span></span><a class="headerlink" href="#_CPPv4N3hal3can8settingsE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Generic settings for a can peripheral. </p>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-functions">Public Functions</p>
+<dl class="cpp function">
+<dt class="sig sig-object cpp" id="_CPPv4NK3hal3can8settingsssERK8settings">
+<span id="_CPPv3NK3hal3can8settingsssERK8settings"></span><span id="_CPPv2NK3hal3can8settingsssERK8settings"></span><span class="target" id="structhal_1_1can_1_1settings_1a06b115de742a9c25070ad1e896f5f034"></span><span class="kt"><span class="pre">bool</span></span><span class="w"> </span><span class="sig-name descname"><span class="k"><span class="pre">operator</span></span><span class="o"><span class="pre">&lt;=&gt;</span></span></span><span class="sig-paren">(</span><a class="reference internal" href="#_CPPv4N3hal3can8settingsE" title="hal::can::settings"><span class="n"><span class="pre">settings</span></span></a><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="p"><span class="pre">&amp;</span></span><span class="sig-paren">)</span><span class="w"> </span><span class="k"><span class="pre">const</span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="k"><span class="pre">default</span></span><a class="headerlink" href="#_CPPv4NK3hal3can8settingsssERK8settings" title="Link to this definition">#</a><br /></dt>
+<dd><p>Enables default comparison. </p>
+</dd></dl>
+
+</div>
+<div class="breathe-sectiondef docutils container">
+<p class="breathe-sectiondef-title rubric" id="breathe-section-title-public-members">Public Members</p>
+<dl class="cpp var">
+<dt class="sig sig-object cpp" id="_CPPv4N3hal3can8settings9baud_rateE">
+<span id="_CPPv3N3hal3can8settings9baud_rateE"></span><span id="_CPPv2N3hal3can8settings9baud_rateE"></span><span id="hal::can::settings::baud_rate__hertz"></span><span class="target" id="structhal_1_1can_1_1settings_1aae1f0328aa8c987b80bec57c5aa4f19d"></span><span class="n"><span class="pre">hertz</span></span><span class="w"> </span><span class="sig-name descname"><span class="n"><span class="pre">baud_rate</span></span></span><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="m"><span class="pre">100.0</span></span><span class="n"><span class="pre">_kHz</span></span><a class="headerlink" href="#_CPPv4N3hal3can8settings9baud_rateE" title="Link to this definition">#</a><br /></dt>
+<dd><p>Bus clock rate in hertz. </p>
+<p>CAN Bit Quanta Timing Diagram of:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="w">                         </span><span class="o">|</span><span class="w"> </span><span class="o">&lt;---</span><span class="w"> </span><span class="n">sjw</span><span class="w"> </span><span class="o">---&gt;</span><span class="w"> </span><span class="o">|</span>
+<span class="w">   </span><span class="n">____</span><span class="w">    </span><span class="n">______</span><span class="w">    </span><span class="n">__________</span><span class="w">    </span><span class="n">__________</span>
+<span class="n">_</span><span class="o">/</span><span class="w"> </span><span class="n">SYNC</span><span class="w"> </span><span class="err">\</span><span class="o">/</span><span class="w">  </span><span class="n">PROP</span><span class="w">  </span><span class="err">\</span><span class="o">/</span><span class="w">   </span><span class="n">PHASE1</span><span class="w">   </span><span class="err">\</span><span class="o">/</span><span class="w">   </span><span class="n">PHASE2</span><span class="w">   </span><span class="err">\</span><span class="n">_</span>
+<span class="w"> </span><span class="err">\</span><span class="n">______</span><span class="o">/</span><span class="err">\</span><span class="n">________</span><span class="o">/</span><span class="err">\</span><span class="n">____________</span><span class="o">/</span><span class="err">\</span><span class="n">____________</span><span class="o">/</span>
+<span class="w">                                 </span><span class="o">^</span><span class="w"> </span><span class="n">Sample</span><span class="w"> </span><span class="n">point</span>
+</pre></div>
+</div>
+<p>A can bus bit is separated into the segments:</p>
+<p><ul class="simple">
+<li><p>Sync Segment (always 1qt): Initial sync transition, the start of a CAN bit.</p></li>
+<li><p>Propagation Delay (1qt … 8qt): Number of time quanta to compensate for signal/propagation delays across the network.</p></li>
+<li><p>Phase Segment 1 (1qt … 8qt): phase segment 1 acts as a buffer that can be lengthened to resynchronize with the bit stream via the synchronization jump width.</p></li>
+<li><p>Phase Segment 2 (1qt … 8qt): Occurs after the sampling point. Phase segment 2. can be shortened to resynchronize with the bit stream via the synchronization jump width.</p></li>
+<li><p>Synchronization jump width (1qt … 4qt): This is the maximum time by which the bit sampling period may be lengthened or shortened during each cycle to adjust for oscillator mismatch between nodes. This value must be smaller than phase_segment1 and phase_segment2.</p></li>
+</ul>
+</p>
+<p>The exact value of these segments is calculated for you by the can peripheral based on the input clock to the peripheral and the desired baud rate.</p>
+<p>A conformant can bus peripheral driver will either choose from tq starting from 25 and reducing it down to 8 or will have pre-configured timing values for each frequency it supports. </p>
+</dd></dl>
+
+</div>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="angular_velocity_sensor.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title">Angular Velocity Sensor</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="dac.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">Digital Analog Converter (DAC)</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#hardware-interface">Hardware Interface</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3canE"><code class="docutils literal notranslate"><span class="pre">hal::can</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can4id_tE"><code class="docutils literal notranslate"><span class="pre">id_t</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can7handlerE"><code class="docutils literal notranslate"><span class="pre">handler</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9configureERK8settings"><code class="docutils literal notranslate"><span class="pre">configure()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can6bus_onEv"><code class="docutils literal notranslate"><span class="pre">bus_on()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can4sendERK9message_t"><code class="docutils literal notranslate"><span class="pre">send()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can10on_receiveEN3hal8callbackI7handlerEE"><code class="docutils literal notranslate"><span class="pre">on_receive()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9message_tE"><code class="docutils literal notranslate"><span class="pre">hal::can::message_t</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK3hal3can9message_tssERK9message_t"><code class="docutils literal notranslate"><span class="pre">operator&lt;=&gt;()</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9message_t2idE"><code class="docutils literal notranslate"><span class="pre">id</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9message_t7payloadE"><code class="docutils literal notranslate"><span class="pre">payload</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9message_t6lengthE"><code class="docutils literal notranslate"><span class="pre">length</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can9message_t17is_remote_requestE"><code class="docutils literal notranslate"><span class="pre">is_remote_request</span></code></a></li>
+</ul>
+</li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can8settingsE"><code class="docutils literal notranslate"><span class="pre">hal::can::settings</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4NK3hal3can8settingsssERK8settings"><code class="docutils literal notranslate"><span class="pre">operator&lt;=&gt;()</span></code></a></li>
+<li class="toc-h5 nav-item toc-entry"><a class="reference internal nav-link" href="#_CPPv4N3hal3can8settings9baud_rateE"><code class="docutils literal notranslate"><span class="pre">baud_rate</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+  <div class="sidebar-secondary-item">
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="../_sources/libhal/can.md.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.2.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>
