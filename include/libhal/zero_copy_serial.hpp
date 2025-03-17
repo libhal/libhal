@@ -80,8 +80,8 @@ public:
   /**
    * @brief Returns this serial driver's receive buffer
    *
-   * Use this along with the receive_head() in order to determine if new data
-   * has been read into the receive buffer. See the docs for `receive_head()`
+   * Use this along with the receive_cursor() in order to determine if new data
+   * has been read into the receive buffer. See the docs for `receive_cursor()`
    * for more details.
    *
    * @return std::span<hal::byte const> - a const span to the receive buffer
@@ -96,11 +96,11 @@ public:
   /**
    * @brief Returns the current write position of the circular receive buffer
    *
-   * Receive head represents the position where the next byte of data will be
+   * Receive cursor represents the position where the next byte of data will be
    * written in to the receive buffer. This position advances as new data
    * arrives. To determine how much new data has arrived, store the previous
-   * head position and compare it with the current head position, accounting for
-   * buffer wraparound.
+   * cursor position and compare it with the current cursor position, accounting
+   * for buffer wraparound.
    *
    * The cursor value will ALWAYS follow this equation:
    *
@@ -115,15 +115,15 @@ public:
    *
    * Example:
    *
-   *   auto old_head = port.receive_head();
+   *   auto old_head = port.receive_cursor();
    *   // ... wait for new data ...
-   *   auto new_head = port.receive_head();
+   *   auto new_head = port.receive_cursor();
    *   // Account for circular wraparound when calculating bytes received
    *   auto buffer_size = port.receive_buffer().size();
    *   auto bytes_received = (new_head + buffer_size - old_head) % buffer_size;
    *
    * Use this along with receive_buffer() to access newly received data. The
-   * data between your last saved position and the current head position
+   * data between your last saved position and the current cursor position
    * represents the newly received bytes. When reading the data, remember that
    * it may wrap around from the end of the buffer back to the beginning.
    *
