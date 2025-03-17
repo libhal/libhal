@@ -16,20 +16,20 @@ name: 📚 Deploy APIs
 
 on:
   workflow_call:
-    inputs:
-      version:
-        type: string
-        default: ""
   workflow_dispatch:
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
-  api_docs:
+  generate_api_docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.ref_name }}
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
@@ -38,7 +38,21 @@ jobs:
       - run: git config user.name ci-bot
       - run: git config user.email ci-bot@example.com
 
-      - run: rm -rf sphinx/doxygen
-      - run: mkdir sphinx/doxygen
       - run: doxygen Doxyfile
-      - run: sphinx-build -b html sphinx docs/api/latest
+      - run: LIBHAL_API_VERSION=${{ github.ref_name }} sphinx-build -b html sphinx docs/api/${{ github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "api_files"
+          path: "docs/api/"
+
+  publish_api_docs:
+    needs: [generate_api_docs]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: gh-pages
+      - uses: actions/download-artifact@v4
+        with:
+          name: "api_files"
+          path: "docs/api/"
