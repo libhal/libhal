@@ -23,47 +23,6 @@ permissions:
   contents: write
 
 jobs:
-  generate_api_docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.x
-      - run: sudo apt install doxygen
-      - run: pip install -r sphinx/requirements.txt
-      - run: doxygen Doxyfile
-      - run: LIBHAL_API_VERSION=${{ github.ref_name }} sphinx-build -b html sphinx docs/api/${{ github.ref_name }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: "api_files"
-          path: "docs/api/"
-
-  publish_api_docs:
-    needs: [generate_api_docs]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          ref: gh-pages
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.x
-      - uses: actions/download-artifact@v4
-        with:
-          name: "api_files"
-          path: "docs/api/"
-
-      # Enter `docs/`
-      - run: cd docs/
-      - run: wget https://raw.githubusercontent.com/libhal/ci/refs/heads/main/scripts/add_version_to_switcher.py
-      - run: python3 add_version_to_switcher.py ${{ github.ref_name }}
-      - run: rm add_version_to_switcher.py
-      - run: cd ..
-      # Exit `docs/`
-
-      - run: git config user.name ci-bot
-      - run: git config user.email ci-bot@example.com
-      - run: git add .
-      - run: git commit -m "API Docs for version ${{ github.ref_name }}"
-      - run: git push origin gh-pages
+  deploy_apis:
+    uses: libhal/ci/.github/workflows/api_docs.yml@5.x.y
+    secrets: inherit
