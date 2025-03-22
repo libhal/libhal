@@ -13,7 +13,7 @@ html_theme_options = {
     "navbar_persistent": ["search-button-field", "theme-switcher"],
     "header_links_before_dropdown": 3,
     "switcher": {
-        "json_url": "https://libhal.github.io/libhal/switcher.json",
+        "json_url": "https://libhal.github.io/api/libhal/switcher.json",
         "version_match": os.environ.get('LIBHAL_API_VERSION'),
     },
     "check_switcher": False,
@@ -29,7 +29,7 @@ def setup(app: Sphinx):
 html_css_files = [
     'extra.css',
 ]
-breathe_projects = {"libhal": "doxygen/xml"}
+breathe_projects = {"libhal": "../build/xml"}
 breathe_default_project = "libhal"
 breathe_default_members = ('members',)
 project = "libhal"
