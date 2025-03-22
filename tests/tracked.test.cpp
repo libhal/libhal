@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "libhal/spi.hpp"
 #include <libhal/output_pin.hpp>
 #include <libhal/tracked.hpp>
 
@@ -87,5 +88,37 @@ boost::ut::suite<"tracked_ptr"> tracked_ptr_test = [] {
     // expect(that % nullptr == test_scope.get());
     // expect(that % nullptr == ptrb1.get());
   };
+};
+}  // namespace hal
+
+// Examples of what should be possible:
+
+#include <libhal/i2c.hpp>
+
+namespace hal {
+template<typename T>
+struct mutex
+{};
+
+class pca8265
+{
+public:
+  explicit pca8265(hal::tracked_ptr<mutex<hal::i2c>>&& p_ptr)
+    : m_ptr(std::move(p_ptr))
+  {
+  }
+
+  tracked_ptr<mutex<hal::i2c>> m_ptr;
+};
+
+class display
+{
+public:
+  explicit pca8265(hal::tracked_ptr<mutex<hal::spi_channel>>&& p_ptr)
+    : m_ptr(std::move(p_ptr))
+  {
+  }
+
+  tracked_ptr<mutex<hal::i2c>> m_ptr;
 };
 }  // namespace hal
