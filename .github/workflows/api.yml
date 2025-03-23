@@ -39,7 +39,6 @@ jobs:
       - run: pip install -r docs/requirements.txt gitpython requests
       - run: wget https://raw.githubusercontent.com/libhal/ci/5.x.y/scripts/api.py
       - run: python api.py build --version ${{ github.ref_name }}
-      - run: git config --unset-all http.https://github.com/.extraheader
       - run: python api.py deploy --version ${{ github.ref_name }} --repo-name ${{ github.event.repository.name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
