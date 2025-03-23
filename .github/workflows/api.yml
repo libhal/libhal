@@ -29,8 +29,9 @@ jobs:
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
-      - run: sudo apt install doxygen
-      - run: pip install -r sphinx/requirements.txt gitpython requests
+      - run: sudo apt update
+      - run: sudo apt install -y doxygen
+      - run: pip install -r docs/requirements.txt gitpython requests
       - run: wget https://raw.githubusercontent.com/libhal/ci/5.x.y/scripts/api.py
       - run: python api.py build --version ${{ github.ref_name }}
       - run: python api.py deploy --version ${{ github.ref_name }} --repo-name ${{ github.event.repository.name }}
