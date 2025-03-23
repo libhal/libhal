@@ -1,0 +1,38 @@
+# Copyright 2024 Khalil Estell
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: 📚 Deploy APIs
+
+on:
+  release:
+    types:
+      - published
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy_api_docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      - run: sudo apt install doxygen
+      - run: pip install -r sphinx/requirements.txt gitpython requests
+        run: wget https://raw.githubusercontent.com/libhal/ci/5.x.y/scripts/api.py
+      - run: python api.py build --version ${{ github.ref_name }}
+      - run: python api.py deploy --version ${{ github.ref_name }} --repo-name ${{ github.event.repository.name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
