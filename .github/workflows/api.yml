@@ -29,9 +29,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.API_PUSH_TOKEN }}
-      - run: export GITHUB_TOKEN=${{ secrets.API_PUSH_TOKEN }}
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
@@ -42,4 +39,4 @@ jobs:
       - run: python api.py build --version ${{ github.ref_name }}
       - run: python api.py deploy --version ${{ github.ref_name }} --repo-name ${{ github.event.repository.name }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.API_PUSH_TOKEN }}
