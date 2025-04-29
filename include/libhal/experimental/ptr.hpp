@@ -318,7 +318,7 @@ public:
   {
     ptr_add_ref(m_ctrl);
   }
-#if 1
+
   /**
    * @brief Safe aliasing constructor for std::array members
    *
@@ -418,7 +418,6 @@ public:
     ptr_add_ref(m_ctrl);
   }
   // NOLINTEND(modernize-avoid-c-arrays)
-#endif
 
   /**
    * @brief Destructor

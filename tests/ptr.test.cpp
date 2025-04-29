@@ -176,27 +176,37 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     // Create a class with internal structure
     struct outer_class
     {
-      int member_offset;
-      std::array<test_class, 2> inner;
+      int member_offset{};
+      test_class inner;
+      std::array<test_class, 2> array_inner;
       explicit outer_class(int p_value)
-        : inner{ test_class{ p_value }, test_class{ p_value } }
+        : inner(p_value)
+        , array_inner{ test_class{ p_value }, test_class{ p_value } }
       {
       }
     };
 
     auto outer = make_strong_ptr<outer_class>(test_allocator, 42);
-
     // Create an alias to the inner object
-    strong_ptr<test_class> inner(outer, &outer_class::inner, 1);
+    strong_ptr<test_class> inner(outer, &outer_class::inner);
+    // Create an alias to the array_inner object's index 1
+    strong_ptr<test_class> array_inner(outer, &outer_class::array_inner, 1);
 
     expect(that % 42 == inner->value());
-    expect(that % 2 == outer.use_count())
+    expect(that % 42 == array_inner->value());
+
+    expect(that % 3 == outer.use_count())
+      << "Outer and inner alias should share ownership\n";
+    expect(that % 3 == outer.use_count())
       << "Outer and inner alias should share ownership\n";
 
     // Modify through the alias
     inner->set_value(100);
+    // Modify through the alias
+    array_inner->set_value(120);
 
-    expect(that % 100 == outer->inner[1].value());
+    expect(that % 100 == outer->inner.value());
+    expect(that % 120 == outer->array_inner[1].value());
   };
 
   "equality"_test = [&] {
