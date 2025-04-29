@@ -209,6 +209,59 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     expect(that % 120 == outer->array_inner[1].value());
   };
 
+  "alias outliving original"_test = [&] {
+    // Create a class with internal structure
+    struct outer_class
+    {
+      int member_offset{};
+      test_class inner;
+      std::array<test_class, 2> array_inner;
+      explicit outer_class(int p_value)
+        : inner(p_value)
+        , array_inner{ test_class{ p_value }, test_class{ p_value } }
+      {
+      }
+    };
+
+    auto outlived = [] -> auto {
+      auto outer = make_strong_ptr<outer_class>(test_allocator, 42);
+      // Create an alias to the inner object
+      strong_ptr<test_class> inner(outer, &outer_class::inner);
+      // Create an alias to the array_inner object's index 1
+      strong_ptr<test_class> array_inner(outer, &outer_class::array_inner, 1);
+
+      expect(that % 42 == inner->value());
+      expect(that % 42 == array_inner->value());
+
+      expect(that % 3 == outer.use_count())
+        << "Outer and inner alias should share ownership\n";
+      expect(that % 3 == outer.use_count())
+        << "Outer and inner alias should share ownership\n";
+
+      // Modify through the alias
+      inner->set_value(100);
+      // Modify through the alias
+      array_inner->set_value(120);
+
+      expect(that % 100 == outer->inner.value());
+      expect(that % 120 == outer->array_inner[1].value());
+
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      auto move_becomes_copy = std::move(inner);
+
+      // Test that explicit move becomes a copy
+      expect(that % 4 == move_becomes_copy.use_count())
+        << "Outer and inner alias should share ownership\n";
+
+      return array_inner;
+    }();
+
+    expect(that % 120 == outlived->value());
+
+    expect(that % 1 == outlived.use_count())
+      << "outlived alias should have sole ownership\n";
+  };
+
   "equality"_test = [&] {
     auto ptr1 = make_strong_ptr<test_class>(test_allocator, 42);
     auto ptr2 = ptr1;

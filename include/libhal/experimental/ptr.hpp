@@ -276,10 +276,56 @@ public:
   }
 
   /**
-   * @brief Move constructor is deleted to prevent silent creation of
-   * temporaries
+   * @brief Move constructor that intentionally behaves like a copy constructor
+   * for safety
+   *
+   * This move constructor deliberately performs a full copy operation rather
+   * than transferring ownership. This is a safety feature to prevent potential
+   * undefined behavior that could occur if code accidentally accessed a
+   * moved-from strong_ptr.
+   *
+   * After this operation, both the source and destination objects remain in
+   * valid states, and the reference count is incremented by 1. This ensures
+   * that even if code incorrectly continues to use the source object after a
+   * move, no undefined behavior will occur.
+   *
+   * @param p_other The strong_ptr to "move" from (actually copied for safety)
    */
-  strong_ptr(strong_ptr&& p_other) noexcept = delete;
+  strong_ptr(strong_ptr&& p_other) noexcept
+    : m_ctrl(p_other.m_ctrl)
+    , m_ptr(p_other.m_ptr)
+  {
+    ptr_add_ref(m_ctrl);
+  }
+
+  /**
+   * @brief Move assignment operator that behaves like a copy assignment for
+   * safety
+   *
+   * This move assignment operator deliberately performs a full copy operation
+   * rather than transferring ownership. This is a safety feature to prevent
+   * potential undefined behavior that could occur if code accidentally accessed
+   * a moved-from strong_ptr.
+   *
+   * After this operation, both the source and destination objects remain in
+   * valid states, and the reference count is incremented by 1. This ensures
+   * that even if code incorrectly continues to use the source object after a
+   * move, no undefined behavior will occur.
+   *
+   * @param p_other The strong_ptr to "move" from (actually copied for safety)
+   * @return Reference to *this
+   */
+  strong_ptr& operator=(strong_ptr&& p_other) noexcept
+  {
+    if (this != &p_other) {
+      release();
+      m_ctrl = p_other.m_ctrl;
+      m_ptr = p_other.m_ptr;
+      ptr_add_ref(m_ctrl);
+    }
+    return *this;
+  }
+
   /**
    * @brief Safe aliasing constructor for object members
    *
@@ -310,8 +356,7 @@ public:
    * @param p_other The strong_ptr to the parent object
    * @param p_member_ptr Pointer-to-member identifying which member to reference
    */
-  template<typename U, typename M>
-    requires detail::non_array_like<M>
+  template<typename U, detail::non_array_like M>
   strong_ptr(strong_ptr<U> const& p_other, M U::* p_member_ptr) noexcept
     : m_ctrl(p_other.m_ctrl)
     , m_ptr(&((*p_other).*p_member_ptr))
@@ -469,17 +514,6 @@ public:
     ptr_add_ref(m_ctrl);
     return *this;
   }
-
-  /**
-   * @brief Move assignment operator is deleted
-   */
-  strong_ptr& operator=(strong_ptr&& p_other) noexcept = delete;
-
-  /**
-   * @brief Converting move assignment operator is deleted
-   */
-  template<typename U>
-  strong_ptr& operator=(strong_ptr<U>&& p_other) noexcept = delete;
 
   /**
    * @brief Swap the contents of this strong_ptr with another
