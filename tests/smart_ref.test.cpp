@@ -87,23 +87,37 @@ auto& static_arena(hal::buffer_param auto p_buffer_size)
 
 }  // namespace
 
-boost::ut::suite<"output_pin_test"> output_pin_test = []() {
+boost::ut::suite<"smart_ref_test"> smart_ref_test = []() {
   using namespace boost::ut;
-  "test"_test = []() {
+  "hal::make_smart_ref"_test = []() {
     // Setup
-    auto mem = static_arena(hal::buffer<1024>);
-    // auto test = ;
+    auto& mem = static_arena(hal::buffer<1024>);
+    auto test = hal::make_shared_ref<test_output_pin>(mem.allocator());
 
     // Exercise
-    test.configure(expected_settings);
-    test.level(true);
-    auto level = test.level();
+    auto const previous_level = test->level();
+    test->level(!previous_level);
+    auto const latest_level = test->level();
 
     // Verify
-    expect(expected_settings.open_drain == test.m_settings.open_drain);
-    expect(expected_settings.resistor == test.m_settings.resistor);
-    expect(that % true == test.m_driver_level);
-    expect(that % true == level);
+    expect(that % previous_level == !latest_level);
+    expect(that % test.use_count() == 1);
+  };
+
+  "hal::make_smart_ref"_test = []() {
+    // Setup
+    auto& mem = static_arena(hal::buffer<1024>);
+    auto test = hal::make_shared_ref<test_output_pin>(mem.allocator());
+    hal::smart_ref<hal::output_pin> converting_obj = test;
+
+    // Exercise
+    auto const previous_level = converting_obj->level();
+    converting_obj->level(!previous_level);
+    auto const latest_level = converting_obj->level();
+
+    // Verify
+    expect(that % previous_level == !latest_level);
+    expect(that % test.use_count() == 2);
   };
 };
 }  // namespace hal

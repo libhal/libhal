@@ -73,22 +73,12 @@ struct rc
   // Static function to destroy an instance and return its size
   static usize destroy_function(void const* p_object)
   {
-    static_cast<rc<T>*>(p_object)->~rc<T>();
+    static_cast<rc<T> const*>(p_object)->~rc<T>();
     return sizeof(rc<T>);
   }
 };
 
-// Allocate and construct a rc
-template<typename T, typename... Args>
-std::pair<ref_info*, T*> create_controlled_object(
-  std::pmr::polymorphic_allocator<byte>& p_alloc,
-  Args&&... args)
-{
-  using rc_t = rc<T>;
-
-  // Return pointers to the ref_info and the object
-  return { &obj->m_info, &obj->m_object };
-}
+// static_assert(offsetof(rc<int>, ))
 }  // namespace detail
 
 // The smart_ref implementation
@@ -96,9 +86,8 @@ template<typename T>
 class smart_ref
 {
 public:
-  // Factory function to create a smart_ref with its control block
-  template<typename... Args>
-  friend smart_ref make_shared_ref(
+  template<class U, typename... Args>
+  friend smart_ref<U> make_shared_ref(
     std::pmr::polymorphic_allocator<byte> p_alloc,
     Args&&... args);
 
@@ -208,7 +197,6 @@ private:
     : m_ctrl(p_ctrl)
     , m_ptr(p_ptr)
   {
-    intrusive_ptr_add_ref(m_ctrl);
   }
 
   ref_info* m_ctrl;
@@ -241,14 +229,12 @@ bool operator!=(smart_ref<T> const& p_lhs, smart_ref<U> const& p_rhs) noexcept
 
 // Factory function to create a smart_ref with its control block
 template<class T, typename... Args>
-static smart_ref<T> make_shared_ref(
+inline smart_ref<T> make_shared_ref(
   std::pmr::polymorphic_allocator<byte> p_alloc,
   Args&&... args)
 {
   using rc_t = detail::rc<T>;
-  auto* obj =
-    p_alloc.allocate_object<rc_t>(p_alloc, std::forward<Args>(args)...);
+  auto* obj = p_alloc.new_object<rc_t>(p_alloc, std::forward<Args>(args)...);
   return smart_ref(&obj->m_info, &obj->m_object);
 }
-
 }  // namespace hal

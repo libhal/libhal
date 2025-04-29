@@ -53,6 +53,7 @@ libhal_unit_test(SOURCES
   tests/experimental/usb.test.cpp
   tests/zero_copy_serial.test.cpp
   tests/buffered_can.test.cpp
+  tests/ptr.test.cpp
   tests/main.test.cpp
 
   PACKAGES
