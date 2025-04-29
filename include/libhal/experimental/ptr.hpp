@@ -18,7 +18,13 @@ class strong_ptr;
 template<typename T>
 class weak_ptr;
 
-// Control block for reference counting - type erased
+/**
+ * @brief Control block for reference counting - type erased.
+ *
+ * This structure manages the lifetime of reference-counted objects by tracking
+ * strong and weak references. It also stores the memory allocator and destroy
+ * function used to clean up the object when no more references exist.
+ */
 struct ref_info
 {
   /**
@@ -40,13 +46,25 @@ struct ref_info
   std::atomic<int> weak_count = 0;
 };
 
-// Add strong reference to control block
+/**
+ * @brief Add strong reference to control block
+ *
+ * @param p_info Pointer to the control block
+ */
 inline void ptr_add_ref(ref_info* p_info)
 {
   p_info->strong_count.fetch_add(1, std::memory_order_relaxed);
 }
 
-// Release strong reference from control block
+/**
+ * @brief Release strong reference from control block
+ *
+ * If this was the last strong reference, the pointed-to object will be
+ * destroyed. If there are no remaining weak references, the memory
+ * will also be deallocated.
+ *
+ * @param p_info Pointer to the control block
+ */
 inline void ptr_release(ref_info* p_info)
 {
   if (p_info->strong_count.fetch_sub(1, std::memory_order_acq_rel) == 1) {
@@ -69,13 +87,24 @@ inline void ptr_release(ref_info* p_info)
   }
 }
 
-// Add weak reference to control block
+/**
+ * @brief Add weak reference to control block
+ *
+ * @param p_info Pointer to the control block
+ */
 inline void ptr_add_weak(ref_info* p_info)
 {
   p_info->weak_count.fetch_add(1, std::memory_order_relaxed);
 }
 
-// Release weak reference from control block
+/**
+ * @brief Release weak reference from control block
+ *
+ * If this was the last weak reference and there are no remaining
+ * strong references, the memory will be deallocated.
+ *
+ * @param p_info Pointer to the control block
+ */
 inline void ptr_release_weak(ref_info* p_info)
 {
   if (p_info->weak_count.fetch_sub(1, std::memory_order_acq_rel) == 0) {
@@ -94,7 +123,13 @@ inline void ptr_release_weak(ref_info* p_info)
 }
 
 namespace detail {
-// A wrapper that contains both the ref_info and the actual object
+/**
+ * @brief A wrapper that contains both the ref_info and the actual object
+ *
+ * This structure keeps the control block and managed object together in memory.
+ *
+ * @tparam T The type of the managed object
+ */
 template<typename T>
 struct rc
 {
@@ -121,15 +156,64 @@ struct rc
     return sizeof(rc<T>);
   }
 };
+// Check if a type is an array or std::array
+template<typename T>
+struct is_array_like : std::false_type
+{};
+
+// NOLINTBEGIN(modernize-avoid-c-arrays)
+// Specialization for C-style arrays
+template<typename T, std::size_t N>
+struct is_array_like<T[N]> : std::true_type
+{};
+// NOLINTEND(modernize-avoid-c-arrays)
+
+// Specialization for std::array
+template<typename T, std::size_t N>
+struct is_array_like<std::array<T, N>> : std::true_type
+{};
+
+// Helper variable template
+template<typename T>
+inline constexpr bool is_array_like_v = is_array_like<T>::value;
+
+// Concept for array-like types
+template<typename T>
+concept array_like = is_array_like_v<T>;
+
+// Concept for non-array-like types
+template<typename T>
+concept non_array_like = !array_like<T>;
 }  // namespace detail
 
 /**
  * @brief A non-nullable strong reference counted pointer
  *
- * strong_ptr is similar to std::shared_ptr but with these key differences:
+ * strong_ptr is a smart pointer that maintains shared ownership of an object
+ * through a reference count. It is similar to std::shared_ptr but with these
+ * key differences:
+ *
  * 1. Cannot be null - must always point to a valid object
  * 2. Can only be created via make_strong_ptr, not from raw pointers
  * 3. More memory efficient implementation
+ *
+ * Use strong_ptr when you need shared ownership semantics and can guarantee
+ * the pointer will never be null. For nullable references, use optional_ptr.
+ *
+ * Example usage:
+ * ```
+ * // Create a strong_ptr to an object
+ * auto ptr = hal::make_strong_ptr<my_i2c_driver>(allocator, arg1, arg2);
+ *
+ * // Use the object using dereference (*) operator
+ * (*ptr).configure({ .clock_rate = 250_kHz });
+ *
+ * // OR use the object using arrow (->) operator
+ * ptr->configure({ .clock_rate = 250_kHz });
+ *
+ * // Share ownership with another driver or object
+ * auto my_imu = hal::make_strong_ptr<my_imu>(allocator, ptr, 0x13);
+ * ```
  *
  * @tparam T The type of the managed object
  */
@@ -159,7 +243,13 @@ public:
   /// Delete nullptr constructor - strong_ptr must always be valid
   strong_ptr(std::nullptr_t) = delete;
 
-  // Copy constructor
+  /**
+   * @brief Copy constructor
+   *
+   * Creates a new strong reference to the same object.
+   *
+   * @param p_other The strong_ptr to copy from
+   */
   strong_ptr(strong_ptr const& p_other) noexcept
     : m_ctrl(p_other.m_ctrl)
     , m_ptr(p_other.m_ptr)
@@ -167,7 +257,15 @@ public:
     ptr_add_ref(m_ctrl);
   }
 
-  // Converting copy constructor
+  /**
+   * @brief Converting copy constructor
+   *
+   * Creates a new strong reference to the same object, converting from
+   * a derived type U to base type T.
+   *
+   * @tparam U A type convertible to T
+   * @param p_other The strong_ptr<U> to copy from
+   */
   template<typename U>
   strong_ptr(strong_ptr<U> const& p_other) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -177,25 +275,170 @@ public:
     ptr_add_ref(m_ctrl);
   }
 
+  /**
+   * @brief Move constructor is deleted to prevent silent creation of
+   * temporaries
+   */
   strong_ptr(strong_ptr&& p_other) noexcept = delete;
-
-  // Aliasing constructor - create a strong_ptr that points to an object within
-  // the managed object
-  template<typename U>
-  strong_ptr(strong_ptr<U> const& p_other, T* p_ptr) noexcept
+  /**
+   * @brief Safe aliasing constructor for object members
+   *
+   * This constructor creates a strong_ptr that points to a member of an object
+   * managed by another strong_ptr. The resulting strong_ptr shares ownership
+   * with the original strong_ptr, keeping the entire parent object alive.
+   *
+   * This version is only enabled for non-array members to prevent potential
+   * undefined behavior when accessing array elements directly. Use the
+   * array-specific versions instead.
+   *
+   * Example usage:
+   * ```
+   * struct container {
+   *   component part;
+   * };
+   *
+   * // Create a strong_ptr to the container
+   * auto container_ptr = make_strong_ptr<container>(allocator);
+   *
+   * // Create a strong_ptr to just the component
+   * auto component_ptr = strong_ptr<component>(container_ptr,
+   * &container::part);
+   * ```
+   *
+   * @tparam U Type of the parent object
+   * @tparam M Type of the member
+   * @param p_other The strong_ptr to the parent object
+   * @param p_member_ptr Pointer-to-member identifying which member to reference
+   */
+  template<typename U, typename M>
+    requires detail::non_array_like<M>
+  strong_ptr(strong_ptr<U> const& p_other, M U::* p_member_ptr) noexcept
     : m_ctrl(p_other.m_ctrl)
-    , m_ptr(p_ptr)
+    , m_ptr(&((*p_other).*p_member_ptr))
   {
     ptr_add_ref(m_ctrl);
   }
+#if 1
+  /**
+   * @brief Safe aliasing constructor for std::array members
+   *
+   * This constructor creates a strong_ptr that points to an element of an array
+   * member in an object managed by another strong_ptr. It performs bounds
+   * checking to ensure the index is valid.
+   *
+   * Example usage:
+   * ```
+   * struct array_container {
+   *   std::array<element, 5> elements;
+   * };
+   *
+   * auto container_ptr = make_strong_ptr<array_container>(allocator);
+   *
+   * // Get strong_ptr to the 2nd element
+   * auto element_ptr = strong_ptr<element>(
+   *   container_ptr,
+   *   &array_container::elements,
+   *   2 // Index to access
+   * );
+   * ```
+   *
+   * @tparam U Type of the parent object
+   * @tparam E Type of the array element
+   * @tparam N Size of the array
+   * @param p_other The strong_ptr to the parent object
+   * @param p_array_ptr Pointer-to-member identifying the array member
+   * @param p_index Index of the element to reference
+   * @throws std::out_of_range if index is out of bounds
+   */
+  template<typename U, typename E, std::size_t N>
+  strong_ptr(strong_ptr<U> const& p_other,
+             std::array<E, N> U::* p_array_ptr,
+             std::size_t p_index)
+  {
+    static_assert(std::is_convertible_v<E*, T*>,
+                  "Array element type must be convertible to T");
 
-  // Destructor
+    if (p_index >= N) {
+      throw std::out_of_range(
+        "Array index out of bounds in strong_ptr aliasing constructor");
+    }
+
+    m_ctrl = p_other.m_ctrl;
+    m_ptr = &((*p_other).*p_array_ptr)[p_index];
+    ptr_add_ref(m_ctrl);
+  }
+
+  // NOLINTBEGIN(modernize-avoid-c-arrays)
+  /**
+   * @brief Safe aliasing constructor for C-array members
+   *
+   * This constructor creates a strong_ptr that points to an element of a
+   * C-style array member in an object managed by another strong_ptr. It
+   * performs bounds checking to ensure the index is valid.
+   *
+   * Example usage:
+   * ```
+   * struct c_array_container {
+   *   element elements[5];
+   * };
+   *
+   * auto container_ptr = make_strong_ptr<c_array_container>(allocator);
+   *
+   * // Get strong_ptr to the 2nd element
+   * auto element_ptr = strong_ptr<element>(
+   *   container_ptr,
+   *   &c_array_container::elements,
+   *   2 // Index to access
+   * );
+   * ```
+   *
+   * @tparam U Type of the parent object
+   * @tparam E Type of the array element
+   * @tparam N Size of the array
+   * @param p_other The strong_ptr to the parent object
+   * @param p_array_ptr Pointer-to-member identifying the array member
+   * @param p_index Index of the element to reference
+   * @throws std::out_of_range if index is out of bounds
+   */
+  template<typename U, typename E, std::size_t N>
+  strong_ptr(strong_ptr<U> const& p_other,
+             E (U::*p_array_ptr)[N],
+             std::size_t p_index)
+  {
+    static_assert(std::is_convertible_v<E*, T*>,
+                  "Array element type must be convertible to T");
+
+    if (p_index >= N) {
+      throw std::out_of_range(
+        "Array index out of bounds in strong_ptr aliasing constructor");
+    }
+
+    m_ctrl = p_other.m_ctrl;
+    m_ptr = &((*p_other).*p_array_ptr)[p_index];
+    ptr_add_ref(m_ctrl);
+  }
+  // NOLINTEND(modernize-avoid-c-arrays)
+#endif
+
+  /**
+   * @brief Destructor
+   *
+   * Decrements the reference count and destroys the managed object
+   * if this was the last strong reference.
+   */
   ~strong_ptr()
   {
     release();
   }
 
-  // Copy assignment operator
+  /**
+   * @brief Copy assignment operator
+   *
+   * Replaces the managed object with the one managed by p_other.
+   *
+   * @param p_other The strong_ptr to copy from
+   * @return Reference to *this
+   */
   strong_ptr& operator=(strong_ptr const& p_other) noexcept
   {
     if (this != &p_other) {
@@ -207,7 +450,16 @@ public:
     return *this;
   }
 
-  // Copy assignment operator
+  /**
+   * @brief Converting copy assignment operator
+   *
+   * Replaces the managed object with the one managed by p_other,
+   * converting from type U to type T.
+   *
+   * @tparam U A type convertible to T
+   * @param p_other The strong_ptr<U> to copy from
+   * @return Reference to *this
+   */
   template<typename U>
   strong_ptr& operator=(strong_ptr<U> const& p_other) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -219,36 +471,65 @@ public:
     return *this;
   }
 
-  // Copy assignment operator
+  /**
+   * @brief Move assignment operator is deleted
+   */
   strong_ptr& operator=(strong_ptr&& p_other) noexcept = delete;
 
-  // Copy assignment operator
+  /**
+   * @brief Converting move assignment operator is deleted
+   */
   template<typename U>
   strong_ptr& operator=(strong_ptr<U>&& p_other) noexcept = delete;
 
-  // Swap function
+  /**
+   * @brief Swap the contents of this strong_ptr with another
+   *
+   * @param p_other The strong_ptr to swap with
+   */
   void swap(strong_ptr& p_other) noexcept
   {
     std::swap(m_ctrl, p_other.m_ctrl);
     std::swap(m_ptr, p_other.m_ptr);
   }
 
-  // Disable dereferencing for r-values (temporaries)
+  /**
+   * @brief Disable dereferencing for r-values (temporaries)
+   */
   T& operator*() && = delete;
+
+  /**
+   * @brief Disable member access for r-values (temporaries)
+   */
   T* operator->() && = delete;
 
-  // Dereference operators
+  /**
+   * @brief Dereference operator to access the managed object
+   *
+   * @return Reference to the managed object
+   */
   T& operator*() const& noexcept
   {
     return *m_ptr;
   }
 
+  /**
+   * @brief Member access operator to access the managed object
+   *
+   * @return Pointer to the managed object
+   */
   T* operator->() const& noexcept
   {
     return m_ptr;
   }
 
-  // Get reference count (for testing)
+  /**
+   * @brief Get the current reference count
+   *
+   * This is primarily for testing purposes.
+   *
+   * @return The number of strong references to the managed object
+   */
   auto use_count() const noexcept
   {
     return m_ctrl ? m_ctrl->strong_count.load(std::memory_order_relaxed) : 0;
@@ -283,6 +564,26 @@ class optional_ptr;
  * weak_ptr provides a non-owning reference to an object managed by strong_ptr.
  * It can be used to break reference cycles or to create an optional_ptr.
  *
+ * A weak_ptr doesn't increase the strong reference count, so it doesn't
+ * prevent the object from being destroyed when the last strong_ptr goes away.
+ *
+ * Example usage:
+ * ```
+ * // Create a strong_ptr to an object
+ * auto ptr = hal::make_strong_ptr<MyClass>(allocator, args...);
+ *
+ * // Create a weak reference
+ * weak_ptr<MyClass> weak = ptr;
+ *
+ * // Later, try to get a strong reference
+ * if (auto locked = weak.lock()) {
+ *   // Use the object via locked
+ *   locked->doSomething();
+ * } else {
+ *   // Object has been destroyed
+ * }
+ * ```
+ *
  * @tparam T The type of the referenced object
  */
 template<typename T>
@@ -297,10 +598,16 @@ public:
 
   using element_type = T;
 
-  /// Default constructor creates empty weak_ptr
+  /**
+   * @brief Default constructor creates empty weak_ptr
+   */
   weak_ptr() noexcept = default;
 
-  /// Create weak_ptr from strong_ptr
+  /**
+   * @brief Create weak_ptr from strong_ptr
+   *
+   * @param p_strong The strong_ptr to create a weak reference to
+   */
   weak_ptr(strong_ptr<T> const& p_strong) noexcept
     : m_ctrl(p_strong.m_ctrl)
     , m_ptr(p_strong.m_ptr)
@@ -310,7 +617,11 @@ public:
     }
   }
 
-  // Copy constructor
+  /**
+   * @brief Copy constructor
+   *
+   * @param p_other The weak_ptr to copy from
+   */
   weak_ptr(weak_ptr const& p_other) noexcept
     : m_ctrl(p_other.m_ctrl)
     , m_ptr(p_other.m_ptr)
@@ -320,7 +631,11 @@ public:
     }
   }
 
-  // Move constructor
+  /**
+   * @brief Move constructor
+   *
+   * @param p_other The weak_ptr to move from
+   */
   weak_ptr(weak_ptr&& p_other) noexcept
     : m_ctrl(p_other.m_ctrl)
     , m_ptr(p_other.m_ptr)
@@ -329,7 +644,14 @@ public:
     p_other.m_ptr = nullptr;
   }
 
-  // Converting copy constructor
+  /**
+   * @brief Converting copy constructor
+   *
+   * Creates a weak_ptr<T> from a weak_ptr<U> where U is convertible to T.
+   *
+   * @tparam U A type convertible to T
+   * @param p_other The weak_ptr<U> to copy from
+   */
   template<typename U>
   weak_ptr(weak_ptr<U> const& p_other) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -341,7 +663,14 @@ public:
     }
   }
 
-  // Converting move constructor
+  /**
+   * @brief Converting move constructor
+   *
+   * Moves a weak_ptr<U> to a weak_ptr<T> where U is convertible to T.
+   *
+   * @tparam U A type convertible to T
+   * @param p_other The weak_ptr<U> to move from
+   */
   template<typename U>
   weak_ptr(weak_ptr<U>&& p_other) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -352,7 +681,14 @@ public:
     p_other.m_ptr = nullptr;
   }
 
-  // Converting copy constructor
+  /**
+   * @brief Converting constructor from strong_ptr
+   *
+   * Creates a weak_ptr<T> from a strong_ptr<U> where U is convertible to T.
+   *
+   * @tparam U A type convertible to T
+   * @param p_other The strong_ptr<U> to create a weak reference to
+   */
   template<typename U>
   weak_ptr(strong_ptr<U> const& p_other) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -364,7 +700,12 @@ public:
     }
   }
 
-  // Destructor
+  /**
+   * @brief Destructor
+   *
+   * Decrements the weak reference count and potentially deallocates
+   * memory if this was the last reference.
+   */
   ~weak_ptr()
   {
     if (m_ctrl) {
@@ -372,44 +713,80 @@ public:
     }
   }
 
-  // Copy assignment operator
+  /**
+   * @brief Copy assignment operator
+   *
+   * @param p_other The weak_ptr to copy from
+   * @return Reference to *this
+   */
   weak_ptr& operator=(weak_ptr const& p_other) noexcept
   {
     weak_ptr(p_other).swap(*this);
     return *this;
   }
 
-  // Move assignment operator
+  /**
+   * @brief Move assignment operator
+   *
+   * @param p_other The weak_ptr to move from
+   * @return Reference to *this
+   */
   weak_ptr& operator=(weak_ptr&& p_other) noexcept
   {
     weak_ptr(std::move(p_other)).swap(*this);
     return *this;
   }
 
-  // Assignment from strong_ptr
+  /**
+   * @brief Assignment from strong_ptr
+   *
+   * @param p_strong The strong_ptr to create a weak reference to
+   * @return Reference to *this
+   */
   weak_ptr& operator=(strong_ptr<T> const& p_strong) noexcept
   {
     weak_ptr(p_strong).swap(*this);
     return *this;
   }
 
-  // Swap function
+  /**
+   * @brief Swap the contents of this weak_ptr with another
+   *
+   * @param p_other The weak_ptr to swap with
+   */
   void swap(weak_ptr& p_other) noexcept
   {
     std::swap(m_ctrl, p_other.m_ctrl);
     std::swap(m_ptr, p_other.m_ptr);
   }
 
-  // Check if expired
+  /**
+   * @brief Check if the referenced object has been destroyed
+   *
+   * @return true if the object has been destroyed, false otherwise
+   */
   [[nodiscard]] bool expired() const noexcept
   {
     return !m_ctrl || m_ctrl->strong_count.load(std::memory_order_relaxed) == 0;
   }
 
-  // Lock to get a strong_ptr
+  /**
+   * @brief Attempt to obtain a strong_ptr to the referenced object
+   *
+   * If the object still exists, returns an optional_ptr containing
+   * a strong_ptr to it. Otherwise, returns an empty optional_ptr.
+   *
+   * @return An optional_ptr that is either empty or contains a strong_ptr
+   */
   optional_ptr<T> lock() const noexcept;
 
-  // Get use count for testing
+  /**
+   * @brief Get the current strong reference count
+   *
+   * This is primarily for testing purposes.
+   *
+   * @return The number of strong references to the managed object
+   */
   auto use_count() const noexcept
   {
     return m_ctrl ? m_ctrl->strong_count.load(std::memory_order_relaxed) : 0;
@@ -423,7 +800,34 @@ private:
 /**
  * @brief Optional, nullable, smart pointer that works with `hal::strong_ptr`.
  *
- * [Claude fill this out please, maybe add some usage examples]
+ * optional_ptr provides a way to represent a strong_ptr that may or may not
+ * be present. Unlike strong_ptr, which is always valid, optional_ptr can be
+ * in a "disengaged" state where it doesn't reference any object.
+ *
+ * Use optional_ptr when you need a nullable reference to a reference-counted
+ * object, such as:
+ * - Representing the absence of a value
+ * - Return values from functions that may fail
+ * - Results of locking a weak_ptr
+ *
+ * Example usage:
+ * ```
+ * // Create an empty optional_ptr
+ * optional_ptr<MyClass> opt1;
+ *
+ * // Create an optional_ptr from a strong_ptr
+ * auto ptr = make_strong_ptr<MyClass>(allocator, args...);
+ * optional_ptr<MyClass> opt2 = ptr;
+ *
+ * // Check if the optional_ptr is engaged
+ * if (opt2) {
+ *   // Use the contained object
+ *   opt2->doSomething();
+ * }
+ *
+ * // Reset to disengage
+ * opt2.reset();
+ * ```
  *
  * @tparam T - The type pointed to by strong_ptr
  */
@@ -431,32 +835,51 @@ template<typename T>
 class optional_ptr
 {
 public:
-  // Default constructor creates a disengaged optional
+  /**
+   * @brief Default constructor creates a disengaged optional
+   */
   constexpr optional_ptr() noexcept
   {
   }
 
-  // Constructor for nullptr
+  /**
+   * @brief Constructor for nullptr (creates a disengaged optional)
+   */
   constexpr optional_ptr(nullptr_t) noexcept
   {
   }
 
-  // Deleted! Move constructor
+  /**
+   * @brief Move constructor is deleted
+   */
   constexpr optional_ptr(optional_ptr&& p_other) noexcept = delete;
 
-  // Construct from a strong_ptr lvalue
+  /**
+   * @brief Construct from a strong_ptr lvalue
+   *
+   * @param value The strong_ptr to wrap
+   */
   constexpr optional_ptr(strong_ptr<T> const& value) noexcept
     : m_value(value)
   {
   }
 
-  // Copy constructor
+  /**
+   * @brief Copy constructor
+   *
+   * @param p_other The optional_ptr to copy from
+   */
   constexpr optional_ptr(optional_ptr const& p_other)
   {
     *this = p_other;
   }
 
-  // Assignment from a strong_ptr<U>
+  /**
+   * @brief Converting constructor from a strong_ptr<U>
+   *
+   * @tparam U A type convertible to T
+   * @param p_value The strong_ptr<U> to wrap
+   */
   template<typename U>
   constexpr optional_ptr(strong_ptr<U> const& p_value)
     requires(std::is_convertible_v<U*, T*>)
@@ -464,10 +887,17 @@ public:
     *this = p_value;
   }
 
-  // Deleted! Move assignment operator
+  /**
+   * @brief Move assignment operator is deleted
+   */
   constexpr optional_ptr& operator=(optional_ptr&& other) noexcept = delete;
 
-  // Assignment operator
+  /**
+   * @brief Copy assignment operator
+   *
+   * @param other The optional_ptr to copy from
+   * @return Reference to *this
+   */
   constexpr optional_ptr& operator=(optional_ptr const& other)
   {
     if (this != &other) {
@@ -482,7 +912,12 @@ public:
     return *this;
   }
 
-  // Assignment from a strong_ptr
+  /**
+   * @brief Assignment from a strong_ptr
+   *
+   * @param value The strong_ptr to wrap
+   * @return Reference to *this
+   */
   constexpr optional_ptr& operator=(strong_ptr<T> const& value) noexcept
   {
     if (is_engaged()) {
@@ -493,7 +928,13 @@ public:
     return *this;
   }
 
-  // Assignment from a strong_ptr
+  /**
+   * @brief Converting assignment from a strong_ptr<U>
+   *
+   * @tparam U A type convertible to T
+   * @param p_value The strong_ptr<U> to wrap
+   * @return Reference to *this
+   */
   template<typename U>
   constexpr optional_ptr& operator=(strong_ptr<U> const& p_value) noexcept
     requires(std::is_convertible_v<U*, T*>)
@@ -506,14 +947,22 @@ public:
     return *this;
   }
 
-  // Constructor for nullptr
+  /**
+   * @brief Assignment from nullptr (resets to disengaged state)
+   *
+   * @return Reference to *this
+   */
   constexpr optional_ptr& operator=(nullptr_t) noexcept
   {
     reset();
     return *this;
   }
 
-  // Destructor
+  /**
+   * @brief Destructor
+   *
+   * Properly destroys the contained strong_ptr if engaged.
+   */
   ~optional_ptr()
   {
     if (is_engaged()) {
@@ -521,19 +970,32 @@ public:
     }
   }
 
-  // Check if the optional_ptr is engaged
+  /**
+   * @brief Check if the optional_ptr is engaged
+   *
+   * @return true if the optional_ptr contains a value, false otherwise
+   */
   [[nodiscard]] constexpr bool has_value() const noexcept
   {
     return is_engaged();
   }
 
-  // Operator bool for checking engagement
+  /**
+   * @brief Check if the optional_ptr is engaged
+   *
+   * @return true if the optional_ptr contains a value, false otherwise
+   */
   constexpr explicit operator bool() const noexcept
   {
     return is_engaged();
   }
 
-  // Access the contained value, throw if not engaged
+  /**
+   * @brief Access the contained value, throw if not engaged
+   *
+   * @return Reference to the contained strong_ptr
+   * @throws std::bad_optional_access if *this is disengaged
+   */
   constexpr strong_ptr<T>& value()
   {
     if (!is_engaged()) {
@@ -542,7 +1004,12 @@ public:
     return m_value;
   }
 
-  // Access the contained value, throw if not engaged (const version)
+  /**
+   * @brief Access the contained value, throw if not engaged (const version)
+   *
+   * @return Reference to the contained strong_ptr
+   * @throws std::bad_optional_access if *this is disengaged
+   */
   constexpr strong_ptr<T> const& value() const
   {
     if (!is_engaged()) {
@@ -551,32 +1018,55 @@ public:
     return m_value;
   }
 
-  // Arrow operator (compatible with the base optional implementation)
+  /**
+   * @brief Arrow operator for accessing members of the contained object
+   *
+   * @return Pointer to the object managed by the contained strong_ptr
+   */
   constexpr auto* operator->()
   {
     auto& ref = *(this->value());
     return &ref;
   }
+
+  /**
+   * @brief Arrow operator for accessing members of the contained object (const
+   * version)
+   *
+   * @return Pointer to the object managed by the contained strong_ptr
+   */
   constexpr auto* operator->() const
   {
     auto& ref = *(this->value());
     return &ref;
   }
 
-  // Dereference operator (compatible with the base optional implementation)
+  /**
+   * @brief Dereference operator for accessing the contained object
+   *
+   * @return Reference to the object managed by the contained strong_ptr
+   */
   constexpr auto& operator*()
   {
     auto& ref = *(this->value());
     return ref;
   }
 
+  /**
+   * @brief Dereference operator for accessing the contained object (const
+   * version)
+   *
+   * @return Reference to the object managed by the contained strong_ptr
+   */
   constexpr auto& operator*() const
   {
     auto& ref = *(this->value());
     return ref;
   }
 
-  // Reset the optional to a disengaged state
+  /**
+   * @brief Reset the optional to a disengaged state
+   */
   constexpr void reset() noexcept
   {
     if (is_engaged()) {
@@ -586,7 +1076,15 @@ public:
     }
   }
 
-  // Emplace a new value
+  /**
+   * @brief Emplace a new value
+   *
+   * Reset the optional and construct a new strong_ptr in-place.
+   *
+   * @tparam Args Types of arguments to forward to the constructor
+   * @param args Arguments to forward to the constructor
+   * @return Reference to the newly constructed strong_ptr
+   */
   template<typename... Args>
   constexpr strong_ptr<T>& emplace(Args&&... args)
   {
@@ -595,7 +1093,11 @@ public:
     return m_value;
   }
 
-  // Swap with another optional
+  /**
+   * @brief Swap the contents of this optional_ptr with another
+   *
+   * @param other The optional_ptr to swap with
+   */
   constexpr void swap(optional_ptr& other) noexcept
   {
     if (is_engaged() && other.is_engaged()) {
@@ -610,7 +1112,12 @@ public:
   }
 
 private:
-  // Use the strong_ptr's memory directly
+  /**
+   * @brief Use the strong_ptr's memory directly through a union
+   *
+   * This allows us to detect whether the optional_ptr is engaged
+   * by checking if the internal pointers are non-null.
+   */
   union
   {
     std::array<void*, 2> m_raw_ptrs = { nullptr, nullptr };
@@ -621,14 +1128,27 @@ private:
   static_assert(sizeof(m_value) == sizeof(m_raw_ptrs),
                 "strong_ptr must be exactly the size of two pointers");
 
-  // Helper to check if the optional is engaged
+  /**
+   * @brief Helper to check if the optional is engaged
+   *
+   * @return true if the optional_ptr contains a value, false otherwise
+   */
   [[nodiscard]] constexpr bool is_engaged() const noexcept
   {
     return m_raw_ptrs[0] != nullptr || m_raw_ptrs[1] != nullptr;
   }
 };
 
-// Implement weak_ptr::lock() now that optional_ptr is defined
+/**
+ * @brief Implement weak_ptr::lock() now that optional_ptr is defined
+ *
+ * This function attempts to obtain a strong_ptr from a weak_ptr.
+ * If the referenced object still exists, it returns an optional_ptr
+ * containing a strong_ptr to it. Otherwise, it returns an empty optional_ptr.
+ *
+ * @tparam T The type of the referenced object
+ * @return An optional_ptr that is either empty or contains a strong_ptr
+ */
 template<typename T>
 inline optional_ptr<T> weak_ptr<T>::lock() const noexcept
 {
@@ -654,34 +1174,84 @@ inline optional_ptr<T> weak_ptr<T>::lock() const noexcept
   return nullptr;
 }
 
-// Non-member swap for strong_ptr
+/**
+ * @brief Non-member swap for strong_ptr
+ *
+ * @tparam T The type of the managed object
+ * @param p_lhs First strong_ptr to swap
+ * @param p_rhs Second strong_ptr to swap
+ */
 template<typename T>
 void swap(strong_ptr<T>& p_lhs, strong_ptr<T>& p_rhs) noexcept
 {
   p_lhs.swap(p_rhs);
 }
 
-// Non-member swap for weak_ptr
+/**
+ * @brief Non-member swap for weak_ptr
+ *
+ * @tparam T The type of the referenced object
+ * @param p_lhs First weak_ptr to swap
+ * @param p_rhs Second weak_ptr to swap
+ */
 template<typename T>
 void swap(weak_ptr<T>& p_lhs, weak_ptr<T>& p_rhs) noexcept
 {
   p_lhs.swap(p_rhs);
 }
 
-// Equality operators for strong_ptr
+/**
+ * @brief Equality operator for strong_ptr
+ *
+ * Compares if two strong_ptr instances point to the same object.
+ *
+ * @tparam T The type of the first strong_ptr
+ * @tparam U The type of the second strong_ptr
+ * @param p_lhs First strong_ptr to compare
+ * @param p_rhs Second strong_ptr to compare
+ * @return true if both point to the same object, false otherwise
+ */
 template<typename T, typename U>
 bool operator==(strong_ptr<T> const& p_lhs, strong_ptr<U> const& p_rhs) noexcept
 {
   return p_lhs.operator->() == p_rhs.operator->();
 }
 
+/**
+ * @brief Inequality operator for strong_ptr
+ *
+ * Compares if two strong_ptr instances point to different objects.
+ *
+ * @tparam T The type of the first strong_ptr
+ * @tparam U The type of the second strong_ptr
+ * @param p_lhs First strong_ptr to compare
+ * @param p_rhs Second strong_ptr to compare
+ * @return true if they point to different objects, false otherwise
+ */
 template<typename T, typename U>
 bool operator!=(strong_ptr<T> const& p_lhs, strong_ptr<U> const& p_rhs) noexcept
 {
   return !(p_lhs == p_rhs);
 }
 
-// Factory function to create a strong_ptr with its control block
+/**
+ * @brief Factory function to create a strong_ptr with its control block
+ *
+ * This is the only way to create a new strong_ptr. It allocates memory
+ * for the object and its control block together, and initializes the object
+ * with the provided arguments.
+ *
+ * Example usage:
+ * ```
+ * auto ptr = hal::make_strong_ptr<MyClass>(allocator, arg1, arg2);
+ * ```
+ *
+ * @tparam T The type of object to create
+ * @tparam Args Types of arguments to forward to the constructor
+ * @param p_alloc Allocator to use for memory allocation
+ * @param args Arguments to forward to the constructor
+ * @return A strong_ptr managing the newly created object
+ */
 template<class T, typename... Args>
 inline strong_ptr<T> make_strong_ptr(
   std::pmr::polymorphic_allocator<byte> p_alloc,

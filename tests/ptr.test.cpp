@@ -176,9 +176,10 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     // Create a class with internal structure
     struct outer_class
     {
-      test_class inner;
+      int member_offset;
+      std::array<test_class, 2> inner;
       explicit outer_class(int p_value)
-        : inner(p_value)
+        : inner{ test_class{ p_value }, test_class{ p_value } }
       {
       }
     };
@@ -186,7 +187,7 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     auto outer = make_strong_ptr<outer_class>(test_allocator, 42);
 
     // Create an alias to the inner object
-    strong_ptr<test_class> inner(outer, &outer->inner);
+    strong_ptr<test_class> inner(outer, &outer_class::inner, 1);
 
     expect(that % 42 == inner->value());
     expect(that % 2 == outer.use_count())
@@ -195,7 +196,7 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     // Modify through the alias
     inner->set_value(100);
 
-    expect(that % 100 == outer->inner.value());
+    expect(that % 100 == outer->inner[1].value());
   };
 
   "equality"_test = [&] {

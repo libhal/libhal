@@ -96,11 +96,11 @@ boost::ut::suite<"smart_ref_test"> smart_ref_test = []() {
 
     // Exercise
     auto const previous_level = test->level();
-    test->level(!previous_level);
+    test->level(not previous_level);
     auto const latest_level = test->level();
 
     // Verify
-    expect(that % previous_level == !latest_level);
+    expect(that % previous_level == not latest_level);
     expect(that % test.use_count() == 1);
   };
 
@@ -112,7 +112,7 @@ boost::ut::suite<"smart_ref_test"> smart_ref_test = []() {
 
     // Exercise
     auto const previous_level = converting_obj->level();
-    converting_obj->level(!previous_level);
+    converting_obj->level(not previous_level);
     auto const latest_level = converting_obj->level();
 
     // Verify
