@@ -22,6 +22,7 @@
 
 namespace hal {
 /**
+ * @deprecated Use `v5::serial` instead for better performance
  * @brief Hardware abstract interface for the serial communication protocol
  *
  * Use this interface for hardware that implements a serial protocol like UART,
