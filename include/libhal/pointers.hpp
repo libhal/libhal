@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <cstddef>
-
 #include <atomic>
 #include <memory_resource>
 #include <type_traits>
@@ -57,8 +55,8 @@ struct ref_info
   /// Initialize to 1 since creation implies a reference
   std::pmr::polymorphic_allocator<hal::byte> allocator;
   destroy_fn_t* destroy;
-  std::atomic<int> strong_count = 1;
-  std::atomic<int> weak_count = 0;
+  std::atomic<int32_t> strong_count = 1;
+  std::atomic<int32_t> weak_count = 0;
 };
 
 /**

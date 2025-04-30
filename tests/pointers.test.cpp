@@ -14,7 +14,7 @@
 
 #include <memory_resource>
 
-#include <libhal/ptr.hpp>
+#include <libhal/pointers.hpp>
 
 #include <boost/ut.hpp>
 
