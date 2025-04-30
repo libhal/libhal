@@ -341,6 +341,31 @@ public:
   }
 
   /**
+   * @brief Compile time error message for bad alias value
+   *
+   * `std::shared_ptr` provides an alias constructor that accepts any `void*`
+   * which is UB if that `void*` doesn't have the same lifetime as the object
+   * referenced by the `std::shared_ptr`. Users attempting to do this will get a
+   * list of constructors that failed to fit. This is not a good error message
+   * for users. Instead, we provide a static_assert message in plain english
+   * that explains why this overload fails at compile time.
+   *
+   * @tparam U - some type for the strong_ptr.
+   */
+  template<typename U>
+  strong_ptr(strong_ptr<U> const&, void const*) noexcept
+  {
+    // NOTE: The conditional used here is to prevent the compiler from
+    // jumping-the-gun and emitting the static assert error during template
+    // instantiation of the class. With this conditional, the error only appears
+    // when this constructor is used.
+    static_assert(
+      std::is_same_v<U, void> && !std::is_same_v<U, void>,
+      "Aliasing constructor only works with pointers-to-members "
+      "and does not work with arbitrary pointers like std::shared_ptr allows.");
+  }
+
+  /**
    * @brief Safe aliasing constructor for object members
    *
    * This constructor creates a strong_ptr that points to a member of an object
@@ -371,36 +396,16 @@ public:
    * @param p_member_ptr Pointer-to-member identifying which member to reference
    */
   template<typename U, detail::non_array_like M>
-  strong_ptr(strong_ptr<U> const& p_other, M U::* p_member_ptr) noexcept
+  strong_ptr(strong_ptr<U> const& p_other,
+             // clang-format off
+             M U::* p_member_ptr
+             // clang-format on
+             ) noexcept
+
     : m_ctrl(p_other.m_ctrl)
     , m_ptr(&((*p_other).*p_member_ptr))
   {
     ptr_add_ref(m_ctrl);
-  }
-
-  /**
-   * @brief Compile time error message for bad alias value
-   *
-   * `std::shared_ptr` provides an alias constructor that accepts any `void*`
-   * which is UB if that `void*` doesn't have the same lifetime as the object
-   * referenced by the `std::shared_ptr`. Users attempting to do this will get a
-   * list of constructors that failed to fit. This is not a good error message
-   * for users. Instead, we provide a static_assert message in plain english
-   * that explains why this overload fails at compile time.
-   *
-   * @tparam U - some type for the strong_ptr.
-   */
-  template<typename U>
-  strong_ptr(strong_ptr<U> const&, void const*) noexcept
-  {
-    // NOTE: The conditional used here is to prevent the compiler from
-    // jumping-the-gun and emitting the static assert error during template
-    // instantiation of the class. With this conditional, the error only appears
-    // when this constructor is used.
-    static_assert(
-      std::is_same_v<U, void> && !std::is_same_v<U, void>,
-      "Aliasing constructor only works with pointers-to-members "
-      "and does not work with arbitrary pointers like std::shared_ptr allows.");
   }
 
   /**
@@ -436,7 +441,9 @@ public:
    */
   template<typename U, typename E, std::size_t N>
   strong_ptr(strong_ptr<U> const& p_other,
+             // clang-format off
              std::array<E, N> U::* p_array_ptr,
+             // clang-format on
              std::size_t p_index)
   {
     static_assert(std::is_convertible_v<E*, T*>,
