@@ -1358,7 +1358,6 @@ bool operator!=(optional_ptr<T> const& p_lhs,
  *
  * @tparam T The type of the optional_ptr
  * @param p_lhs The optional_ptr to compare
- * @param p_nullptr nullptr to compare against
  * @return true if the optional_ptr is disengaged
  */
 template<typename T>
@@ -1373,7 +1372,6 @@ bool operator==(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
  * nullptr equals an optional_ptr if it's disengaged.
  *
  * @tparam T The type of the optional_ptr
- * @param p_nullptr nullptr to compare against
  * @param p_rhs The optional_ptr to compare
  * @return true if the optional_ptr is disengaged
  */
@@ -1390,7 +1388,6 @@ bool operator==(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
  *
  * @tparam T The type of the optional_ptr
  * @param p_lhs The optional_ptr to compare
- * @param p_nullptr nullptr to compare against
  * @return true if the optional_ptr is engaged
  */
 template<typename T>
@@ -1405,7 +1402,6 @@ bool operator!=(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
  * nullptr does not equal an optional_ptr if it's engaged.
  *
  * @tparam T The type of the optional_ptr
- * @param p_nullptr nullptr to compare against
  * @param p_rhs The optional_ptr to compare
  * @return true if the optional_ptr is engaged
  */
