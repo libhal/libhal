@@ -716,10 +716,10 @@ public:
   /**
    * @brief Converting copy constructor
    *
-   * Creates a weak_ptr<T> from a weak_ptr<U> where U is convertible to T.
+   * Creates a weak_ptr of T from a weak_ptr of U where U is convertible to T.
    *
    * @tparam U A type convertible to T
-   * @param p_other The weak_ptr<U> to copy from
+   * @param p_other The weak_ptr to copy from
    */
   template<typename U>
   weak_ptr(weak_ptr<U> const& p_other) noexcept
@@ -735,10 +735,10 @@ public:
   /**
    * @brief Converting move constructor
    *
-   * Moves a weak_ptr<U> to a weak_ptr<T> where U is convertible to T.
+   * Moves a weak_ptr of U to a weak_ptr T where U is convertible to T.
    *
    * @tparam U A type convertible to T
-   * @param p_other The weak_ptr<U> to move from
+   * @param p_other The weak_ptr to move from
    */
   template<typename U>
   weak_ptr(weak_ptr<U>&& p_other) noexcept
