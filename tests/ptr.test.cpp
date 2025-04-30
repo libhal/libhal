@@ -135,7 +135,7 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     auto ptr4 = ptr2;
     expect(that % 3 == ptr.use_count());
     expect(that % 3 == ptr4.use_count());
-    expect(nothrow([&] { auto _ = ptr4->value(); }));
+    expect(nothrow([&] { [[maybe_unused]] auto _ = ptr4->value(); }));
   };
 
   "operator overloads"_test = [&] {
@@ -189,6 +189,13 @@ boost::ut::suite<"strong_ptr_test"> strong_ptr_test = []() {
     auto outer = make_strong_ptr<outer_class>(test_allocator, 42);
     // Create an alias to the inner object
     strong_ptr<test_class> inner(outer, &outer_class::inner);
+
+#if 0  // set to 1 to test aliasing constructor failing on random void*
+    int wrong = 5;
+    // ❌ Will emit an error when attempting to use this constructor.
+    strong_ptr<int> inner2(outer, &wrong);
+#endif
+
     // Create an alias to the array_inner object's index 1
     strong_ptr<test_class> array_inner(outer, &outer_class::array_inner, 1);
 
@@ -397,152 +404,158 @@ boost::ut::suite<"weak_ptr_test"> weak_ptr_test = []() {
 };
 
 // Optional pointer test suite
-boost::ut::suite<"optional_ptr_test"> optional_ptr_test = []() {
-  using namespace boost::ut;
+boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
+  []() {
+    using namespace boost::ut;
 
-  "construction"_test = [&] {
-    // Test default constructor
-    hal::optional_ptr<test_class> empty;
-    expect(that % false == bool(empty))
-      << "Default constructed optional_ptr should be empty\n";
+    "construction"_test = [&] {
+      // Test default constructor
+      hal::optional_ptr<test_class> empty;
+      expect(that % false == bool(empty))
+        << "Default constructed optional_ptr should be empty\n";
 
-    // Test nullptr constructor
-    hal::optional_ptr<test_class> null_ptr = nullptr;
-    expect(that % false == bool(null_ptr))
-      << "Nullptr constructed optional_ptr should be empty\n";
+      // Test nullptr constructor
+      hal::optional_ptr<test_class> null_ptr = nullptr;
+      expect(that % false == bool(null_ptr))
+        << "Nullptr constructed optional_ptr should be empty\n";
 
-    // Test from strong_ptr
-    auto strong = make_strong_ptr<test_class>(test_allocator, 42);
-    optional_ptr<test_class> opt = strong;
-
-    expect(that % true == bool(opt))
-      << "Optional from strong_ptr should be valid\n";
-    expect(that % 2 == strong.use_count()) << "Should share ownership\n";
-
-    // Test make_optional_ptr factory function
-    hal::optional_ptr<test_class> direct_opt =
-      make_strong_ptr<test_class>(test_allocator, 100);
-    expect(that % true == bool(direct_opt))
-      << "Factory-created optional should be valid\n";
-    expect(that % 100 == direct_opt->value())
-      << "Value should match construction parameter\n";
-
-    // Test copy constructor
-    optional_ptr<test_class> opt2 = opt;
-    expect(that % true == bool(opt2)) << "Copy should be valid\n";
-    expect(that % 3 == strong.use_count())
-      << "Should now have three shared owners\n";
-  };
-
-  "access"_test = [&] {
-    auto strong = make_strong_ptr<test_class>(test_allocator, 42);
-    optional_ptr<test_class> opt = strong;
-
-    expect(nothrow([&] { auto _ = opt->value(); }))
-      << "Arrow operator should work on valid optional\n";
-    expect(nothrow([&] { auto _ = (*opt).value(); }))
-      << "Dereference operator should work on valid optional\n";
-
-    // Test value method
-    expect(that % 42 == opt->value());
-
-    // Test modifying through optional
-    opt->set_value(100);
-    expect(that % 100 == strong->value())
-      << "Changes through optional should affect underlying object\n";
-
-    // Test exception on accessing null optional
-    optional_ptr<test_class> empty;
-    expect(throws<std::bad_optional_access>([&] { auto _ = empty->value(); }))
-      << "Accessing null optional with arrow operator should throw\n";
-    expect(throws<std::bad_optional_access>([&] { auto _ = (*empty).value(); }))
-      << "Accessing null optional with dereference operator should throw\n";
-  };
-
-  "reset"_test = [&] {
-    auto strong = make_strong_ptr<test_class>(test_allocator, 42);
-    optional_ptr<test_class> opt = strong;
-
-    expect(that % true == bool(opt)) << "Optional should be valid\n";
-    expect(that % 2 == strong.use_count()) << "Should share ownership\n";
-
-    // Reset to null
-    opt = nullptr;
-    expect(that % false == bool(opt))
-      << "Optional should be empty after reset\n";
-    expect(that % 1 == strong.use_count()) << "Should release ownership\n";
-
-    // Re-assign
-    opt = strong;
-    expect(that % true == bool(opt)) << "Optional should be valid again\n";
-    expect(that % 2 == strong.use_count()) << "Should share ownership again\n";
-  };
-
-  "polymorphism"_test = [&] {
-    auto derived = make_strong_ptr<derived_class>(test_allocator, 42);
-    optional_ptr<base_class> base_opt = derived;
-
-    expect(that % true == bool(base_opt))
-      << "Polymorphic optional should be valid\n";
-    expect(that % 42 == base_opt->value())
-      << "Value should be accessible through base interface\n";
-    expect(that % 2 == derived.use_count()) << "Should share ownership\n";
-
-    // Test assigning different derived
-    auto derived2 = make_strong_ptr<derived_class>(test_allocator, 100);
-    base_opt = derived2;
-
-    expect(that % 100 == base_opt->value())
-      << "Value should update after assignment\n";
-    expect(that % 1 == derived.use_count())
-      << "First derived should lose shared ownership\n";
-    expect(that % 2 == derived2.use_count())
-      << "Second derived should gain shared ownership\n";
-  };
-
-  "weak_ptr_lock"_test = [&] {
-    weak_ptr<test_class> weak;
-    {
-      // Test creating an optional_ptr through weak_ptr::lock()
+      // Test from strong_ptr
       auto strong = make_strong_ptr<test_class>(test_allocator, 42);
-      weak = strong;
+      optional_ptr<test_class> opt = strong;
 
-      auto locked = weak.lock();
-      expect(that % true == bool(locked))
-        << "Locked weak_ptr should be valid\n";
-      expect(that % 42 == locked->value()) << "Value should match original\n";
+      expect(that % true == bool(opt))
+        << "Optional from strong_ptr should be valid\n";
+      expect(that % 2 == strong.use_count()) << "Should share ownership\n";
+
+      // Test make_optional_ptr factory function
+      hal::optional_ptr<test_class> direct_opt =
+        make_strong_ptr<test_class>(test_allocator, 100);
+      expect(that % true == bool(direct_opt))
+        << "Factory-created optional should be valid\n";
+      expect(that % 100 == direct_opt->value())
+        << "Value should match construction parameter\n";
+
+      // Test copy constructor
+      optional_ptr<test_class> opt2 = opt;
+      expect(that % true == bool(opt2)) << "Copy should be valid\n";
+      expect(that % 3 == strong.use_count())
+        << "Should now have three shared owners\n";
+    };
+
+    "access"_test = [&] {
+      auto strong = make_strong_ptr<test_class>(test_allocator, 42);
+      optional_ptr<test_class> opt = strong;
+
+      expect(nothrow([&] { [[maybe_unused]] auto _ = opt->value(); }))
+        << "Arrow operator should work on valid optional\n";
+      expect(nothrow([&] { [[maybe_unused]] auto _ = (*opt).value(); }))
+        << "Dereference operator should work on valid optional\n";
+
+      // Test value method
+      expect(that % 42 == opt->value());
+
+      // Test modifying through optional
+      opt->set_value(100);
+      expect(that % 100 == strong->value())
+        << "Changes through optional should affect underlying object\n";
+
+      // Test exception on accessing null optional
+      optional_ptr<test_class> empty;
+      expect(throws<std::bad_optional_access>(
+        [&] { [[maybe_unused]] auto _ = empty->value(); }))
+        << "Accessing null optional with arrow operator should throw\n";
+      expect(throws<std::bad_optional_access>(
+        [&] { [[maybe_unused]] auto _ = (*empty).value(); }))
+        << "Accessing null optional with dereference operator should throw\n";
+    };
+
+    "reset"_test = [&] {
+      auto strong = make_strong_ptr<test_class>(test_allocator, 42);
+      optional_ptr<test_class> opt = strong;
+
+      expect(that % true == bool(opt)) << "Optional should be valid\n";
+      expect(that % 2 == strong.use_count()) << "Should share ownership\n";
+
+      // Reset to null
+      opt = nullptr;
+      expect(that % false == bool(opt))
+        << "Optional should be empty after reset\n";
+      expect(that % 1 == strong.use_count()) << "Should release ownership\n";
+
+      // Re-assign
+      opt = strong;
+      expect(that % true == bool(opt)) << "Optional should be valid again\n";
       expect(that % 2 == strong.use_count())
-        << "Should share ownership with original\n";
-    }
+        << "Should share ownership again\n";
+    };
 
-    // Lock should now fail
-    auto locked2 = weak.lock();
-    expect(that % false == bool(locked2))
-      << "Locked expired weak_ptr should be empty\n";
+    "polymorphism"_test = [&] {
+      auto derived = make_strong_ptr<derived_class>(test_allocator, 42);
+      optional_ptr<base_class> base_opt = derived;
+
+      expect(that % true == bool(base_opt))
+        << "Polymorphic optional should be valid\n";
+      expect(that % 42 == base_opt->value())
+        << "Value should be accessible through base interface\n";
+      expect(that % 2 == derived.use_count()) << "Should share ownership\n";
+
+      // Test assigning different derived
+      auto derived2 = make_strong_ptr<derived_class>(test_allocator, 100);
+      base_opt = derived2;
+
+      expect(that % 100 == base_opt->value())
+        << "Value should update after assignment\n";
+      expect(that % 1 == derived.use_count())
+        << "First derived should lose shared ownership\n";
+      expect(that % 2 == derived2.use_count())
+        << "Second derived should gain shared ownership\n";
+    };
+
+    "weak_ptr_lock"_test = [&] {
+      weak_ptr<test_class> weak;
+      {
+        // Test creating an optional_ptr through weak_ptr::lock()
+        auto strong = make_strong_ptr<test_class>(test_allocator, 42);
+        weak = strong;
+
+        auto locked = weak.lock();
+        expect(that % true == bool(locked))
+          << "Locked weak_ptr should be valid\n";
+        expect(that % 42 == locked->value()) << "Value should match original\n";
+        expect(that % 2 == strong.use_count())
+          << "Should share ownership with original\n";
+      }
+
+      // Lock should now fail
+      auto locked2 = weak.lock();
+      expect(that % false == bool(locked2))
+        << "Locked expired weak_ptr should be empty\n";
+    };
+
+    "equality"_test =
+      [&] {
+        auto strong1 = make_strong_ptr<test_class>(test_allocator, 42);
+        auto strong2 = make_strong_ptr<test_class>(test_allocator, 43);
+
+        optional_ptr<test_class> opt1 = strong1;
+        optional_ptr<test_class> opt2 = strong1;
+        optional_ptr<test_class> opt3 = strong2;
+        optional_ptr<test_class> empty1;
+        optional_ptr<test_class> empty2;
+
+        expect(opt1 == opt2)
+          << "Optionals pointing to same object should be equal\n";
+        expect(opt1 != opt3)
+          << "Optionals pointing to different objects should not be equal\n";
+        expect(empty1 == empty2) << "Empty optionals should be equal\n";
+        expect(opt1 != empty1)
+          << "Valid and empty optionals should not be equal\n";
+
+        expect(empty1 == nullptr) << "Empty optional should equal nullptr\n";
+        expect(nullptr == empty1) << "nullptr should equal empty optional\n";
+        expect(opt1 != nullptr) << "Valid optional should not equal nullptr\n";
+        expect(nullptr != opt1) << "nullptr should not equal valid optional\n";
+      };
   };
-
-  "equality"_test = [&] {
-    auto strong1 = make_strong_ptr<test_class>(test_allocator, 42);
-    auto strong2 = make_strong_ptr<test_class>(test_allocator, 43);
-
-    optional_ptr<test_class> opt1 = strong1;
-    optional_ptr<test_class> opt2 = strong1;
-    optional_ptr<test_class> opt3 = strong2;
-    optional_ptr<test_class> empty1;
-    optional_ptr<test_class> empty2;
-#if 0
-    expect(opt1 == opt2) << "Optionals pointing to same object should be equal\n";
-    expect(opt1 != opt3)
-      << "Optionals pointing to different objects should not be equal\n";
-    expect(empty1 == empty2) << "Empty optionals should be equal\n";
-    expect(opt1 != empty1) << "Valid and empty optionals should not be equal\n";
-
-    expect(empty1 == nullptr) << "Empty optional should equal nullptr\n";
-    expect(nullptr == empty1) << "nullptr should equal empty optional\n";
-    expect(opt1 != nullptr) << "Valid optional should not equal nullptr\n";
-    expect(nullptr != opt1) << "nullptr should not equal valid optional\n";
-#endif
-  };
-};
 // NOLINTEND(performance-unnecessary-copy-initialization)
 }  // namespace hal

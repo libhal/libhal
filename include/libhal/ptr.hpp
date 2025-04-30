@@ -278,7 +278,7 @@ public:
    * a derived type U to base type T.
    *
    * @tparam U A type convertible to T
-   * @param p_other The strong_ptr<U> to copy from
+   * @param p_other The strong_ptr to copy from
    */
   template<typename U>
   strong_ptr(strong_ptr<U> const& p_other) noexcept
@@ -379,6 +379,31 @@ public:
   }
 
   /**
+   * @brief Compile time error message for bad alias value
+   *
+   * `std::shared_ptr` provides an alias constructor that accepts any `void*`
+   * which is UB if that `void*` doesn't have the same lifetime as the object
+   * referenced by the `std::shared_ptr`. Users attempting to do this will get a
+   * list of constructors that failed to fit. This is not a good error message
+   * for users. Instead, we provide a static_assert message in plain english
+   * that explains why this overload fails at compile time.
+   *
+   * @tparam U - some type for the strong_ptr.
+   */
+  template<typename U>
+  strong_ptr(strong_ptr<U> const&, void const*) noexcept
+  {
+    // NOTE: The conditional used here is to prevent the compiler from
+    // jumping-the-gun and emitting the static assert error during template
+    // instantiation of the class. With this conditional, the error only appears
+    // when this constructor is used.
+    static_assert(
+      std::is_same_v<U, void> && !std::is_same_v<U, void>,
+      "Aliasing constructor only works with pointers-to-members "
+      "and does not work with arbitrary pointers like std::shared_ptr allows.");
+  }
+
+  /**
    * @brief Safe aliasing constructor for std::array members
    *
    * This constructor creates a strong_ptr that points to an element of an array
@@ -416,12 +441,7 @@ public:
   {
     static_assert(std::is_convertible_v<E*, T*>,
                   "Array element type must be convertible to T");
-
-    if (p_index >= N) {
-      throw std::out_of_range(
-        "Array index out of bounds in strong_ptr aliasing constructor");
-    }
-
+    throw_if_out_of_bounds(N, p_index);
     m_ctrl = p_other.m_ctrl;
     m_ptr = &((*p_other).*p_array_ptr)[p_index];
     ptr_add_ref(m_ctrl);
@@ -466,12 +486,7 @@ public:
   {
     static_assert(std::is_convertible_v<E*, T*>,
                   "Array element type must be convertible to T");
-
-    if (p_index >= N) {
-      throw std::out_of_range(
-        "Array index out of bounds in strong_ptr aliasing constructor");
-    }
-
+    throw_if_out_of_bounds(N, p_index);
     m_ctrl = p_other.m_ctrl;
     m_ptr = &((*p_other).*p_array_ptr)[p_index];
     ptr_add_ref(m_ctrl);
@@ -515,7 +530,7 @@ public:
    * converting from type U to type T.
    *
    * @tparam U A type convertible to T
-   * @param p_other The strong_ptr<U> to copy from
+   * @param p_other The strong_ptr to copy from
    * @return Reference to *this
    */
   template<typename U>
@@ -583,6 +598,13 @@ public:
   }
 
 private:
+  static inline void throw_if_out_of_bounds(usize p_size, usize p_index)
+  {
+    if (p_index >= p_size) {
+      throw std::out_of_range("strong_ptr: array alias index");
+    }
+  }
+
   // Internal constructor with control block and pointer - used by make() and
   // aliasing
   strong_ptr(detail::ref_info* p_ctrl, T* p_ptr) noexcept
@@ -731,10 +753,10 @@ public:
   /**
    * @brief Converting constructor from strong_ptr
    *
-   * Creates a weak_ptr<T> from a strong_ptr<U> where U is convertible to T.
+   * Creates a weak_ptr<T> from a strong_ptr where U is convertible to T.
    *
    * @tparam U A type convertible to T
-   * @param p_other The strong_ptr<U> to create a weak reference to
+   * @param p_other The strong_ptr to create a weak reference to
    */
   template<typename U>
   weak_ptr(strong_ptr<U> const& p_other) noexcept
@@ -892,7 +914,7 @@ public:
   /**
    * @brief Constructor for nullptr (creates a disengaged optional)
    */
-  constexpr optional_ptr(nullptr_t) noexcept
+  constexpr optional_ptr(std::nullptr_t) noexcept
   {
   }
 
@@ -922,10 +944,10 @@ public:
   }
 
   /**
-   * @brief Converting constructor from a strong_ptr<U>
+   * @brief Converting constructor from a strong_ptr
    *
    * @tparam U A type convertible to T
-   * @param p_value The strong_ptr<U> to wrap
+   * @param p_value The strong_ptr to wrap
    */
   template<typename U>
   constexpr optional_ptr(strong_ptr<U> const& p_value)
@@ -976,10 +998,10 @@ public:
   }
 
   /**
-   * @brief Converting assignment from a strong_ptr<U>
+   * @brief Converting assignment from a strong_ptr
    *
    * @tparam U A type convertible to T
-   * @param p_value The strong_ptr<U> to wrap
+   * @param p_value The strong_ptr to wrap
    * @return Reference to *this
    */
   template<typename U>
@@ -999,7 +1021,7 @@ public:
    *
    * @return Reference to *this
    */
-  constexpr optional_ptr& operator=(nullptr_t) noexcept
+  constexpr optional_ptr& operator=(std::nullptr_t) noexcept
   {
     reset();
     return *this;
@@ -1279,6 +1301,118 @@ template<typename T, typename U>
 bool operator!=(strong_ptr<T> const& p_lhs, strong_ptr<U> const& p_rhs) noexcept
 {
   return !(p_lhs == p_rhs);
+}
+/**
+ * @brief Equality operator for optional_ptr
+ *
+ * Compares if two optional_ptr instances are equal - they are equal if:
+ * 1. Both are disengaged (both empty)
+ * 2. Both are engaged and point to the same object
+ *
+ * @tparam T The type of the first optional_ptr
+ * @tparam U The type of the second optional_ptr
+ * @param p_lhs First optional_ptr to compare
+ * @param p_rhs Second optional_ptr to compare
+ * @return true if both are equal according to the rules above
+ */
+template<typename T, typename U>
+bool operator==(optional_ptr<T> const& p_lhs,
+                optional_ptr<U> const& p_rhs) noexcept
+{
+  // If both are disengaged, they're equal
+  if (!p_lhs.has_value() && !p_rhs.has_value()) {
+    return true;
+  }
+
+  // If one is engaged and the other isn't, they're not equal
+  if (p_lhs.has_value() != p_rhs.has_value()) {
+    return false;
+  }
+
+  // Both are engaged, compare the underlying pointers
+  return p_lhs.value().operator->() == p_rhs.value().operator->();
+}
+
+/**
+ * @brief Inequality operator for optional_ptr
+ *
+ * Returns the opposite of the equality operator.
+ *
+ * @tparam T The type of the first optional_ptr
+ * @tparam U The type of the second optional_ptr
+ * @param p_lhs First optional_ptr to compare
+ * @param p_rhs Second optional_ptr to compare
+ * @return true if they are not equal
+ */
+template<typename T, typename U>
+bool operator!=(optional_ptr<T> const& p_lhs,
+                optional_ptr<U> const& p_rhs) noexcept
+{
+  return !(p_lhs == p_rhs);
+}
+
+/**
+ * @brief Equality operator between optional_ptr and nullptr
+ *
+ * An optional_ptr equals nullptr if it's disengaged.
+ *
+ * @tparam T The type of the optional_ptr
+ * @param p_lhs The optional_ptr to compare
+ * @param p_nullptr nullptr to compare against
+ * @return true if the optional_ptr is disengaged
+ */
+template<typename T>
+bool operator==(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
+{
+  return !p_lhs.has_value();
+}
+
+/**
+ * @brief Equality operator between nullptr and optional_ptr
+ *
+ * nullptr equals an optional_ptr if it's disengaged.
+ *
+ * @tparam T The type of the optional_ptr
+ * @param p_nullptr nullptr to compare against
+ * @param p_rhs The optional_ptr to compare
+ * @return true if the optional_ptr is disengaged
+ */
+template<typename T>
+bool operator==(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
+{
+  return !p_rhs.has_value();
+}
+
+/**
+ * @brief Inequality operator between optional_ptr and nullptr
+ *
+ * An optional_ptr does not equal nullptr if it's engaged.
+ *
+ * @tparam T The type of the optional_ptr
+ * @param p_lhs The optional_ptr to compare
+ * @param p_nullptr nullptr to compare against
+ * @return true if the optional_ptr is engaged
+ */
+template<typename T>
+bool operator!=(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
+{
+  return p_lhs.has_value();
+}
+
+/**
+ * @brief Inequality operator between nullptr and optional_ptr
+ *
+ * nullptr does not equal an optional_ptr if it's engaged.
+ *
+ * @tparam T The type of the optional_ptr
+ * @param p_nullptr nullptr to compare against
+ * @param p_rhs The optional_ptr to compare
+ * @return true if the optional_ptr is engaged
+ */
+template<typename T>
+bool operator!=(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
+{
+  return p_rhs.has_value();
 }
 
 /**
