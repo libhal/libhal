@@ -73,8 +73,9 @@ public:
 private:
   virtual void driver_power(float p_power) = 0;
 };
+}  // namespace hal
 
-namespace v5 {
+namespace hal::v5 {
 /**
  * @brief Hardware abstraction for an open loop rotational actuator
  *
@@ -128,5 +129,4 @@ public:
 private:
   virtual void driver_power(i16 p_power) = 0;
 };
-}  // namespace v5
-}  // namespace hal
+}  // namespace hal::v5

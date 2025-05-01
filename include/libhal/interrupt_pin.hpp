@@ -125,8 +125,9 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_on_trigger(hal::callback<handler> p_callback) = 0;
 };
+}  // namespace hal
 
-namespace v5 {
+namespace hal::v5 {
 /**
  * @brief Digital interrupt pin hardware abstraction
  *
@@ -241,5 +242,4 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_on_trigger(hal::callback<handler>& p_callback) = 0;
 };
-}  // namespace v5
-}  // namespace hal
+}  // namespace hal::v5
