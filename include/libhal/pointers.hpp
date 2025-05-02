@@ -22,7 +22,7 @@
 #include <libhal/error.hpp>
 #include <libhal/units.hpp>
 
-namespace hal::inline v1 {
+namespace hal::v5 {
 // Forward declarations
 template<typename T>
 class strong_ptr;
@@ -575,7 +575,7 @@ public:
    *
    * @return Reference to the managed object
    */
-  T& operator*() const& noexcept
+  [[nodiscard]] T& operator*() const& noexcept
   {
     return *m_ptr;
   }
@@ -585,7 +585,7 @@ public:
    *
    * @return Pointer to the managed object
    */
-  T* operator->() const& noexcept
+  [[nodiscard]] T* operator->() const& noexcept
   {
     return m_ptr;
   }
@@ -597,7 +597,7 @@ public:
    *
    * @return The number of strong references to the managed object
    */
-  auto use_count() const noexcept
+  [[nodiscard]] auto use_count() const noexcept
   {
     return m_ctrl ? m_ctrl->strong_count.load(std::memory_order_relaxed) : 0;
   }
@@ -852,7 +852,7 @@ public:
    *
    * @return An optional_ptr that is either empty or contains a strong_ptr
    */
-  optional_ptr<T> lock() const noexcept;
+  [[nodiscard]] optional_ptr<T> lock() const noexcept;
 
   /**
    * @brief Get the current strong reference count
@@ -861,7 +861,7 @@ public:
    *
    * @return The number of strong references to the managed object
    */
-  auto use_count() const noexcept
+  [[nodiscard]] auto use_count() const noexcept
   {
     return m_ctrl ? m_ctrl->strong_count.load(std::memory_order_relaxed) : 0;
   }
@@ -1070,7 +1070,7 @@ public:
    * @return Reference to the contained strong_ptr
    * @throws std::bad_optional_access if *this is disengaged
    */
-  constexpr strong_ptr<T>& value()
+  [[nodiscard]] constexpr strong_ptr<T>& value()
   {
     if (!is_engaged()) {
       throw std::bad_optional_access();
@@ -1084,7 +1084,7 @@ public:
    * @return Reference to the contained strong_ptr
    * @throws std::bad_optional_access if *this is disengaged
    */
-  constexpr strong_ptr<T> const& value() const
+  [[nodiscard]] constexpr strong_ptr<T> const& value() const
   {
     if (!is_engaged()) {
       throw std::bad_optional_access();
@@ -1097,7 +1097,7 @@ public:
    *
    * @return Pointer to the object managed by the contained strong_ptr
    */
-  constexpr auto* operator->()
+  [[nodiscard]] constexpr auto* operator->()
   {
     auto& ref = *(this->value());
     return &ref;
@@ -1109,7 +1109,7 @@ public:
    *
    * @return Pointer to the object managed by the contained strong_ptr
    */
-  constexpr auto* operator->() const
+  [[nodiscard]] constexpr auto* operator->() const
   {
     auto& ref = *(this->value());
     return &ref;
@@ -1120,7 +1120,7 @@ public:
    *
    * @return Reference to the object managed by the contained strong_ptr
    */
-  constexpr auto& operator*()
+  [[nodiscard]] constexpr auto& operator*()
   {
     auto& ref = *(this->value());
     return ref;
@@ -1132,7 +1132,7 @@ public:
    *
    * @return Reference to the object managed by the contained strong_ptr
    */
-  constexpr auto& operator*() const
+  [[nodiscard]] constexpr auto& operator*() const
   {
     auto& ref = *(this->value());
     return ref;
@@ -1224,7 +1224,7 @@ private:
  * @return An optional_ptr that is either empty or contains a strong_ptr
  */
 template<typename T>
-inline optional_ptr<T> weak_ptr<T>::lock() const noexcept
+[[nodiscard]] inline optional_ptr<T> weak_ptr<T>::lock() const noexcept
 {
   if (expired()) {
     return nullptr;
@@ -1321,8 +1321,8 @@ bool operator!=(strong_ptr<T> const& p_lhs, strong_ptr<U> const& p_rhs) noexcept
  * @return true if both are equal according to the rules above
  */
 template<typename T, typename U>
-bool operator==(optional_ptr<T> const& p_lhs,
-                optional_ptr<U> const& p_rhs) noexcept
+[[nodiscard]] bool operator==(optional_ptr<T> const& p_lhs,
+                              optional_ptr<U> const& p_rhs) noexcept
 {
   // If both are disengaged, they're equal
   if (!p_lhs.has_value() && !p_rhs.has_value()) {
@@ -1350,8 +1350,8 @@ bool operator==(optional_ptr<T> const& p_lhs,
  * @return true if they are not equal
  */
 template<typename T, typename U>
-bool operator!=(optional_ptr<T> const& p_lhs,
-                optional_ptr<U> const& p_rhs) noexcept
+[[nodiscard]] bool operator!=(optional_ptr<T> const& p_lhs,
+                              optional_ptr<U> const& p_rhs) noexcept
 {
   return !(p_lhs == p_rhs);
 }
@@ -1366,7 +1366,8 @@ bool operator!=(optional_ptr<T> const& p_lhs,
  * @return true if the optional_ptr is disengaged
  */
 template<typename T>
-bool operator==(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
+[[nodiscard]] bool operator==(optional_ptr<T> const& p_lhs,
+                              std::nullptr_t) noexcept
 {
   return !p_lhs.has_value();
 }
@@ -1381,7 +1382,8 @@ bool operator==(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
  * @return true if the optional_ptr is disengaged
  */
 template<typename T>
-bool operator==(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
+[[nodiscard]] bool operator==(std::nullptr_t,
+                              optional_ptr<T> const& p_rhs) noexcept
 {
   return !p_rhs.has_value();
 }
@@ -1396,7 +1398,8 @@ bool operator==(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
  * @return true if the optional_ptr is engaged
  */
 template<typename T>
-bool operator!=(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
+[[nodiscard]] bool operator!=(optional_ptr<T> const& p_lhs,
+                              std::nullptr_t) noexcept
 {
   return p_lhs.has_value();
 }
@@ -1411,7 +1414,8 @@ bool operator!=(optional_ptr<T> const& p_lhs, std::nullptr_t) noexcept
  * @return true if the optional_ptr is engaged
  */
 template<typename T>
-bool operator!=(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
+[[nodiscard]] bool operator!=(std::nullptr_t,
+                              optional_ptr<T> const& p_rhs) noexcept
 {
   return p_rhs.has_value();
 }
@@ -1435,7 +1439,7 @@ bool operator!=(std::nullptr_t, optional_ptr<T> const& p_rhs) noexcept
  * @return A strong_ptr managing the newly created object
  */
 template<class T, typename... Args>
-inline strong_ptr<T> make_strong_ptr(
+[[nodiscard]] inline strong_ptr<T> make_strong_ptr(
   std::pmr::polymorphic_allocator<byte> p_alloc,
   Args&&... args)
 {
@@ -1443,4 +1447,4 @@ inline strong_ptr<T> make_strong_ptr(
   auto* obj = p_alloc.new_object<rc_t>(p_alloc, std::forward<Args>(args)...);
   return strong_ptr<T>(&obj->m_info, &obj->m_object);
 }
-}  // namespace hal::inline v1
+}  // namespace hal::v5

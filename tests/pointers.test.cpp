@@ -16,61 +16,13 @@
 
 #include <libhal/pointers.hpp>
 
+#include "helpers.hpp"
+
 #include <boost/ut.hpp>
 
 // NOLINTBEGIN(performance-unnecessary-copy-initialization)
-namespace hal {
+namespace hal::v5 {
 namespace {
-// Create a test class to use with smart pointers
-class test_class
-{
-public:
-  explicit test_class(int p_value = 0)
-    : m_value(p_value)
-    , m_constructed(true)
-  {
-    // Track object construction
-    ++s_instance_count;
-  }
-
-  ~test_class()
-  {
-    // Track object destruction
-    m_constructed = false;
-    --s_instance_count;
-  }
-
-  test_class(test_class const&) = delete;
-  test_class& operator=(test_class const&) = delete;
-  test_class(test_class&&) = delete;
-  test_class& operator=(test_class&&) = delete;
-
-  [[nodiscard]] int value() const
-  {
-    return m_value;
-  }
-
-  void set_value(int p_value)
-  {
-    m_value = p_value;
-  }
-
-  [[nodiscard]] bool is_constructed() const
-  {
-    return m_constructed;
-  }
-
-  // Static counter for number of instances
-  static int s_instance_count;
-
-private:
-  int m_value;
-  bool m_constructed{ false };
-};
-
-// Initialize static counter
-int test_class::s_instance_count = 0;
-
 // Base class for testing polymorphism
 class base_class
 {
@@ -410,12 +362,12 @@ boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
 
     "construction"_test = [&] {
       // Test default constructor
-      hal::optional_ptr<test_class> empty;
+      optional_ptr<test_class> empty;
       expect(that % false == bool(empty))
         << "Default constructed optional_ptr should be empty\n";
 
       // Test nullptr constructor
-      hal::optional_ptr<test_class> null_ptr = nullptr;
+      optional_ptr<test_class> null_ptr = nullptr;
       expect(that % false == bool(null_ptr))
         << "Nullptr constructed optional_ptr should be empty\n";
 
@@ -428,7 +380,7 @@ boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
       expect(that % 2 == strong.use_count()) << "Should share ownership\n";
 
       // Test make_optional_ptr factory function
-      hal::optional_ptr<test_class> direct_opt =
+      optional_ptr<test_class> direct_opt =
         make_strong_ptr<test_class>(test_allocator, 100);
       expect(that % true == bool(direct_opt))
         << "Factory-created optional should be valid\n";
@@ -558,4 +510,4 @@ boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
       };
   };
 // NOLINTEND(performance-unnecessary-copy-initialization)
-}  // namespace hal
+}  // namespace hal::v5
