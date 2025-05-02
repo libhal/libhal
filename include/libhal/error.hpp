@@ -622,6 +622,29 @@ public:
 
 /**
  * @ingroup Error
+ * @brief Raised when an API attempts to access elements outside of a container
+ * or resource.
+ *
+ */
+struct out_of_range : public exception
+{
+  struct info
+  {
+    usize m_index;
+    usize m_capacity;
+  };
+
+  out_of_range(void const* p_instance, info p_info)
+    : exception(std::errc::invalid_argument, p_instance)
+    , m_info(p_info)
+  {
+  }
+
+  info m_info;
+};
+
+/**
+ * @ingroup Error
  * @brief libhal function for throwing exceptions with static analysis
  *
  * The types that can be thrown must follow these rules:
