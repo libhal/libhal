@@ -354,6 +354,9 @@ using degrees = float;
 /// Type for magnetic field represented in gauss.
 using gauss = float;
 
+/// Type for torque represented in newton meters.
+using newton_meter = float;
+
 /**
  * @brief Set of possible pin mode resistor settings.
  *

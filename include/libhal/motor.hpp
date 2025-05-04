@@ -87,7 +87,7 @@ namespace hal::v5 {
  *   - A servo with open loop motor control
  *
  */
-class motor
+class open_loop_motor
 {
 public:
   /**
@@ -124,86 +124,288 @@ public:
     return driver_power(p_power);
   }
 
-  virtual ~motor() = default;
+  virtual ~open_loop_motor() = default;
 
 private:
   virtual void driver_power(i16 p_power) = 0;
 };
 
-class open_loop_motor
+/**
+ * @brief Hardware abstraction for a motor with closed-loop velocity control
+ *
+ * Represents motors with velocity feedback, allowing precise speed control
+ * regardless of load variations. Supports configuration of target velocity,
+ * status monitoring, and movement detection.
+ */
+class velocity_motor
 {
 public:
-  virtual void power(float target_position) = 0;
+  /**
+   * @brief Structure containing current velocity status
+   */
+  struct status_t
+  {
+    rpm velocity;  ///< Current velocity in RPM
+  };
 
-  virtual ~open_loop_motor() = default;
-};
-
-class basic_motor
-{
-public:
-  virtual void enable(bool state) = 0;
-
-  // Move motor rotor to this position
-  virtual void power(float target_position) = 0;
-
-  // Get the configured position range
-  virtual std::pair<float, float> position_range() const = 0;
-
-  virtual ~basic_motor() = default;
-};
-
-class feedback_motor : public basic_motor
-{
-public:
-  // Position feedback
-  virtual float position() const = 0;
-};
-
-class velocity_motor : public feedback_motor
-{
-public:
-  // Sets max velocity for the next position() call.
-  // Units TBD
-  virtual void velocity(float target_velocity) = 0;
-
-  // Get the current velocity (units TBD)
-  virtual float velocity() const = 0;
-
-  // Get configured velocity constraints
-  virtual std::pair<float, float> velocity_range() const = 0;
-};
-
-class torque_motor : public feedback_motor
-{
-public:
-  // Sets max the torque for the next position call.
-  // Units TBD
-  virtual void torque(float target_torque) = 0;
-  virtual float torque() const = 0;
-  virtual std::pair<float, float> torque_range() const = 0;
-};
-
-// Veltor means VELocity and TORque. This interface
-// represents a motor with both velocity and torque
-// control.
-class veltor_motor : public feedback_motor
-{
-public:
+  /**
+   * @brief Structure defining velocity limits
+   */
   struct range_t
   {
-    float torque_min;
-    float torque_max;
-    float velocity_min;
-    float velocity_max;
+    rpm max;  ///< Maximum velocity in RPM
   };
-  struct veltor_t
+
+  virtual ~velocity_motor() = default;
+
+  /**
+   * @brief Enable or disable the motor
+   *
+   * When disabled, the motor will stop applying power. The motor may enter a
+   * low-power braking mode, but should not actively control velocity.
+   *
+   * @param p_state - true to enable, false to disable
+   */
+  void enable(bool p_state)
   {
-    float torque;
-    float velocity;
+    return driver_enable(p_state);
+  }
+
+  /**
+   * @brief Command the motor to move at a specific velocity
+   *
+   * Sets the target velocity for the motor. The value's sign controls the
+   * direction and its magnitude is the velocity in RPM. The direction a
+   * positive or negative RPM is not defined by the interface but by the
+   * construction the motor is apart of. This information must be passed to
+   * drivers along with this interface in order to decern directionality, if
+   * that is necessary for the application.
+   *
+   * @param p_velocity - Target velocity in RPM
+   * @throws hal::operation_not_supported - if the value exceeds the
+   * velocity range defined in velocity_range().
+   */
+  void drive(rpm p_velocity)
+  {
+    return driver_drive(p_velocity);
+  }
+
+  /**
+   * @brief Get the current velocity status
+   *
+   * @return Structure containing current velocity information
+   */
+  [[nodiscard]] status_t status()
+  {
+    return driver_status();
+  }
+
+  /**
+   * @brief Get the valid velocity range for this motor
+   *
+   * @return The minimum and maximum velocities in RPM
+   */
+  [[nodiscard]] range_t velocity_range()
+  {
+    return driver_velocity_range();
+  }
+
+private:
+  virtual void driver_enable(bool p_state) = 0;
+  virtual void driver_drive(rpm p_velocity) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_velocity_range() = 0;
+};
+
+/**
+ * @brief Hardware abstraction for a motor with closed-loop torque control
+ *
+ * Represents motors with torque feedback, allowing precise force control
+ * regardless of position or velocity. The implementation may use current
+ * sensing to estimate and control torque.
+ */
+class torque_motor
+{
+public:
+  /**
+   * @brief Structure containing current torque status
+   */
+  struct status_t
+  {
+    newton_meter torque;  ///< Current torque in newton meters
   };
-  virtual void torque(float p_target_torque) = 0;
-  virtual void velocity(float p_target_velocity) = 0;
-  virtual veltor_t veltor() const = 0;
-  virtual range_t range() const = 0;
+
+  /**
+   * @brief Structure defining torque limits
+   */
+  struct range_t
+  {
+    newton_meter max;  ///< Maximum torque in newton meters
+  };
+
+  virtual ~torque_motor() = default;
+
+  /**
+   * @brief Enable or disable the motor
+   *
+   * When disabled, the motor will stop applying power. The motor
+   * may enter a low-power state, but should not actively control torque.
+   *
+   * @param p_state - true to enable, false to disable
+   */
+  void enable(bool p_state)
+  {
+    return driver_enable(p_state);
+  }
+
+  /**
+   * @brief Apply a specific torque
+   *
+   * Sets the target torque for the motor to exert. Only the magnitude
+   * (absolute value) of the torque is considered.
+   *
+   * @param p_torque - Target torque in newton meters. Setting this value to
+   * zero will stop the motor from moving.
+   * @throws hal::operation_not_supported - if the value exceeds the
+   * torque range defined in torque_range().
+   */
+  void exert(newton_meter p_torque)
+  {
+    return driver_exert(p_torque);
+  }
+
+  /**
+   * @brief Get the current torque status
+   *
+   * @return Structure containing current torque information
+   */
+  [[nodiscard]] status_t status()
+  {
+    return driver_status();
+  }
+
+  /**
+   * @brief Get the valid torque range for this motor
+   *
+   * @return The minimum and maximum torque values in newton meters
+   */
+  [[nodiscard]] range_t torque_range()
+  {
+    return driver_torque_range();
+  }
+
+private:
+  virtual void driver_enable(bool p_state) = 0;
+  virtual void driver_exert(newton_meter p_torque) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_torque_range() = 0;
+};
+
+/**
+ * @brief Hardware abstraction for a motor with both velocity and torque control
+ *
+ * Represents advanced motors that can control both velocity and torque
+ * simultaneously, suitable for sophisticated motion control applications.
+ */
+class veltor_motor
+{
+public:
+  /**
+   * @brief Combined range structure for velocity and torque
+   */
+  struct range_t
+  {
+    velocity_motor::range_t velocity;  ///< Velocity range in RPM
+    torque_motor::range_t torque;      ///< Torque range in newton meters
+  };
+
+  /**
+   * @brief Settings structure for velocity and torque control
+   */
+  struct control_t
+  {
+    newton_meter torque;  ///< Target torque in newton meters
+    rpm velocity;         ///< Target velocity in RPM
+  };
+
+  /**
+   * @brief Structure containing current velocity and torque status
+   */
+  struct status_t
+  {
+    newton_meter torque;  ///< Current torque in newton meters
+    rpm velocity;         ///< Current velocity in RPM
+  };
+
+  virtual ~veltor_motor() = default;
+
+  /**
+   * @brief Enable or disable the motor
+   *
+   * When disabled, the motor will stop applying power. The motor
+   * may enter a low-power state, but should not actively control
+   * velocity or torque.
+   *
+   * @param p_state - true to enable, false to disable
+   */
+  void enable(bool p_state)
+  {
+    return driver_enable(p_state);
+  }
+
+  /**
+   * @brief Control velocity and torque parameters simultaneously
+   *
+   * Sets both velocity and torque values for the motor. Only the magnitude
+   * (absolute values) of the values are taken.
+   *
+   * @param p_control - Structure containing velocity and torque parameters. If
+   * either value within control is 0, then the motor operates as if
+   * `enable(false)` was called.
+   * @throws hal::operation_not_supported - if the settings cannot be
+   * accommodated by the motor. This occurs if the magnitude of the value is
+   * greater than the value returned from range().
+   */
+  void control(control_t const& p_control)
+  {
+    return driver_control(p_control);
+  }
+
+  /**
+   * @brief Get current velocity and torque status
+   *
+   * @return Structure containing current velocity and torque information
+   */
+  [[nodiscard]] status_t status()
+  {
+    return driver_status();
+  }
+
+  /**
+   * @brief Get the valid ranges for velocity and torque
+   *
+   * @return Structure containing velocity and torque range information
+   */
+  [[nodiscard]] range_t range()
+  {
+    return driver_range();
+  }
+
+  /**
+   * @brief Check if the motor is currently moving
+   *
+   * @return true if the motor is in motion, false if stationary
+   */
+  [[nodiscard]] bool is_moving()
+  {
+    return driver_is_moving();
+  }
+
+private:
+  virtual void driver_enable(bool p_state) = 0;
+  virtual void driver_control(control_t const& p_control) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_range() = 0;
+  virtual bool driver_is_moving() = 0;
 };
 }  // namespace hal::v5
