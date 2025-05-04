@@ -129,4 +129,81 @@ public:
 private:
   virtual void driver_power(i16 p_power) = 0;
 };
+
+class open_loop_motor
+{
+public:
+  virtual void power(float target_position) = 0;
+
+  virtual ~open_loop_motor() = default;
+};
+
+class basic_motor
+{
+public:
+  virtual void enable(bool state) = 0;
+
+  // Move motor rotor to this position
+  virtual void power(float target_position) = 0;
+
+  // Get the configured position range
+  virtual std::pair<float, float> position_range() const = 0;
+
+  virtual ~basic_motor() = default;
+};
+
+class feedback_motor : public basic_motor
+{
+public:
+  // Position feedback
+  virtual float position() const = 0;
+};
+
+class velocity_motor : public feedback_motor
+{
+public:
+  // Sets max velocity for the next position() call.
+  // Units TBD
+  virtual void velocity(float target_velocity) = 0;
+
+  // Get the current velocity (units TBD)
+  virtual float velocity() const = 0;
+
+  // Get configured velocity constraints
+  virtual std::pair<float, float> velocity_range() const = 0;
+};
+
+class torque_motor : public feedback_motor
+{
+public:
+  // Sets max the torque for the next position call.
+  // Units TBD
+  virtual void torque(float target_torque) = 0;
+  virtual float torque() const = 0;
+  virtual std::pair<float, float> torque_range() const = 0;
+};
+
+// Veltor means VELocity and TORque. This interface
+// represents a motor with both velocity and torque
+// control.
+class veltor_motor : public feedback_motor
+{
+public:
+  struct range_t
+  {
+    float torque_min;
+    float torque_max;
+    float velocity_min;
+    float velocity_max;
+  };
+  struct veltor_t
+  {
+    float torque;
+    float velocity;
+  };
+  virtual void torque(float p_target_torque) = 0;
+  virtual void velocity(float p_target_velocity) = 0;
+  virtual veltor_t veltor() const = 0;
+  virtual range_t range() const = 0;
+};
 }  // namespace hal::v5

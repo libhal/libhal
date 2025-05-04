@@ -245,14 +245,14 @@ public:
   struct settings
   {
     /// Set of available stop bits options
-    enum class stop_bits : uint8_t
+    enum class stop_bits : u8
     {
       one = 0,
       two,
     };
 
     /// Set of parity bit options
-    enum class parity : uint8_t
+    enum class parity : u8
     {
       /// Disable parity bit as part of the frame
       none = 0,
@@ -357,9 +357,9 @@ public:
    * represents the newly received bytes. When reading the data, remember that
    * it may wrap around from the end of the buffer back to the beginning.
    *
-   * @return std::size_t - position of the write cursor for the circular buffer
+   * @return usize - position of the write cursor for the circular buffer
    */
-  [[nodiscard]] std::size_t receive_cursor()
+  [[nodiscard]] usize receive_cursor()
   {
     return driver_cursor();
   }
