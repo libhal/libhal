@@ -166,7 +166,9 @@ inline io_waiter& polling_io_waiter()
 
   return waiter;
 }
-namespace v5 {
+}  // namespace hal
+
+namespace hal::v5 {
 /**
  * @brief An interface for customizing the behavior of drivers when they must
  * wait for I/O to complete.
@@ -352,5 +354,4 @@ inline io_waiter& polling_io_waiter()
 
   return waiter;
 }
-}  // namespace v5
-}  // namespace hal
+}  // namespace hal::v5

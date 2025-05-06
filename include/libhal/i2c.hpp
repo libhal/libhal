@@ -189,8 +189,9 @@ private:
     transaction(p_address, p_data_out, p_data_in, hal::never_timeout());
   }
 };
+}  // namespace hal
 
-namespace v5 {
+namespace hal::v5 {
 /**
  * @brief Inter-integrated Circuit (I2C) hardware abstract interface.
  *
@@ -286,5 +287,4 @@ private:
                                   std::span<hal::byte const> p_data_out,
                                   std::span<hal::byte> p_data_in) = 0;
 };
-}  // namespace v5
-}  // namespace hal
+}  // namespace hal::v5
