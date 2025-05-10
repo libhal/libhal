@@ -55,6 +55,7 @@ libhal_unit_test(SOURCES
   tests/buffered_can.test.cpp
   tests/pointers.test.cpp
   tests/circular_buffer.test.cpp
+  tests/coro_expr.test.cpp
   tests/main.test.cpp
 
   PACKAGES
