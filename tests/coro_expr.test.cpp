@@ -66,6 +66,37 @@ private:
   std::pmr::memory_resource* m_resource = nullptr;
 };
 
+// Generic type-erased captured call with no dynamic memory allocation
+template<class Class, typename Ret, typename... Args>
+class deferred_coroutine
+{
+private:
+  // Class this API belongs to
+  Class* m_instance;
+  // Function pointer to invoke the member function with type erasure
+  Ret (Class::*m_invoke_fn)(hal::coroutine_context&, Args...);
+  // Stored arguments
+  std::tuple<Args...> m_args;
+
+public:
+  // Constructor that captures instance, method, and arguments
+  deferred_coroutine(Class* p_instance,
+                     Ret (Class::*p_mem_fn)(hal::coroutine_context&, Args...),
+                     Args... p_args)
+    : m_instance(p_instance)
+    , m_invoke_fn(p_mem_fn)
+    , m_args(std::forward<Args>(p_args)...)
+  {
+  }
+
+  // Execute the captured call
+  auto invoke(hal::coroutine_context& p_resource) const
+  {
+    auto args = std::tuple_cat(std::make_tuple(m_instance, p_resource), m_args);
+    return std::apply(m_invoke_fn, args);
+  }
+};
+
 class task_promise_base
 {
 public:
@@ -132,6 +163,22 @@ public:
   constexpr std::suspend_always initial_suspend() noexcept
   {
     return {};
+  }
+
+  struct get_simple_task_policy
+  {};
+
+  template<class Class, typename Ret, typename... Args>
+  auto await_transform(deferred_coroutine<Class, Ret, Args...>&& p_deferred)
+  {
+    return p_deferred.invoke(m_context);
+  }
+
+  // Handle the rest...
+  template<typename U>
+  U&& await_transform(U&& awaitable) noexcept
+  {
+    return static_cast<U&&>(awaitable);
   }
 
   struct final_awaiter
@@ -406,6 +453,9 @@ public:
   }
 };
 
+struct defer
+{};
+
 // Example interface class
 class interface
 {
@@ -421,6 +471,11 @@ public:
   auto evaluate(std::span<hal::byte const> p_data)
   {
     return forward_context(this, &interface::deferred_evaluate, p_data);
+  }
+
+  auto evaluate(defer, std::span<hal::byte const> p_data)
+  {
+    return hal::deferred_coroutine(this, &interface::driver_evaluate, p_data);
   }
 
   // Example method that returns a captured call
@@ -519,6 +574,11 @@ hal::task<hal::usize> my_task(hal::coroutine_context& p_context,
   auto value = co_await p_impl.evaluate(p_context, p_buff);
   auto value1 = co_await p_impl.evaluate(p_context, p_buff);
   auto value2 = co_await p_impl.evaluate(p_context, p_buff);
+  co_return value + value1 + value2;
+#elif 1
+  auto value = co_await p_impl.evaluate(defer{}, p_buff);
+  auto value1 = co_await p_impl.evaluate(defer{}, p_buff);
+  auto value2 = co_await p_impl.evaluate(defer{}, p_buff);
   co_return value + value1 + value2;
 #else
   auto value = co_await p_impl.hash(p_context, p_buff);
