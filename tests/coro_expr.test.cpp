@@ -66,20 +66,15 @@ private:
   std::pmr::memory_resource* m_resource = nullptr;
 };
 
-// Generic type-erased captured call with no dynamic memory allocation
 template<class Class, typename Ret, typename... Args>
 class deferred_coroutine
 {
 private:
-  // Class this API belongs to
   Class* m_instance;
-  // Function pointer to invoke the member function with type erasure
   Ret (Class::*m_invoke_fn)(hal::coroutine_context&, Args...);
-  // Stored arguments
   std::tuple<Args...> m_args;
 
 public:
-  // Constructor that captures instance, method, and arguments
   deferred_coroutine(Class* p_instance,
                      Ret (Class::*p_mem_fn)(hal::coroutine_context&, Args...),
                      Args... p_args)
@@ -89,7 +84,6 @@ public:
   {
   }
 
-  // Execute the captured call
   auto invoke(hal::coroutine_context& p_resource) const
   {
     auto args = std::tuple_cat(std::make_tuple(m_instance, p_resource), m_args);
@@ -164,9 +158,6 @@ public:
   {
     return {};
   }
-
-  struct get_simple_task_policy
-  {};
 
   template<class Class, typename Ret, typename... Args>
   auto await_transform(deferred_coroutine<Class, Ret, Args...>&& p_deferred)
