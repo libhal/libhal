@@ -1182,7 +1182,7 @@ private:
  * message is received. If message filtering is enabled, then the callback will
  * only be for messages received through the filter.
  */
-class can_interrupt
+class can_message_interrupt
 {
 public:
   /**
@@ -1221,7 +1221,7 @@ public:
     driver_on_receive(p_callback);
   }
 
-  virtual ~can_interrupt() = default;
+  virtual ~can_message_interrupt() = default;
 
 private:
   virtual void driver_on_receive(optional_receive_handler& p_callback) = 0;

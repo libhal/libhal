@@ -17,9 +17,9 @@
 #include "functional.hpp"
 #include "units.hpp"
 
-namespace hal {
+namespace hal::v5 {
 /**
- * @brief Digital interrupt pin hardware abstraction
+ * @brief Abstraction for edge_triggered digital interrupt pins
  *
  * Use this to automatically call a function when a pin's state has
  * transitioned.
@@ -30,32 +30,32 @@ namespace hal {
  *   - rising edge: the pin reads a transitions from LOW to HIGH
  *   - both: the pin reads any state change
  */
-class interrupt_pin
+class edge_triggered_interrupt
 {
 public:
   /**
    * @brief The condition in which an interrupt it's triggered.
    *
    */
-  enum class trigger_edge
+  enum class trigger : u8
   {
     /**
      * @brief Trigger the interrupt when a pin transitions from HIGH voltage to
      * LOW voltage.
      *
      */
-    falling = 0,
+    falling_edge = 0,
     /**
      * @brief Trigger the interrupt when a pin transitions from LOW voltage to
      * HIGH voltage.
      *
      */
-    rising = 1,
+    rising_edge = 1,
     /**
      * @brief Trigger the interrupt when a pin transitions it state
      *
      */
-    both = 2,
+    both_edges = 2,
   };
 
   /**
@@ -68,8 +68,9 @@ public:
      * @brief Pull resistor for an interrupt pin.
      *
      * In general, it is highly advised to either set the pull resistor to
-     * something other than "none" or to attach an external pull up resistor to
-     * the interrupt pin in order to prevent random interrupt from firing.
+     * something other than "none" or to attach an edge_triggered pull up
+     * resistor to the interrupt pin in order to prevent random interrupt from
+     * firing.
      */
     pin_resistor resistor = pin_resistor::pull_up;
 
@@ -78,7 +79,7 @@ public:
      * callback.
      *
      */
-    trigger_edge trigger = trigger_edge::rising;
+    trigger trigger = trigger::rising_edge;
 
     /**
      * @brief Enables default comparison
@@ -88,12 +89,20 @@ public:
   };
 
   /**
-   * @brief Interrupt pin handler
+   * @brief Disambiguation tag object for interrupt pin handlers
    *
-   * param p_state - if true state of the pin when the interrupt was triggered
-   * was HIGH, otherwise LOW
    */
-  using handler = void(bool p_state);
+  struct handler_tag
+  {};
+
+  /**
+   * @brief Handler for edge triggered interrupts
+   *
+   * The input parameter `p_state` is the state of the pin when the interrupt
+   * was triggered.
+   */
+  using optional_handler =
+    std::optional<hal::callback<void(handler_tag, bool p_state)>>;
 
   /**
    * @brief Configure the interrupt pin to match the settings supplied
@@ -114,18 +123,15 @@ public:
    *
    * @param p_callback - function to execute when the trigger condition occurs.
    */
-  void on_trigger(hal::callback<handler> p_callback)
+  void on_trigger(optional_handler const& p_callback)
   {
     driver_on_trigger(p_callback);
   }
 
-  virtual ~interrupt_pin() = default;
+  virtual ~edge_triggered_interrupt() = default;
 
 private:
   virtual void driver_configure(settings const& p_settings) = 0;
-  virtual void driver_on_trigger(hal::callback<handler> p_callback) = 0;
+  virtual void driver_on_trigger(optional_handler const& p_callback) = 0;
 };
-}  // namespace hal
-
-namespace hal::v5 {
 }  // namespace hal::v5
