@@ -182,7 +182,7 @@ public:
 
   // Handle the rest...
   template<typename U>
-  U&& await_transform(U&& awaitable) noexcept
+  constexpr U&& await_transform(U&& awaitable) noexcept
   {
     return static_cast<U&&>(awaitable);
   }
@@ -192,32 +192,32 @@ public:
     m_error = std::current_exception();
   }
 
-  auto& context()
+  constexpr auto& context()
   {
     return *m_context;
   }
 
-  void context(async_context& p_context)
+  constexpr void context(async_context& p_context)
   {
     m_context = &p_context;
   }
 
-  auto continuation()
+  constexpr auto continuation()
   {
     return m_continuation;
   }
 
-  void continuation(std::coroutine_handle<> p_continuation)
+  constexpr void continuation(std::coroutine_handle<> p_continuation)
   {
     m_continuation = p_continuation;
   }
 
-  [[nodiscard]] auto frame_size() const
+  [[nodiscard]] constexpr auto frame_size() const
   {
     return m_frame_size;
   }
 
-private:
+protected:
   // Storage for the coroutine result/error
   std::coroutine_handle<> m_continuation{};
   async_context* m_context{};
@@ -235,6 +235,7 @@ class task_promise_type : public task_promise_base
 public:
   using task_promise_base::task_promise_base;  // Inherit constructors
   using task_promise_base::operator new;
+  using self = task_promise_type<T>;
 
 #if 1
   // Add regular delete operators for normal coroutine destruction
@@ -245,7 +246,7 @@ public:
 
   static void operator delete(void* p_ptr, std::size_t p_size) noexcept
   {
-    std::println("🟥 delete<T>(void*={}, usize={}) ", p_ptr, p_size);
+    std::println("🟥 delete<T>(void*={}, usize={})", p_ptr, p_size);
   }
 #endif
 
@@ -267,6 +268,12 @@ public:
       std::println("⏳ final_awaiter::on_suspend @ {} --> {}",
                    p_self.address(),
                    cont.address());
+      // Rather than return control back to the application, we continue the
+      // caller function allowing it to yield when it reaches another suspend
+      // point. The idea is that prior to this being called, we were executing
+      // code and thus, when we resume the caller, we are still running code.
+      // Lets continue to run as much code until we reach an actual suspend
+      // point.
       return cont;
     }
 
@@ -396,17 +403,18 @@ public:
 
   ~async()
   {
-    std::println("~async()");
+    std::println("🗑️ ~async()");
     void* address = m_handle.address();
     if (address) {
-      auto* dealloc = m_handle.promise().context().resource();
+      // Save allocator before destroying the handle.
+      auto* allocator = m_handle.promise().context().resource();
       auto frame_size = m_handle.promise().frame_size();
-      std::println("🗑️ ~async() destroy frame");
+      std::println("🗑️ ~async(): destroy frame");
       m_handle.destroy();
-      m_handle = nullptr;
-      std::println("🟥 ~async(): {}, {}", address, frame_size);
-      std::pmr::polymorphic_allocator<>(dealloc).deallocate_bytes(address,
-                                                                  frame_size);
+      std::println(
+        "🗑️ ~async(): deallocate {} @ {} bytes", address, frame_size);
+      std::pmr::polymorphic_allocator<>(allocator).deallocate_bytes(address,
+                                                                    frame_size);
     }
   }
 
@@ -447,32 +455,43 @@ async<T> task_promise_type<T>::get_return_object() noexcept
 
 struct yield_awaitable
 {
-  std::coroutine_handle<> m_handle;
-  usize counter = 0;
-  [[nodiscard]] bool await_ready() noexcept
+  mutable usize counter = 0;
+  usize max_yields = 3;
+
+  explicit yield_awaitable(usize p_max_yields = 3)
+    : max_yields(p_max_yields)
+  {
+  }
+
+  [[nodiscard]] bool await_ready() const noexcept
   {
     counter++;
-    std::println("🟡 yield::await_read()...");
-    if (counter > 3) {
-      std::println("🟡 yield::await_read() DONE!");
-      return true;
+    std::println("🟡 yield::await_ready() counter={}/{}", counter, max_yields);
+
+    if (counter >= max_yields) {
+      std::println("🟡 yield::await_ready() DONE!");
+      return true;  // Ready - don't suspend anymore
     }
-    return false;
+    return false;  // Not ready - suspend again
   }
 
   template<typename Promise>
   void await_suspend(std::coroutine_handle<Promise>) noexcept
   {
+    std::println("🟡 yield::await_suspend() - yielding control");
+    // Just suspend - control goes back to scheduler
   }
 
   void await_resume() const noexcept
   {
+    std::println("🟡 yield::await_resume() - continuing after yield {}",
+                 counter);
   }
 };
 
-auto yield()
+auto yield(usize times = 3)
 {
-  return yield_awaitable{};
+  return yield_awaitable{ times };
 }
 }  // namespace hal
 
@@ -517,6 +536,12 @@ private:
     co_await hal::yield();
 
     std::println("__impl__::coro_evaluate post yield!");
+
+    for (int i = 0; i < 3; i++) {
+      std::println("__impl__::coro_evaluate suspend loop {}!", i);
+      co_await std::suspend_always();
+    }
+
     co_return p_data.size();
   }
 
@@ -580,6 +605,48 @@ hal::async<hal::usize> my_task(hal::async_context& p_context,
   auto value2 = co_await p_impl.evaluate(p_context, p_buff);
   co_return value1 + value2;
 }
+
+class coroutine_stack_memory_resource : std::pmr::memory_resource
+{
+  coroutine_stack_memory_resource(std::span<hal::byte> p_memory)
+    : m_memory(p_memory)
+  {
+    if (p_memory.data() == nullptr || p_memory.size() > 32) {
+      throw 5;
+    }
+  }
+
+private:
+  void* do_allocate(std::size_t p_bytes, std::size_t p_alignment) override
+  {
+    auto ptr = m_resource.allocate(p_bytes, p_alignment);
+    std::println(
+      "🟩 do_allocate(): {}, {}, alignment = {}", ptr, p_bytes, p_alignment);
+    return ptr;
+  }
+  void do_deallocate(void* p_address,
+                     std::size_t p_bytes,
+                     std::size_t p_alignment) override
+  {
+    std::println("🟥 do_deallocate(): {}, {}, alignment = {}",
+                 p_address,
+                 p_bytes,
+                 p_alignment);
+    // return m_resource.deallocate(p_address, p_bytes, p_alignment);
+  }
+
+  [[nodiscard]] bool do_is_equal(
+    std::pmr::memory_resource const& other) const noexcept override
+  {
+    return this == &other;
+  }
+
+  std::array<hal::byte, Size> m_buffer{};
+  std::pmr::monotonic_buffer_resource m_resource{ m_buffer.data(),
+                                                  m_buffer.size() };
+
+  std::span<hal::byte> m_memory;
+};
 
 hal::debug_monotonic_buffer_resource<1024UZ * 10> buff;
 hal::async_context ctx(&buff);
