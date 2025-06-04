@@ -1,5 +1,6 @@
 #include <array>
 #include <coroutine>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <exception>
@@ -17,13 +18,90 @@ namespace hal {
 using byte = std::uint8_t;
 using usize = std::size_t;
 
-template<usize Size>
-class debug_monotonic_buffer_resource : public std::pmr::memory_resource
+#include <algorithm>
+#include <string>
+
+std::string memory_progress_bar(int used, int total, int bar_length = 20)
 {
+  // Handle edge cases
+  if (total <= 0) {
+    return "?";
+  }
+  if (used < 0) {
+    used = 0;
+  }
+  if (used > total) {
+    used = total;
+  }
+
+  // Calculate how many blocks should be filled based on usage
+  int filled_blocks = (used * bar_length) / total;
+
+  // Handle rounding: if there's any remainder, we might need one more block
+  if ((used * bar_length) % total > 0 && filled_blocks < bar_length) {
+    filled_blocks++;
+  }
+
+  // Ensure we don't exceed bar_length
+  filled_blocks = std::min(filled_blocks, bar_length);
+
+  // Calculate usage percentage to determine color
+  int usage_percent = total > 0 ? (used * 100) / total : 0;
+
+  // Choose emoji based on usage level
+  std::string fill_emoji;
+  if (usage_percent < 33) {
+    fill_emoji = "🟩";  // Green: < 33%
+  } else if (usage_percent < 66) {
+    fill_emoji = "🟨";  // Yellow: 33-65%
+  } else {
+    fill_emoji = "🟥";  // Red: >= 66%
+  }
+
+  // Build the progress bar
+  std::string bar;
+  bar.reserve(
+    static_cast<int>(bar_length * 4));  // Each emoji is ~4 bytes in UTF-8
+
+  // Add filled blocks with chosen color
+  for (int i = 0; i < filled_blocks; ++i) {
+    bar += fill_emoji;
+  }
+
+  // Add empty blocks (white squares)
+  for (int i = filled_blocks; i < bar_length; ++i) {
+    bar += "⬜️";
+  }
+
+  return bar;
+}
+
+// Convenience overload with percentage and size info
+std::string memory_progress_bar_with_info(usize used,
+                                          usize total,
+                                          usize bar_length = 20)
+{
+  auto bar = memory_progress_bar(static_cast<int>(used),
+                                 static_cast<int>(total),
+                                 static_cast<int>(bar_length));
+  auto percentage = total > 0 ? (used * 100) / total : 0;
+
+  return bar + " " + std::to_string(used) + "/" + std::to_string(total) + " (" +
+         std::to_string(percentage) + "%)";
+}
+
+class debug_buffer_resource : public std::pmr::memory_resource
+{
+public:
+  debug_buffer_resource(std::pmr::memory_resource& p_resource)
+    : m_resource(&p_resource)
+  {
+  }
+
 private:
   void* do_allocate(std::size_t p_bytes, std::size_t p_alignment) override
   {
-    auto ptr = m_resource.allocate(p_bytes, p_alignment);
+    auto ptr = m_resource->allocate(p_bytes, p_alignment);
     std::println(
       "🟩 do_allocate(): {}, {}, alignment = {}", ptr, p_bytes, p_alignment);
     return ptr;
@@ -36,7 +114,7 @@ private:
                  p_address,
                  p_bytes,
                  p_alignment);
-    // return m_resource.deallocate(p_address, p_bytes, p_alignment);
+    return m_resource->deallocate(p_address, p_bytes, p_alignment);
   }
 
   [[nodiscard]] bool do_is_equal(
@@ -45,16 +123,14 @@ private:
     return this == &other;
   }
 
-  std::array<hal::byte, Size> m_buffer{};
-  std::pmr::monotonic_buffer_resource m_resource{ m_buffer.data(),
-                                                  m_buffer.size() };
+  std::pmr::memory_resource* m_resource;
 };
 
 class async_context
 {
 public:
-  explicit async_context(std::pmr::memory_resource* p_resource)
-    : m_resource(p_resource)
+  explicit async_context(std::pmr::memory_resource& p_resource)
+    : m_resource(&p_resource)
   {
   }
 
@@ -452,47 +528,6 @@ async<T> task_promise_type<T>::get_return_object() noexcept
   return async<T>{ std::coroutine_handle<task_promise_type<T>>::from_promise(
     *this) };
 }
-
-struct yield_awaitable
-{
-  mutable usize counter = 0;
-  usize max_yields = 3;
-
-  explicit yield_awaitable(usize p_max_yields = 3)
-    : max_yields(p_max_yields)
-  {
-  }
-
-  [[nodiscard]] bool await_ready() const noexcept
-  {
-    counter++;
-    std::println("🟡 yield::await_ready() counter={}/{}", counter, max_yields);
-
-    if (counter >= max_yields) {
-      std::println("🟡 yield::await_ready() DONE!");
-      return true;  // Ready - don't suspend anymore
-    }
-    return false;  // Not ready - suspend again
-  }
-
-  template<typename Promise>
-  void await_suspend(std::coroutine_handle<Promise>) noexcept
-  {
-    std::println("🟡 yield::await_suspend() - yielding control");
-    // Just suspend - control goes back to scheduler
-  }
-
-  void await_resume() const noexcept
-  {
-    std::println("🟡 yield::await_resume() - continuing after yield {}",
-                 counter);
-  }
-};
-
-auto yield(usize times = 3)
-{
-  return yield_awaitable{ times };
-}
 }  // namespace hal
 
 // Example interface class
@@ -533,9 +568,6 @@ private:
   {
     // Implementation here
     std::println("__impl__::coro_evaluate!");
-    co_await hal::yield();
-
-    std::println("__impl__::coro_evaluate post yield!");
 
     for (int i = 0; i < 3; i++) {
       std::println("__impl__::coro_evaluate suspend loop {}!", i);
@@ -606,33 +638,39 @@ hal::async<hal::usize> my_task(hal::async_context& p_context,
   co_return value1 + value2;
 }
 
-class coroutine_stack_memory_resource : std::pmr::memory_resource
+class coroutine_stack_memory_resource : public std::pmr::memory_resource
 {
+public:
   coroutine_stack_memory_resource(std::span<hal::byte> p_memory)
     : m_memory(p_memory)
   {
-    if (p_memory.data() == nullptr || p_memory.size() > 32) {
-      throw 5;
+    if (p_memory.data() == nullptr || p_memory.size() < 32) {
+      throw std::runtime_error(
+        "Coroutine stack memory invalid! Must be non-null and size > 32.");
     }
   }
 
 private:
-  void* do_allocate(std::size_t p_bytes, std::size_t p_alignment) override
+  void* do_allocate(std::size_t p_bytes, std::size_t) override
   {
-    auto ptr = m_resource.allocate(p_bytes, p_alignment);
+    auto* const new_stack_pointer = &m_memory[m_stack_pointer];
+    m_stack_pointer += p_bytes;
     std::println(
-      "🟩 do_allocate(): {}, {}, alignment = {}", ptr, p_bytes, p_alignment);
-    return ptr;
+      "Stack: {}",
+      hal::memory_progress_bar_with_info(m_stack_pointer, m_memory.size()));
+#if 0
+    if (m_memory.size() < m_stack_pointer) {
+      // throw!
+    }
+#endif
+    return new_stack_pointer;
   }
-  void do_deallocate(void* p_address,
-                     std::size_t p_bytes,
-                     std::size_t p_alignment) override
+  void do_deallocate(void*, std::size_t p_bytes, std::size_t) override
   {
-    std::println("🟥 do_deallocate(): {}, {}, alignment = {}",
-                 p_address,
-                 p_bytes,
-                 p_alignment);
-    // return m_resource.deallocate(p_address, p_bytes, p_alignment);
+    m_stack_pointer -= p_bytes;
+    std::println(
+      "Stack: {}",
+      hal::memory_progress_bar_with_info(m_stack_pointer, m_memory.size()));
   }
 
   [[nodiscard]] bool do_is_equal(
@@ -641,15 +679,14 @@ private:
     return this == &other;
   }
 
-  std::array<hal::byte, Size> m_buffer{};
-  std::pmr::monotonic_buffer_resource m_resource{ m_buffer.data(),
-                                                  m_buffer.size() };
-
   std::span<hal::byte> m_memory;
+  hal::usize m_stack_pointer = 0;
 };
 
-hal::debug_monotonic_buffer_resource<1024UZ * 10> buff;
-hal::async_context ctx(&buff);
+std::array<hal::byte, 464> coroutine_stack;
+coroutine_stack_memory_resource coroutine_resource(coroutine_stack);
+hal::debug_buffer_resource debug_resource(coroutine_resource);
+hal::async_context ctx(debug_resource);
 
 boost::ut::suite<"coro_exper"> coro_expr = []() {
   using namespace boost::ut;
