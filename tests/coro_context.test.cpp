@@ -404,13 +404,16 @@ public:
   using promise_type = task_promise_type<T>;
   friend promise_type;
 
+  void resume()
+  {
+    auto active = m_handle.promise().context().active_handle();
+    std::println("🔄 resuming active: {}", active.address());
+    active.resume();
+  }
+
   // Run synchronously and return result
   T sync_result()
   {
-    if (not m_handle) {
-      throw std::runtime_error("Task has no associated coroutine");
-    }
-
     while (not m_handle.done()) {
       auto active = m_handle.promise().context().active_handle();
       std::println("🔄 resuming active: {}", active.address());
@@ -683,7 +686,7 @@ private:
   hal::usize m_stack_pointer = 0;
 };
 
-std::array<hal::byte, 464> coroutine_stack;
+std::array<hal::byte, 400> coroutine_stack;
 coroutine_stack_memory_resource coroutine_resource(coroutine_stack);
 hal::debug_buffer_resource debug_resource(coroutine_resource);
 hal::async_context ctx(debug_resource);
