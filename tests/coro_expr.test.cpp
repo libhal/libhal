@@ -18,7 +18,6 @@ using usize = std::size_t;
 template<usize Size>
 class debug_monotonic_buffer_resource : public std::pmr::memory_resource
 {
-
 private:
   void* do_allocate(std::size_t p_bytes, std::size_t p_alignment) override
   {
@@ -221,7 +220,7 @@ public:
 };
 
 template<typename T>
-class task;
+class async;
 
 template<typename T>
 class task_promise_type : public task_promise_base
@@ -231,7 +230,7 @@ public:
   using task_promise_base::operator new;
   using task_promise_base::operator delete;
 
-  task<T> get_return_object() noexcept;
+  async<T> get_return_object() noexcept;
 
   // For non-void return type
   template<typename U = T>
@@ -271,14 +270,14 @@ public:
 };
 
 template<typename T = void>
-class task
+class async
 {
 public:
   using promise_type = task_promise_type<T>;
   friend promise_type;
 
   // Run synchronously and return result
-  T result()
+  T sync_result()
   {
     if (not m_handle) {
       throw std::runtime_error("Task has no associated coroutine");
@@ -336,13 +335,13 @@ public:
     return awaiter{ m_handle };
   }
 
-  task() noexcept = default;
-  task(task&& p_other) noexcept
+  async() noexcept = default;
+  async(async&& p_other) noexcept
     : m_handle(std::exchange(p_other.m_handle, {}))
   {
   }
 
-  ~task()
+  ~async()
   {
     if (m_handle) {
       // auto& context = m_handle.promise().m_context;
@@ -351,7 +350,7 @@ public:
     }
   }
 
-  task& operator=(task&& p_other) noexcept
+  async& operator=(async&& p_other) noexcept
   {
     if (this != &p_other) {
       if (m_handle) {
@@ -368,7 +367,7 @@ public:
   }
 
 private:
-  explicit task(std::coroutine_handle<promise_type> p_handle)
+  explicit async(std::coroutine_handle<promise_type> p_handle)
     : m_handle(p_handle)
   {
   }
@@ -376,9 +375,9 @@ private:
   std::coroutine_handle<promise_type> m_handle{};
 };
 template<typename T>
-task<T> task_promise_type<T>::get_return_object() noexcept
+async<T> task_promise_type<T>::get_return_object() noexcept
 {
-  return task<T>{ std::coroutine_handle<task_promise_type<T>>::from_promise(
+  return async<T>{ std::coroutine_handle<task_promise_type<T>>::from_promise(
     *this) };
 }
 }  // namespace hal
@@ -394,7 +393,7 @@ private:
   // Class this API belongs to
   Class* m_instance;
   // Function pointer to invoke the member function with type erasure
-  hal::task<Ret> (*m_invoke_fn)(Class*, hal::coroutine_context&, Args...);
+  hal::async<Ret> (*m_invoke_fn)(Class*, hal::coroutine_context&, Args...);
 
   // Stored arguments
   std::tuple<Args...> m_args;
@@ -402,9 +401,9 @@ private:
 public:
   // Constructor that captures instance, method, and arguments
   forward_context(Class* instance,
-                  hal::task<Ret> (*mem_fn)(Class*,
-                                           hal::coroutine_context&,
-                                           Args...),
+                  hal::async<Ret> (*mem_fn)(Class*,
+                                            hal::coroutine_context&,
+                                            Args...),
                   Args... args)
     : m_instance(instance)
     , m_invoke_fn(mem_fn)
@@ -413,7 +412,7 @@ public:
   }
 
   // Execute the captured call
-  hal::task<Ret> invoke(hal::coroutine_context& p_resource) const
+  hal::async<Ret> invoke(hal::coroutine_context& p_resource) const
   {
     auto args = std::tuple_cat(std::make_tuple(m_instance, p_resource), m_args);
     return std::apply(m_invoke_fn, args);
@@ -485,7 +484,7 @@ public:
   virtual ~interface() = default;
 
 private:
-  static hal::task<hal::usize> deferred_evaluate(
+  static hal::async<hal::usize> deferred_evaluate(
     interface* p_instance,
     hal::coroutine_context& p_resource,
     std::span<hal::byte const> p_data)
@@ -493,18 +492,19 @@ private:
     return p_instance->driver_evaluate(p_resource, p_data);
   }
 
-  virtual hal::task<hal::usize> driver_evaluate(
+  virtual hal::async<hal::usize> driver_evaluate(
     hal::coroutine_context& p_resource,
     std::span<hal::byte const> p_data) = 0;
 
-  static hal::task<hal::usize> deferred_hash(interface* p_instance,
-                                             hal::coroutine_context& p_resource,
-                                             std::span<hal::byte const> p_data)
+  static hal::async<hal::usize> deferred_hash(
+    interface* p_instance,
+    hal::coroutine_context& p_resource,
+    std::span<hal::byte const> p_data)
   {
     return p_instance->driver_hash(p_resource, p_data);
   }
 
-  virtual hal::task<hal::usize> driver_hash(
+  virtual hal::async<hal::usize> driver_hash(
     hal::coroutine_context& p_resource,
     std::span<hal::byte const> p_data) = 0;
 };
@@ -512,7 +512,7 @@ private:
 class my_implementation : public interface
 {
 private:
-  hal::task<hal::usize> driver_evaluate(
+  hal::async<hal::usize> driver_evaluate(
     hal::coroutine_context&,
     std::span<hal::byte const> p_data) override
   {
@@ -520,8 +520,8 @@ private:
     co_return p_data.size();
   }
 
-  hal::task<hal::usize> driver_hash(hal::coroutine_context& p_resource,
-                                    std::span<hal::byte const> p_data) override
+  hal::async<hal::usize> driver_hash(hal::coroutine_context& p_resource,
+                                     std::span<hal::byte const> p_data) override
   {
     unsigned const sum = std::accumulate(p_data.begin(), p_data.end(), 0);
     co_return sum;
@@ -537,7 +537,7 @@ public:
   }
 
 private:
-  hal::task<hal::usize> driver_evaluate(
+  hal::async<hal::usize> driver_evaluate(
     hal::coroutine_context&,
     std::span<hal::byte const> p_data) override
   {
@@ -546,8 +546,8 @@ private:
     co_return sum + p_data.size();
   }
 
-  hal::task<hal::usize> driver_hash(hal::coroutine_context& p_resource,
-                                    std::span<hal::byte const> p_data) override
+  hal::async<hal::usize> driver_hash(hal::coroutine_context& p_resource,
+                                     std::span<hal::byte const> p_data) override
   {
     unsigned const sum = std::accumulate(p_data.begin(), p_data.end(), 0);
     auto const eval = co_await driver_evaluate(p_resource, p_data);
@@ -557,9 +557,9 @@ private:
   interface* m_impl = nullptr;
 };
 
-hal::task<hal::usize> my_task(hal::coroutine_context& p_context,
-                              interface& p_impl,
-                              std::span<hal::byte> p_buff)
+hal::async<hal::usize> my_task(hal::coroutine_context& p_context,
+                               interface& p_impl,
+                               std::span<hal::byte> p_buff)
 {
 #if 0
   auto value = co_await p_impl.evaluate(p_context, p_buff);
