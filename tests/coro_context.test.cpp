@@ -265,7 +265,7 @@ public:
 
   void unhandled_exception() noexcept
   {
-    m_error = std::current_exception();
+    m_exception_ptr = std::current_exception();
   }
 
   constexpr auto& context()
@@ -298,7 +298,7 @@ protected:
   std::coroutine_handle<> m_continuation{};
   async_context* m_context{};
   // NOLINTNEXTLINE(bugprone-throw-keyword-missing)
-  std::exception_ptr m_error{};
+  std::exception_ptr m_exception_ptr{};
   usize m_frame_size = 0;
 };
 
@@ -437,10 +437,8 @@ public:
 
     [[nodiscard]] constexpr bool await_ready() const noexcept
     {
-      std::println("⏱️ async::awaiter::is_ready @ {} ret [{}]",
-                   m_handle.address(),
-                   m_handle && m_handle.done());
-      return m_handle && m_handle.done();
+      std::println("⏱️ async::awaiter::is_ready");
+      return false;
     }
 
     // Generic await_suspend for any promise type
