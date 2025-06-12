@@ -14,13 +14,39 @@ namespace hal::v5 {
 
 enum class async_state : u8
 {
+  // This state represents a coroutine that can be executed immediately.
+  // Coroutines start off in this state and can become blocked if an operation
+  // may take time in which more computation could be done.
   ready = 0,
-  timer_blocked = 1,
+  time_blocked = 1,
   io_blocked = 2,
   sync_blocked = 3,
   message_blocked = 4,
   cancelled = 5
 };
+
+struct ready_state
+{};
+
+class time_blocked_state
+{
+public:
+  explicit time_blocked_state(hal::time_duration p_time_duration)
+    : m_time_duration(p_time_duration)
+  {
+  }
+
+  auto get()
+  {
+    return m_time_duration;
+  }
+
+private:
+  hal::time_duration m_time_duration{};
+};
+
+struct io_blocked_state
+{};
 
 class async_context
 {
@@ -51,6 +77,28 @@ public:
     m_active_handle = p_active_handle;
   }
 
+  auto state()
+  {
+    return m_state;
+  }
+
+  auto delay_time()
+  {
+    return m_delay_request_time;
+  }
+
+  ~async_context()
+  {
+    std::pmr::polymorphic_allocator<hal::byte>(m_resource)
+      .deallocate(m_buffer, m_coroutine_stack_size);
+  }
+
+private:
+  friend class async_promise_base;
+
+  template<typename>
+  friend class async;
+
   [[nodiscard]] constexpr void* allocate(std::size_t p_bytes)
   {
     m_last_allocation_size = p_bytes;
@@ -69,18 +117,11 @@ public:
     m_state = p_state;
   }
 
-  async_state state()
+  void delay_time(hal::time_duration p_delay_request_time)
   {
-    return m_state;
+    m_delay_request_time = p_delay_request_time;
   }
 
-  ~async_context()
-  {
-    std::pmr::polymorphic_allocator<hal::byte>(m_resource)
-      .deallocate(m_buffer, m_coroutine_stack_size);
-  }
-
-private:
   std::coroutine_handle<> m_active_handle = std::noop_coroutine();
   std::pmr::memory_resource* m_resource = nullptr;
   hal::byte* m_buffer = nullptr;
@@ -156,10 +197,29 @@ public:
     return {};
   }
 
-  template<typename U>
-  constexpr U&& await_transform(U&& awaitable) noexcept
+  constexpr auto await_transform(ready_state&&) noexcept
   {
-    return static_cast<U&&>(awaitable);
+    m_context->state(async_state::ready);
+    return std::suspend_never{};
+  }
+
+  constexpr auto await_transform(time_blocked_state&& p_state) noexcept
+  {
+    m_context->state(async_state::time_blocked);
+    m_context->delay_time(p_state.get());
+    return std::suspend_always{};
+  }
+
+  constexpr auto await_transform(io_blocked_state&&) noexcept
+  {
+    m_context->state(async_state::io_blocked);
+    return std::suspend_always{};
+  }
+
+  template<typename U>
+  constexpr U&& await_transform(U&& p_awaitable) noexcept
+  {
+    return static_cast<U&&>(p_awaitable);
   }
   constexpr auto& context()
   {
