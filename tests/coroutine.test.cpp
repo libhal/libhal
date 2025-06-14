@@ -1,15 +1,11 @@
 #include <array>
 #include <coroutine>
 #include <cstddef>
-#include <cstdint>
-#include <cstdio>
-#include <exception>
 #include <memory_resource>
 #include <numeric>
 #include <print>
 #include <span>
-#include <stdexcept>
-#include <utility>
+#include <thread>
 #include <variant>
 
 #include <libhal/coroutine.hpp>
@@ -98,8 +94,9 @@ private:
     std::println("impl2::drive_evaluate CORO! 3 -> suspend always");
     co_await std::suspend_always();
     std::println("impl2::drive_evaluate CORO! 4 -> await time");
+    co_await 2s;
     std::println("impl2::drive_evaluate CORO! 5 -> await time");
-    co_await 100ms;
+    co_await 2s;
     // Implementation here
     co_return sum2 + p_data.size();
   }
@@ -139,23 +136,36 @@ std::pmr::monotonic_buffer_resource coroutine_resource(
   coroutine_stack.data(),
   coroutine_stack.size(),
   std::pmr::null_memory_resource());
+
 auto handler = [](hal::v5::async_context& p_context,
                   hal::v5::blocked_by p_previous_state,
                   hal::v5::block_info p_block_info) noexcept {
   std::println("🔄 previous_state = {}", static_cast<int>(p_previous_state));
   if (std::holds_alternative<hal::v5::time_info>(p_block_info)) {
-    std::println("⏲️ Simulate waiting for {}...",
-                 std::get<hal::v5::time_info>(p_block_info).duration);
+    // Set `actually_sleep` to TRUE to observe the delay in the unit tests
+    constexpr bool actually_sleep = false;
+
+    auto const duration = std::get<hal::v5::time_info>(p_block_info).duration;
+    std::println("⏲️ Simulate waiting for {}...", duration);
+
+    if constexpr (actually_sleep) {
+      std::this_thread::sleep_for(
+        std::get<hal::v5::time_info>(p_block_info).duration);
+    }
+
+    p_context.unblock();
+  } else if (std::holds_alternative<hal::v5::nothing_info>(p_block_info)) {
+    std::println("⏲️ Ready to execute!...");
+  } else {
+    p_context.busy_loop_until_unblocked();
   }
-  p_context.unblock();
-  p_context.busy_loop_until_unblocked();
 };
 
-hal::v5::async_context ctx(coroutine_resource, 400, handler);
+hal::v5::async_context ctx(coroutine_resource, coroutine_stack.size(), handler);
 
-boost::ut::suite<"coro_exper"> coro_expr = []() {
+boost::ut::suite<"coroutine_tests"> coroutine_tests = []() {
   using namespace boost::ut;
-  "angular velocity sensor interface test"_test = []() {
+  "Calling coroutine functions"_test = []() {
     my_implementation impl;
     my_implementation2 impl2(impl);
 
