@@ -160,10 +160,10 @@ public:
 
   explicit async_context(std::pmr::memory_resource& p_resource,
                          hal::usize p_coroutine_stack_size,
-                         transition_handler p_transition_handler)
+                         transition_handler p_handler)
     : m_resource(&p_resource)
     , m_coroutine_stack_size(p_coroutine_stack_size)
-    , m_handler(std::move(p_transition_handler))
+    , m_handler(std::move(p_handler))
   {
     m_buffer = std::pmr::polymorphic_allocator<hal::byte>(m_resource)
                  .allocate(p_coroutine_stack_size);
@@ -241,6 +241,27 @@ private:
 
   template<typename>
   friend class async;
+
+  /**
+   * @brief Construct a new async context object from a parent async context
+   *
+   * This constructor is currently not in use until we determine how the
+   * transition handler should be written for child async context objects.
+   *
+   * @param p_buffer A pointer to this context's portion of a parent
+   * async_context's coroutine stack
+   * @param p_coroutine_stack_size - the size of the portion of the parent
+   * async_context's coroutine stack
+   * @param p_handler - handler for this async context
+   */
+  explicit async_context(hal::byte* p_buffer,
+                         hal::usize p_coroutine_stack_size,
+                         transition_handler p_handler)
+    : m_buffer(p_buffer)
+    , m_coroutine_stack_size(p_coroutine_stack_size)
+    , m_handler(std::move(p_handler))
+  {
+  }
 
   static void noop(async_context&, blocked_by, block_info) noexcept
   {
