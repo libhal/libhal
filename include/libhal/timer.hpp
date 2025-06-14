@@ -93,8 +93,9 @@ private:
   virtual void driver_schedule(hal::callback<void(void)> p_callback,
                                hal::time_duration p_delay) = 0;
 };
+}  // namespace hal
 
-namespace v5 {
+namespace hal::v5 {
 /**
  * @brief Timer hardware abstraction interface.
  *
@@ -177,5 +178,4 @@ private:
   virtual void driver_schedule(hal::callback<void(schedule_tag)>& p_callback,
                                hal::time_duration p_delay) = 0;
 };
-}  // namespace v5
-}  // namespace hal
+}  // namespace hal::v5

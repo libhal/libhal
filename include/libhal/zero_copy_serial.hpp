@@ -14,6 +14,14 @@
 
 #pragma once
 
+/**
+ * @file zero_copy_serial.hpp
+ * @brief
+ * @deprecated This file will be deleted in libhal 5 use `v5::serial`
+ * "serial.hpp" instead.
+ *
+ */
+
 #include <cstddef>
 #include <span>
 
@@ -22,7 +30,7 @@
 
 namespace hal {
 /**
- * @deprecated Use `v5::serial` instead for better performance
+ * @deprecated Use `v5::serial` instead, this file will be deleted in libhal 5
  * @brief Hardware abstract interface for the serial communication protocol
  *
  * Use this interface for hardware that implements a serial protocol like UART,
