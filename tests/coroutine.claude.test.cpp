@@ -178,21 +178,10 @@ public:
     return driver_evaluate(p_context, p_data);
   }
 
-  // Example method that returns a captured call
-  auto hash(hal::v5::async_context& p_context,
-            std::span<hal::byte const> p_data)
-  {
-    return driver_hash(p_context, p_data);
-  }
-
   virtual ~interface() = default;
 
 private:
   virtual hal::v5::async<hal::usize> driver_evaluate(
-    hal::v5::async_context& p_context,
-    std::span<hal::byte const> p_data) = 0;
-
-  virtual hal::v5::async<hal::usize> driver_hash(
     hal::v5::async_context& p_context,
     std::span<hal::byte const> p_data) = 0;
 };
@@ -525,13 +514,6 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
         throw std::domain_error("Interface exception");
         co_return 0uz;
       }
-
-      hal::v5::async<hal::usize> driver_hash(
-        hal::v5::async_context&,
-        std::span<hal::byte const> p_data) override
-      {
-        co_return p_data.size();
-      }
     };
 
     throwing_interface impl;
@@ -568,13 +550,6 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
         }
       }
 
-      hal::v5::async<hal::usize> driver_hash(
-        hal::v5::async_context& ctx,
-        std::span<hal::byte const> p_data) override
-      {
-        co_return co_await m_impl->hash(ctx, p_data);
-      }
-
       interface* m_impl;
     };
 
@@ -587,13 +562,6 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
       {
         throw std::runtime_error("Deliberate failure");
         co_return 0uz;
-      }
-
-      hal::v5::async<hal::usize> driver_hash(
-        hal::v5::async_context&,
-        std::span<hal::byte const> p_data) override
-      {
-        co_return p_data.size();
       }
     };
 
