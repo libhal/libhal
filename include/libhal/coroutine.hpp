@@ -4,6 +4,7 @@
 #include <coroutine>
 #include <exception>
 #include <memory_resource>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -532,9 +533,8 @@ public:
       return false;
     }
 
-    template<typename U>
     std::coroutine_handle<> await_suspend(
-      std::coroutine_handle<async_promise_type<U>> p_self) noexcept
+      std::coroutine_handle<async_promise_type<void>> p_self) noexcept
     {
       // The coroutine is now suspended at the final-suspend point.
       // Lookup its continuation in the promise and resume it symmetrically.
@@ -548,7 +548,7 @@ public:
       return p_self.promise().pop_active_coroutine();
     }
 
-    void await_resume() noexcept
+    constexpr void await_resume() noexcept
     {
     }
   };
@@ -577,7 +577,7 @@ public:
   std::exception_ptr m_exception_ptr;
 };
 
-template<typename T = void>
+template<typename T>
 class async
 {
 public:
@@ -588,6 +588,11 @@ public:
   {
     auto active = m_handle.promise().context().active_handle();
     active.resume();
+  }
+
+  bool done()
+  {
+    return m_handle.done();
   }
 
   // Run synchronously and return result
@@ -620,7 +625,7 @@ public:
 
     [[nodiscard]] constexpr bool await_ready() const noexcept
     {
-      return not m_handle;
+      return false;
     }
 
     // Generic await_suspend for any promise type
@@ -634,15 +639,7 @@ public:
 
     T await_resume()
     {
-      if (m_handle) {
-        if constexpr (std::is_void_v<T>) {
-          m_handle.promise().get_result_or_rethrow();
-        } else {
-          return m_handle.promise().get_result_or_rethrow();
-        }
-      }
-      // TODO(): Decide what to actually do here
-      throw hal::unknown(nullptr);
+      return m_handle.promise().get_result_or_rethrow();
     }
   };
 

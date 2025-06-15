@@ -58,6 +58,7 @@ libhal_unit_test(SOURCES
   # tests/coro_triple.test.cpp
   # tests/coro_context.test.cpp
   tests/coroutine.test.cpp
+  tests/coroutine.claude.test.cpp
   tests/main.test.cpp
 
   PACKAGES
