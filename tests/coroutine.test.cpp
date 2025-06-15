@@ -173,7 +173,7 @@ boost::ut::suite<"coroutine_tests"> coroutine_tests = []() {
 
     auto coro = my_task(ctx, impl2, special_buffer);
     std::println("Coro initialized! now calling result()!");
-    auto const value = coro.sync_result();
+    auto const value = coro.wait();
     std::println("value = {}", value);
   };
 };

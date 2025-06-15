@@ -65,8 +65,7 @@ public:
     co_await std::suspend_always{};
 
     std::println("📤 Message sent successfully");
-    co_return;  // TODO(kammce): This is where the problem is, only for return
-                // void?
+    co_return;
   }
 };
 
@@ -311,16 +310,31 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = test_coro(test_ctx);
-    coro.resume();
 
+    coro.resume();
     expect(global_test_state.time_handler_called == true);
+    expect(global_test_state.io_handler_called == false);
+    expect(global_test_state.sync_handler_called == false);
+    expect(global_test_state.inbox_handler_called == false);
+    expect(global_test_state.outbox_handler_called == false);
+    coro.resume();
     expect(global_test_state.io_handler_called == true);
+    expect(global_test_state.sync_handler_called == false);
+    expect(global_test_state.inbox_handler_called == false);
+    expect(global_test_state.outbox_handler_called == false);
+    coro.resume();
     expect(global_test_state.sync_handler_called == true);
+    expect(global_test_state.inbox_handler_called == false);
+    expect(global_test_state.outbox_handler_called == false);
+    coro.resume();
     expect(global_test_state.inbox_handler_called == true);
+    expect(global_test_state.outbox_handler_called == false);
+    coro.resume();
     expect(global_test_state.outbox_handler_called == true);
+    coro.resume();
     expect(coro.done());
 
-    auto result = coro.sync_result();
+    auto result = coro.wait();
     expect(result == 12345);
     expect(global_test_state.transition_count >= 5);
   };
@@ -331,7 +345,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.throw_immediately(test_ctx);
 
-    expect(throws<std::runtime_error>([&coro]() { coro.sync_result(); }));
+    expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
   };
 
   "Exception handling - throw after suspend"_test = []() {
@@ -340,7 +354,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.throw_after_suspend(test_ctx);
 
-    expect(throws<std::logic_error>([&coro]() { coro.sync_result(); }));
+    expect(throws<std::logic_error>([&coro]() { coro.wait(); }));
   };
 
   "Exception handling - throw after time wait"_test = []() {
@@ -349,7 +363,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.throw_after_time_wait(test_ctx);
 
-    expect(throws<std::invalid_argument>([&coro]() { coro.sync_result(); }));
+    expect(throws<std::invalid_argument>([&coro]() { coro.wait(); }));
 
     expect(global_test_state.time_handler_called == true);
   };
@@ -360,7 +374,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.nested_exception_call(test_ctx);
 
-    expect(throws<std::runtime_error>([&coro]() { coro.sync_result(); }));
+    expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
   };
 
   "Complex composition test"_test = []() {
@@ -368,7 +382,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     compositor comp;
 
     auto coro = comp.complex_operation(test_ctx);
-    auto result = coro.sync_result();
+    auto result = coro.wait();
 
     expect(result == 142);  // 42 (lock_value) + 100 (io_result bonus)
     expect(that % global_test_state.time_handler_called == true);
@@ -382,7 +396,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     compositor comp;
 
     auto coro = comp.exception_recovery(test_ctx);
-    auto result = coro.sync_result();
+    auto result = coro.wait();
 
     expect(result == "Recovered: Hello from message queue");
     expect(global_test_state.inbox_handler_called == true);
@@ -417,7 +431,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = chain_test(test_ctx);
-    auto result = coro.sync_result();
+    auto result = coro.wait();
 
     expect(result == 25);  // ((10 * 2) + 5) = 25
     expect(global_test_state.time_handler_called == true);
@@ -440,7 +454,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = void_test(test_ctx);
-    coro.sync_result();  // Should not throw
+    coro.wait();  // Should not throw
 
     expect(global_test_state.time_handler_called == true);
     expect(global_test_state.sync_handler_called == true);
@@ -464,7 +478,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = memory_test(small_ctx);
-    auto result = coro.sync_result();
+    auto result = coro.wait();
 
     expect(result == 999);
     expect(global_test_state.time_handler_called == true);
@@ -489,7 +503,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = inspection_test(test_ctx);
-    auto result = coro.sync_result();
+    auto result = coro.wait();
 
     expect(result == 777);
   };
@@ -529,7 +543,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
 
     auto coro = task(test_ctx);
 
-    expect(throws<std::domain_error>([&coro]() { coro.sync_result(); }));
+    expect(throws<std::domain_error>([&coro]() { coro.wait(); }));
   };
 
   "Interface composition with exception handling"_test = []() {
@@ -588,7 +602,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     std::array<hal::byte, 5> buffer{};
 
     auto coro = safe_impl.evaluate(test_ctx, buffer);
-    auto result = coro.sync_result();  // Should not throw
+    auto result = coro.wait();  // Should not throw
 
     expect(result == 0);  // Safe fallback value
   };
