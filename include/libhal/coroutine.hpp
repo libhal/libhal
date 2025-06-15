@@ -1,16 +1,16 @@
 #pragma once
 
+#include <bit>
 #include <chrono>
 #include <coroutine>
 #include <exception>
 #include <memory_resource>
-#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
 
-#include "error.hpp"
 #include "functional.hpp"
+#include "initializers.hpp"
 #include "units.hpp"
 
 namespace hal::v5 {
@@ -241,6 +241,9 @@ private:
   friend class async_promise_base;
 
   template<typename>
+  friend class async_promise_type;
+
+  template<typename>
   friend class async;
 
   /**
@@ -293,14 +296,34 @@ private:
     m_stack_pointer -= p_bytes;
   }
 
-  std::coroutine_handle<> m_active_handle = std::noop_coroutine();  // 1
-  std::pmr::memory_resource* m_resource = nullptr;                  // 2
-  hal::byte* m_buffer = nullptr;                                    // 3
-  usize m_coroutine_stack_size = 0;                                 // 4
-  usize m_stack_pointer = 0;                                        // 5
-  usize m_last_allocation_size = 0;                                 // 6
-  transition_handler m_handler = noop;                              // 7
-  std::atomic<blocked_by> m_state = blocked_by::nothing;            // 8
+  std::exception_ptr& exception_ptr()
+  {
+    return m_exception;
+  }
+
+  void clear_exception()
+  {
+    m_exception = {};
+  }
+
+  void rethrow_if_exception_caught()
+  {
+    if (m_exception) [[unlikely]] {
+      auto const copy = m_exception;
+      clear_exception();
+      std::rethrow_exception(copy);
+    }
+  }
+
+  std::coroutine_handle<> m_active_handle = std::noop_coroutine();  // word 1
+  std::pmr::memory_resource* m_resource = nullptr;                  // word 2
+  hal::byte* m_buffer = nullptr;                                    // word 3
+  usize m_coroutine_stack_size = 0;                                 // word 4
+  usize m_stack_pointer = 0;                                        // word 5
+  usize m_last_allocation_size = 0;                                 // word 6
+  transition_handler m_handler = noop;                              // word 7-10
+  std::atomic<blocked_by> m_state = blocked_by::nothing;            // word 11
+  std::exception_ptr m_exception = {};                              // word 12
 };
 
 auto constexpr transition_handler = sizeof(async_context::transition_handler);
@@ -416,11 +439,6 @@ protected:
 template<typename T>
 class async;
 
-// Type selection for void vs non-void
-template<typename T>
-using type_or_monostate =
-  std::conditional_t<std::is_void_v<T>, std::monostate, T>;
-
 template<typename T>
 class async_promise_type : public async_promise_base
 {
@@ -439,7 +457,7 @@ public:
 
   void unhandled_exception() noexcept
   {
-    m_value = std::current_exception();
+    m_context->exception_ptr() = std::current_exception();
   }
 
   struct final_awaiter
@@ -482,7 +500,7 @@ public:
   void return_value(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
-    m_value = std::forward<U>(p_value);
+    new (m_value_address) T{ std::forward<U>(p_value) };
   }
 
   /**
@@ -491,14 +509,17 @@ public:
    */
   T get_result_or_rethrow()
   {
-    if (std::holds_alternative<type_or_monostate<T>>(m_value)) [[likely]] {
-      return std::get<type_or_monostate<T>>(m_value);
-    } else {
-      std::rethrow_exception(std::get<std::exception_ptr>(m_value));
-    }
+    m_context->rethrow_if_exception_caught();
+    return *m_value_address;
   }
 
-  std::variant<type_or_monostate<T>, std::exception_ptr> m_value{};
+  void set_object_address(T* p_value_address)
+  {
+    m_value_address = p_value_address;
+  }
+
+private:
+  T* m_value_address;
 };
 
 template<>
@@ -560,7 +581,7 @@ public:
 
   void unhandled_exception() noexcept
   {
-    m_exception_ptr = std::current_exception();
+    m_context->exception_ptr() = std::current_exception();
   }
 
   /**
@@ -569,12 +590,8 @@ public:
    */
   void get_result_or_rethrow()
   {
-    if (m_exception_ptr) [[unlikely]] {
-      std::rethrow_exception(m_exception_ptr);
-    }
+    m_context->rethrow_if_exception_caught();
   }
-
-  std::exception_ptr m_exception_ptr;
 };
 
 template<typename T>
@@ -584,23 +601,50 @@ public:
   using promise_type = async_promise_type<T>;
   friend promise_type;
 
-  void resume()
+  void resume() const
   {
     auto active = m_handle.promise().context().active_handle();
     active.resume();
   }
 
-  bool done()
+  [[nodiscard]] bool done() const
   {
-    return m_handle.done();
+    // True if the handle isn't valid
+    // OR
+    // If the coroutine is valid, then check if it has suspended at its final
+    // suspension point.
+    return not m_handle || m_handle.done();
+  }
+
+  /**
+   * @brief Extract result value from async operation.
+   *
+   * The result is undefined if `done()` does not return `true`.
+   *
+   * @return T - value from this async operation.
+   */
+  [[nodiscard]] T result(hal::unsafe)
+  {
+    if constexpr (not std::is_void_v<T>) {
+      return *reinterpret_cast<T*>(m_result.data());
+    } else {
+      return;
+    }
   }
 
   // Run synchronously and return result
-  T sync_result()
+  T wait()
   {
+    // If the handle is not set then this async object was completed
+    // synchronously.
     if (not m_handle) {
-      return T{};
+      if constexpr (std::is_void_v<T>) {
+        return;
+      } else {
+        return result(hal::unsafe{});
+      }
     }
+
     auto& context = m_handle.promise().context();
 
     while (not m_handle.done()) {
@@ -608,24 +652,29 @@ public:
       active.resume();
     }
 
+    // Rethrow exception caught by top level coroutine
+    context.rethrow_if_exception_caught();
+
     if constexpr (not std::is_void_v<T>) {
-      return m_handle.promise().get_result_or_rethrow();
+      // It is safe to return this value here because the coroutine has
+      // completed.
+      return result(hal::unsafe{});
     }
   }
 
   // Awaiter for when this task is awaited
   struct awaiter
   {
-    std::coroutine_handle<promise_type> m_handle;
+    async<T>* m_async_operation;
 
-    explicit awaiter(std::coroutine_handle<promise_type> p_handle) noexcept
-      : m_handle(p_handle)
+    explicit awaiter(async<T>* p_async_operation) noexcept
+      : m_async_operation(p_async_operation)
     {
     }
 
     [[nodiscard]] constexpr bool await_ready() const noexcept
     {
-      return false;
+      return m_async_operation->done();
     }
 
     // Generic await_suspend for any promise type
@@ -633,22 +682,32 @@ public:
     std::coroutine_handle<> await_suspend(
       std::coroutine_handle<Promise> p_continuation) noexcept
     {
-      m_handle.promise().continuation(p_continuation);
-      return m_handle;
+      m_async_operation->handle().promise().continuation(p_continuation);
+      return m_async_operation->handle();
     }
 
-    T await_resume()
+    T await_resume() const
     {
-      return m_handle.promise().get_result_or_rethrow();
+      return m_async_operation->handle().promise().get_result_or_rethrow();
     }
   };
 
-  [[nodiscard]] constexpr awaiter operator co_await() const noexcept
+  [[nodiscard]] constexpr awaiter operator co_await() noexcept
   {
-    return awaiter{ m_handle };
+    return awaiter{ this };
   }
 
-  async() noexcept = default;
+  async() noexcept
+    requires(std::is_void_v<T>)
+  = default;
+
+  template<typename U>
+  async(U&& p_value) noexcept
+    requires(not std::is_void_v<T>)
+  {
+    new (m_result.data()) T{ std::forward<U>(p_value) };
+  };
+
   async(async const&) = delete;
   async& operator=(async const&) = delete;
   async(async&& p_other) noexcept
@@ -686,10 +745,17 @@ private:
     : m_handle(p_handle)
     , m_frame_size(p_frame_size)
   {
+    if constexpr (not std::is_void_v<T>) {
+      m_handle.promise().set_object_address(std::bit_cast<T*>(m_result.data()));
+    }
   }
 
-  std::coroutine_handle<promise_type> m_handle{};
+  // Replace void type with a byte
+  using Type = std::conditional_t<std::is_void_v<T>, hal::byte, T>;
+
+  std::coroutine_handle<promise_type> m_handle = nullptr;
   hal::usize m_frame_size;
+  alignas(Type) std::array<hal::byte, sizeof(Type)> m_result;
 };
 
 template<typename T>
