@@ -177,6 +177,11 @@ public:
     transition_to(blocked_by::nothing, nothing_info{});
   }
 
+  void unblock_without_notification()
+  {
+    m_state = blocked_by::nothing;
+  }
+
   void block_by_time(hal::time_duration p_duration)
   {
     transition_to(blocked_by::time, time_info{ p_duration });
@@ -625,6 +630,7 @@ public:
    */
   [[nodiscard]] T result(hal::unsafe)
   {
+    // Rethrow exception caught by top level coroutine
     if constexpr (not std::is_void_v<T>) {
       return *reinterpret_cast<T*>(m_result.data());
     } else {
@@ -688,7 +694,9 @@ public:
 
     T await_resume() const
     {
-      return m_async_operation->handle().promise().get_result_or_rethrow();
+      // The wait() operation, on a completed coroutine will return the result
+      // or rethrow a caught exception.
+      return m_async_operation->wait();
     }
   };
 
