@@ -9,9 +9,9 @@
 #include <utility>
 #include <variant>
 
-#include "functional.hpp"
-#include "initializers.hpp"
-#include "units.hpp"
+#include "../functional.hpp"
+#include "../initializers.hpp"
+#include "../units.hpp"
 
 namespace hal::v5 {
 
@@ -713,6 +713,7 @@ public:
   async(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
+    static_assert(sizeof(Type) == sizeof(m_result));
     new (m_result.data()) T{ std::forward<U>(p_value) };
   };
 
@@ -763,6 +764,7 @@ private:
 
   std::coroutine_handle<promise_type> m_handle = nullptr;
   hal::usize m_frame_size;
+  // Keep this member uninitialized to safe on cycles.
   alignas(Type) std::array<hal::byte, sizeof(Type)> m_result;
 };
 
