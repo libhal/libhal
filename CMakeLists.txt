@@ -56,7 +56,7 @@ libhal_unit_test(SOURCES
   tests/pointers.test.cpp
   tests/circular_buffer.test.cpp
   tests/allocated_buffer.test.cpp
-  tests/coro_expr.test.cpp
+  tests/experimental/coroutine.test.cpp
   tests/main.test.cpp
 
   PACKAGES
