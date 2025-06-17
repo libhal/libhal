@@ -23,145 +23,71 @@ enum class blocked_by : u8
   /// It is the responsibility of the scheduler to defer calling the active
   /// coroutine of an `async_context` until the amount of time requested has
   /// elapsed.
+  ///
+  /// The time duration passed to the transition handler function represents the
+  /// amount of time that the coroutine must suspend for until before scheduling
+  /// the task again. Timed delays in this fashion are not real time and only
+  /// represent the shortest duration of time necessary to fulfil the
+  /// coroutine's delay needs. To schedule the coroutine before its delay time
+  /// has been awaited, is considered to be undefined behavior. It is the
+  /// responsibility of the develop of the transition handler to ensure that
+  /// tasks are not executed until their delay time has elapsed.
+  ///
+  /// A value of 0 means do not wait and suspend but set the blocked by state to
+  /// `time`. This will suspend the coroutine and it later. This is equivalent
+  /// to just performing `std::suspend_always` but with additional steps, thus
+  /// it is not advised to perform `co_await 0ns`.
   time = 1,
   /// Blocked by an I/O operation such as a DMA transfer or a bus. It is the
   /// responsibility of an interrupt (or thread performing I/O operations) to
   /// change the state to 'nothing' when the operation has completed.
+  ///
+  /// The time duration passed to the transition handler represents the amount
+  /// of time the task must wait until it may resume the task even before its
+  /// block status has transitioned to "nothing". This would represent the
+  /// coroutine providing a hint to the scheduler about polling the coroutine. A
+  /// value of 0 means wait indefinitely.
   io = 2,
   /// Blocked by a synchronization primitive of some kind. It is the
   /// responsibility of - to change the state to 'nothing' when new work is
   /// available.
+  ///
+  /// The time duration passed to the transition handler represents... TBD
   sync = 3,
   /// Blocked by a lack of work to perform. It is the responsibility of - to
   /// change the state to 'nothing' when new work is available.
+  ///
+  /// The time duration passed to the transition handler represents the amount
+  /// of time the task must wait until it may resume the task even before its
+  /// block status has transitioned to "nothing". This would represent the
+  /// coroutine providing a hint to the scheduler about polling the coroutine. A
+  /// value of 0 means wait indefinitely.
   inbox_empty = 4,
   /// Blocked by congestion to a mailbox of work. For example attempting to
   /// write a message to one of 3 outgoing mailboxes over CAN but all are
   /// currently busy waiting to emit their message. It is the
   /// responsibility of - to change the state to 'nothing' when new work is
   /// available.
+  ///
+  /// The time duration passed to the transition handler represents the amount
+  /// of time the task must wait until it may resume the task even before its
+  /// block status has transitioned to "nothing". This would represent the
+  /// coroutine providing a hint to the scheduler about polling the coroutine. A
+  /// value of 0 means wait indefinitely.
   outbox_full = 5,
 };
 
-struct nothing_info
-{
-  std::array<hal::u32, 2> reserved{};
-};
+class async_context;
 
-struct time_info
-{
-  hal::time_duration duration;
-  time_info(hal::time_duration p_duration)
-    : duration(p_duration)
-  {
-  }
-  time_info& operator=(hal::time_duration p_duration)
-  {
-    duration = p_duration;
-    return *this;
-  }
-};
+using async_transition_handler =
+  hal::callback<void(async_context&, blocked_by, hal::time_duration)>;
 
-struct io_info
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct sync_info
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct inbox_info
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct outbox_info
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct info_slot_6
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_7
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct info_slot_8
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_9
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_10
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct info_slot_11
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_12
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_13
-{
-  std::array<hal::u32, 2> reserved{};
-};
-
-struct info_slot_14
-{
-  std::array<hal::u32, 2> data{};
-};
-
-struct info_slot_15
-{
-  std::array<hal::u32, 2> data{};
-};
-
-// Pre-allocate variant with all possible future types
-using block_info = std::variant<nothing_info,  // 0
-                                time_info,     // 1
-                                io_info,       // 2
-                                sync_info,     // 3
-                                inbox_info,    // 4
-                                outbox_info,   // 5
-                                // For future use
-                                info_slot_6,   // 6
-                                info_slot_7,   // 7
-                                info_slot_8,   // 8
-                                info_slot_9,   // 9
-                                info_slot_10,  // 10
-                                info_slot_11,  // 11
-                                info_slot_12,  // 12
-                                info_slot_13,  // 13
-                                info_slot_14,  // 14
-                                info_slot_15   // 15
-                                >;
-
-class async_context
+class async_thread_manager
 {
 public:
-  // Fixed ABI from day one - can use all slots without breaking compatibility
-  using transition_handler =
-    hal::callback<void(async_context&, blocked_by, block_info)>;
-
-  explicit async_context(std::pmr::memory_resource& p_resource,
-                         hal::usize p_coroutine_stack_size,
-                         transition_handler p_handler)
+  explicit async_thread_manager(std::pmr::memory_resource& p_resource,
+                                hal::usize p_coroutine_stack_size,
+                                async_transition_handler p_handler)
     : m_resource(&p_resource)
     , m_coroutine_stack_size(p_coroutine_stack_size)
     , m_handler(std::move(p_handler))
@@ -170,46 +96,60 @@ public:
                  .allocate(p_coroutine_stack_size);
   }
 
-  async_context() = default;
+  async_context entire_context();
+
+  template<usize N>
+  std::array<async_context, N> split_context();
+
+  ~async_thread_manager()
+  {
+    if (m_resource) {
+      std::pmr::polymorphic_allocator<hal::byte>(m_resource)
+        .deallocate(m_buffer, m_coroutine_stack_size);
+    }
+  }
+
+private:
+  friend class async_context;
+
+  std::pmr::memory_resource* m_resource = nullptr;  // word 1
+  hal::byte* m_buffer = nullptr;                    // word 2
+  usize m_coroutine_stack_size = 0;                 // word 3
+  async_transition_handler m_handler;               // word 4-7
+};
+
+class async_context
+{
+public:
+  static auto constexpr default_timeout = hal::time_duration(0);
 
   void unblock()
   {
-    transition_to(blocked_by::nothing, nothing_info{});
+    transition_to(blocked_by::nothing, default_timeout);
   }
-
   void unblock_without_notification()
   {
     m_state = blocked_by::nothing;
   }
-
   void block_by_time(hal::time_duration p_duration)
   {
-    transition_to(blocked_by::time, time_info{ p_duration });
+    transition_to(blocked_by::time, p_duration);
   }
-
-  void block_by_io()
+  void block_by_io(hal::time_duration p_duration = default_timeout)
   {
-    transition_to(blocked_by::io, io_info{});
+    transition_to(blocked_by::io, p_duration);
   }
-
-  void block_by_sync()
+  void block_by_sync(hal::time_duration p_duration = default_timeout)
   {
-    transition_to(blocked_by::sync, sync_info{});
+    transition_to(blocked_by::sync, p_duration);
   }
-
-  void block_by_inbox_empty()
+  void block_by_inbox_empty(hal::time_duration p_duration = default_timeout)
   {
-    transition_to(blocked_by::inbox_empty, inbox_info{});
+    transition_to(blocked_by::inbox_empty, p_duration);
   }
-
-  void block_by_outbox_full()
+  void block_by_outbox_full(hal::time_duration p_duration = default_timeout)
   {
-    transition_to(blocked_by::outbox_full, outbox_info{});
-  }
-
-  constexpr auto last_allocation_size()
-  {
-    return m_last_allocation_size;
+    transition_to(blocked_by::outbox_full, p_duration);
   }
 
   constexpr std::coroutine_handle<> active_handle()
@@ -224,21 +164,14 @@ public:
 
   auto state()
   {
-    return m_state.load();
+    return std::get<1>(m_state).load();
   }
 
   void busy_loop_until_unblocked()
   {
-    while (m_state != blocked_by::nothing) {
+    auto& state = std::get<1>(m_state);
+    while (state != blocked_by::nothing) {
       continue;
-    }
-  }
-
-  ~async_context()
-  {
-    if (m_resource) {
-      std::pmr::polymorphic_allocator<hal::byte>(m_resource)
-        .deallocate(m_buffer, m_coroutine_stack_size);
     }
   }
 
@@ -263,34 +196,32 @@ private:
    * async_context's coroutine stack
    * @param p_handler - handler for this async context
    */
-  explicit async_context(hal::byte* p_buffer,
-                         hal::usize p_coroutine_stack_size,
-                         transition_handler p_handler)
-    : m_buffer(p_buffer)
-    , m_coroutine_stack_size(p_coroutine_stack_size)
-    , m_handler(std::move(p_handler))
+  explicit async_context(async_thread_manager& p_manager,
+                         std::span<hal::byte> p_buffer)
+    : m_manager(&p_manager)
+    , m_buffer(p_buffer)
   {
   }
 
-  static void noop(async_context&, blocked_by, block_info) noexcept
+  constexpr auto last_allocation_size()
   {
-    return;
+    return std::get<usize>(m_state);
   }
 
-  void transition_to(blocked_by p_new_state, block_info p_info)
+  void transition_to(blocked_by p_new_state, hal::time_duration p_info)
   {
-    if (m_state == p_new_state) {
+    if (std::get<std::atomic<blocked_by>>(m_state) == p_new_state) {
       return;
     }
     m_state = p_new_state;
-    m_handler(*this, p_new_state, p_info);
+    m_manager->m_handler(*this, p_new_state, p_info);
   }
 
   [[nodiscard]] constexpr void* allocate(std::size_t p_bytes)
   {
-    // TODO(): consider making this memory safe by performing a check for
+    m_state = p_bytes;
+    // TODO(148): consider making this memory safe by performing a check for
     // stack exhaustion.
-    m_last_allocation_size = p_bytes;
     auto* const new_stack_pointer = &m_buffer[m_stack_pointer];
     m_stack_pointer += p_bytes;
     return new_stack_pointer;
@@ -301,38 +232,30 @@ private:
     m_stack_pointer -= p_bytes;
   }
 
-  std::exception_ptr& exception_ptr()
-  {
-    return m_exception;
-  }
-
   void clear_exception()
   {
-    m_exception = {};
+    m_state = std::exception_ptr{};
   }
 
   void rethrow_if_exception_caught()
   {
-    if (m_exception) [[unlikely]] {
-      auto const copy = m_exception;
+    if (std::holds_alternative<std::exception_ptr>(m_state)) [[unlikely]] {
+      auto const copy = std::get<std::exception_ptr>(m_state);
       clear_exception();
       std::rethrow_exception(copy);
     }
   }
 
   std::coroutine_handle<> m_active_handle = std::noop_coroutine();  // word 1
-  std::pmr::memory_resource* m_resource = nullptr;                  // word 2
-  hal::byte* m_buffer = nullptr;                                    // word 3
-  usize m_coroutine_stack_size = 0;                                 // word 4
+  async_thread_manager* m_manager = nullptr;                        // word 2
+  std::span<hal::byte> m_buffer;                                    // word 3-4
   usize m_stack_pointer = 0;                                        // word 5
-  usize m_last_allocation_size = 0;                                 // word 6
-  transition_handler m_handler = noop;                              // word 7-10
-  std::atomic<blocked_by> m_state = blocked_by::nothing;            // word 11
-  std::exception_ptr m_exception = {};                              // word 12
+  std::variant<usize, std::atomic<blocked_by>, std::exception_ptr> m_state;
 };
 
-auto constexpr transition_handler = sizeof(async_context::transition_handler);
+auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
 auto constexpr async_context_size = sizeof(async_context);
+auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
 
 struct sleep
 {
@@ -462,7 +385,8 @@ public:
 
   void unhandled_exception() noexcept
   {
-    m_context->exception_ptr() = std::current_exception();
+    // After this point accessing the state of the coroutine is UB.
+    m_context->m_state = std::current_exception();
   }
 
   struct final_awaiter
@@ -586,7 +510,7 @@ public:
 
   void unhandled_exception() noexcept
   {
-    m_context->exception_ptr() = std::current_exception();
+    m_context->m_state = std::current_exception();
   }
 
   /**
@@ -754,8 +678,9 @@ private:
     : m_handle(p_handle)
     , m_frame_size(p_frame_size)
   {
+    auto& promise = m_handle.promise();
     if constexpr (not std::is_void_v<T>) {
-      m_handle.promise().set_object_address(std::bit_cast<T*>(m_result.data()));
+      promise.set_object_address(std::bit_cast<T*>(m_result.data()));
     }
   }
 
@@ -774,7 +699,12 @@ constexpr async<T> async_promise_type<T>::get_return_object() noexcept
   auto handle =
     std::coroutine_handle<async_promise_type<T>>::from_promise(*this);
   m_context->active_handle(handle);
-  return async<T>{ handle, m_context->last_allocation_size() };
+  // Copy the last allocation size before changing the representation of
+  // m_state to 'blocked_by::nothing'.
+  auto const last_allocation_size = m_context->last_allocation_size();
+  // Now stomp the union out and set it to the blocked_by::nothing state.
+  m_context->m_state = blocked_by::nothing;
+  return async<void>{ handle, last_allocation_size };
 }
 
 constexpr async<void> async_promise_type<void>::get_return_object() noexcept
@@ -782,6 +712,11 @@ constexpr async<void> async_promise_type<void>::get_return_object() noexcept
   auto handle =
     std::coroutine_handle<async_promise_type<void>>::from_promise(*this);
   m_context->active_handle(handle);
-  return async<void>{ handle, m_context->last_allocation_size() };
+  // Copy the last allocation size before changing the representation of
+  // m_state to 'blocked_by::nothing'.
+  auto const last_allocation_size = m_context->last_allocation_size();
+  // Now stomp the union out and set it to the blocked_by::nothing state.
+  m_context->m_state = blocked_by::nothing;
+  return async<void>{ handle, last_allocation_size };
 }
 }  // namespace hal::v5

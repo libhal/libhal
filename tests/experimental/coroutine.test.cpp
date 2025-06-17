@@ -5,9 +5,9 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
-#include <variant>
 
 #include <libhal/experimental/coroutine.hpp>
+#include <libhal/units.hpp>
 
 #include <boost/ut.hpp>
 
@@ -207,7 +207,7 @@ test_state global_test_state;
 
 auto test_handler = [](hal::v5::async_context& p_context,
                        hal::v5::blocked_by p_state,
-                       hal::v5::block_info p_block_info) noexcept {
+                       hal::time_duration p_duration) noexcept {
   global_test_state.transition_count++;
   global_test_state.last_state = p_state;
 
@@ -218,13 +218,10 @@ auto test_handler = [](hal::v5::async_context& p_context,
   switch (p_state) {
     case hal::v5::blocked_by::time:
       global_test_state.time_handler_called = true;
-      if (std::holds_alternative<hal::v5::time_info>(p_block_info)) {
-        auto duration = std::get<hal::v5::time_info>(p_block_info).duration;
-        std::println(
-          "⏲️  Time block: {}ms",
-          std::chrono::duration_cast<std::chrono::milliseconds>(duration)
-            .count());
-      }
+      std::println(
+        "⏲️  Time block: {}ms",
+        std::chrono::duration_cast<std::chrono::milliseconds>(p_duration)
+          .count());
       p_context.unblock_without_notification();
       break;
 
@@ -811,7 +808,7 @@ sync_test_state global_sync_state;
 
 auto sync_test_handler = [](hal::v5::async_context& p_context,
                             hal::v5::blocked_by p_state,
-                            hal::v5::block_info) noexcept {
+                            hal::time_duration) noexcept {
   global_sync_state.transition_count++;
 
   if (p_state == hal::v5::blocked_by::time) {
