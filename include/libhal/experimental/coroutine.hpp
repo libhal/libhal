@@ -129,7 +129,7 @@ public:
   }
   void unblock_without_notification()
   {
-    m_state = blocked_by::nothing;
+    std::get<1>(m_state) = blocked_by::nothing;
   }
   void block_by_time(hal::time_duration p_duration)
   {
@@ -184,6 +184,8 @@ private:
   template<typename>
   friend class async;
 
+  friend class async_thread_manager;
+
   /**
    * @brief Construct a new async context object from a parent async context
    *
@@ -213,7 +215,7 @@ private:
     if (std::get<std::atomic<blocked_by>>(m_state) == p_new_state) {
       return;
     }
-    m_state = p_new_state;
+    std::get<1>(m_state) = p_new_state;
     m_manager->m_handler(*this, p_new_state, p_info);
   }
 
@@ -254,13 +256,15 @@ private:
 };
 
 auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
+auto constexpr async_manager = sizeof(async_thread_manager);
 auto constexpr async_context_size = sizeof(async_context);
 auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
 
-struct sleep
+inline async_context async_thread_manager::entire_context()
 {
-  hal::time_duration time;
-};
+  return async_context(*this,
+                       std::span<hal::byte>(m_buffer, m_coroutine_stack_size));
+}
 
 class async_promise_base
 {
@@ -673,6 +677,8 @@ public:
   }
 
 private:
+  friend promise_type;
+
   explicit constexpr async(std::coroutine_handle<promise_type> p_handle,
                            hal::usize p_frame_size)
     : m_handle(p_handle)
@@ -703,8 +709,8 @@ constexpr async<T> async_promise_type<T>::get_return_object() noexcept
   // m_state to 'blocked_by::nothing'.
   auto const last_allocation_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
-  m_context->m_state = blocked_by::nothing;
-  return async<void>{ handle, last_allocation_size };
+  std::get<1>(m_context->m_state) = blocked_by::nothing;
+  return async<T>{ handle, last_allocation_size };
 }
 
 constexpr async<void> async_promise_type<void>::get_return_object() noexcept
@@ -716,7 +722,7 @@ constexpr async<void> async_promise_type<void>::get_return_object() noexcept
   // m_state to 'blocked_by::nothing'.
   auto const last_allocation_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
-  m_context->m_state = blocked_by::nothing;
+  std::get<1>(m_context->m_state) = blocked_by::nothing;
   return async<void>{ handle, last_allocation_size };
 }
 }  // namespace hal::v5

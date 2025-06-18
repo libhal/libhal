@@ -1,4 +1,5 @@
 #include <chrono>
+#include <coroutine>
 #include <cstddef>
 #include <memory_resource>
 #include <print>
@@ -263,8 +264,10 @@ void reset_test_state()
 {
   global_test_state = {};
 }
-
-hal::v5::async_context test_ctx(test_resource, test_stack.size(), test_handler);
+hal::v5::async_thread_manager manager(test_resource,
+                                      test_stack.size(),
+                                      test_handler);
+hal::v5::async_context test_ctx = manager.entire_context();
 
 // Test suite implementation
 boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
@@ -452,9 +455,9 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     std::array<hal::byte, 128> small_stack;
     std::pmr::monotonic_buffer_resource small_resource(
       small_stack.data(), small_stack.size(), std::pmr::null_memory_resource());
-
-    hal::v5::async_context small_ctx(
+    hal::v5::async_thread_manager small_manager(
       small_resource, small_stack.size(), test_handler);
+    hal::v5::async_context small_ctx = small_manager.entire_context();
 
     auto memory_test = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
       std::println("📊 Testing with limited memory");
@@ -477,7 +480,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       expect(ctx.state() == hal::v5::blocked_by::nothing);
 
       co_await 1ms;
-      // After resume, should be unblock_without_notificationed again
+      // After resume, should be unblock_without_notification() again
       expect(ctx.state() == hal::v5::blocked_by::nothing);
 
       ctx.block_by_io();
@@ -829,9 +832,10 @@ void reset_sync_test_state()
   global_sync_state = {};
 }
 
-hal::v5::async_context sync_test_ctx(sync_test_resource,
-                                     sync_test_stack.size(),
-                                     sync_test_handler);
+hal::v5::async_thread_manager sync_manager(sync_test_resource,
+                                           sync_test_stack.size(),
+                                           sync_test_handler);
+hal::v5::async_context sync_test_ctx = sync_manager.entire_context();
 
 }  // namespace sync_tests
 
