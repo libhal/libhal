@@ -5,6 +5,8 @@
 #include <coroutine>
 #include <exception>
 #include <memory_resource>
+#include <new>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -79,6 +81,9 @@ enum class blocked_by : u8
 
 class async_context;
 
+template<typename T>
+using type_or_byte = std::conditional_t<std::is_void_v<T>, u8, T>;
+
 using async_transition_handler =
   hal::callback<void(async_context&, blocked_by, hal::time_duration)>;
 
@@ -89,11 +94,13 @@ public:
                                 hal::usize p_coroutine_stack_size,
                                 async_transition_handler p_handler)
     : m_resource(&p_resource)
-    , m_coroutine_stack_size(p_coroutine_stack_size)
     , m_handler(std::move(p_handler))
   {
-    m_buffer = std::pmr::polymorphic_allocator<hal::byte>(m_resource)
-                 .allocate(p_coroutine_stack_size);
+    m_buffer = std::span{
+      std::pmr::polymorphic_allocator<hal::byte>(m_resource)
+        .allocate(p_coroutine_stack_size),
+      p_coroutine_stack_size,
+    };
   }
 
   async_context entire_context();
@@ -105,7 +112,7 @@ public:
   {
     if (m_resource) {
       std::pmr::polymorphic_allocator<hal::byte>(m_resource)
-        .deallocate(m_buffer, m_coroutine_stack_size);
+        .deallocate(m_buffer.data(), m_buffer.size());
     }
   }
 
@@ -113,9 +120,8 @@ private:
   friend class async_context;
 
   std::pmr::memory_resource* m_resource = nullptr;  // word 1
-  hal::byte* m_buffer = nullptr;                    // word 2
-  usize m_coroutine_stack_size = 0;                 // word 3
-  async_transition_handler m_handler;               // word 4-7
+  std::span<hal::byte> m_buffer{};
+  async_transition_handler m_handler;  // word 4-7
 };
 
 class async_context
@@ -129,7 +135,7 @@ public:
   }
   void unblock_without_notification()
   {
-    std::get<1>(m_state) = blocked_by::nothing;
+    m_state = blocked_by::nothing;
   }
   void block_by_time(hal::time_duration p_duration)
   {
@@ -152,27 +158,14 @@ public:
     transition_to(blocked_by::outbox_full, p_duration);
   }
 
-  constexpr std::coroutine_handle<> active_handle()
+  [[nodiscard]] constexpr std::coroutine_handle<> active_handle() const
   {
     return m_active_handle;
   }
 
-  constexpr void active_handle(std::coroutine_handle<> p_active_handle)
+  [[nodiscard]] auto state() const
   {
-    m_active_handle = p_active_handle;
-  }
-
-  auto state()
-  {
-    return std::get<1>(m_state).load();
-  }
-
-  void busy_loop_until_unblocked()
-  {
-    auto& state = std::get<1>(m_state);
-    while (state != blocked_by::nothing) {
-      continue;
-    }
+    return std::get<1>(m_state);
   }
 
 private:
@@ -205,6 +198,11 @@ private:
   {
   }
 
+  constexpr void active_handle(std::coroutine_handle<> p_active_handle)
+  {
+    m_active_handle = p_active_handle;
+  }
+
   constexpr auto last_allocation_size()
   {
     return std::get<usize>(m_state);
@@ -212,16 +210,18 @@ private:
 
   void transition_to(blocked_by p_new_state, hal::time_duration p_info)
   {
-    if (std::get<std::atomic<blocked_by>>(m_state) == p_new_state) {
-      return;
-    }
-    std::get<1>(m_state) = p_new_state;
+    m_state = p_new_state;
     m_manager->m_handler(*this, p_new_state, p_info);
   }
 
   [[nodiscard]] constexpr void* allocate(std::size_t p_bytes)
   {
     m_state = p_bytes;
+
+    if (m_stack_pointer + p_bytes > m_buffer.size()) [[unlikely]] {
+      throw std::bad_alloc{};
+    }
+
     // TODO(148): consider making this memory safe by performing a check for
     // stack exhaustion.
     auto* const new_stack_pointer = &m_buffer[m_stack_pointer];
@@ -234,17 +234,13 @@ private:
     m_stack_pointer -= p_bytes;
   }
 
-  void clear_exception()
-  {
-    m_state = std::exception_ptr{};
-  }
-
   void rethrow_if_exception_caught()
   {
     if (std::holds_alternative<std::exception_ptr>(m_state)) [[unlikely]] {
-      auto const copy = std::get<std::exception_ptr>(m_state);
-      clear_exception();
-      std::rethrow_exception(copy);
+      auto const exception_ptr_copy = std::get<std::exception_ptr>(m_state);
+      // TODO(kammce): spurious "bad variant access" errors have occurred.
+      m_state = 0uz;  // destroy exception_ptr and set state to `usize`
+      std::rethrow_exception(exception_ptr_copy);
     }
   }
 
@@ -252,7 +248,7 @@ private:
   async_thread_manager* m_manager = nullptr;                        // word 2
   std::span<hal::byte> m_buffer;                                    // word 3-4
   usize m_stack_pointer = 0;                                        // word 5
-  std::variant<usize, std::atomic<blocked_by>, std::exception_ptr> m_state;
+  std::variant<usize, blocked_by, std::exception_ptr> m_state;      // word 6-8
 };
 
 auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
@@ -262,8 +258,25 @@ auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
 
 inline async_context async_thread_manager::entire_context()
 {
-  return async_context(*this,
-                       std::span<hal::byte>(m_buffer, m_coroutine_stack_size));
+  return async_context(*this, m_buffer);
+}
+
+template<usize N>
+std::array<async_context, N> async_thread_manager::split_context()
+{
+  constexpr auto arbitrary_word_limit = 4;
+  constexpr auto min_stack_size = sizeof(void*) * arbitrary_word_limit;
+
+  auto const stack_size = m_buffer.size() / N;
+
+  if (min_stack_size >= stack_size) {
+    throw std::bad_alloc{};
+  }
+
+  return [this, stack_size]<std::size_t... Is>(std::index_sequence<Is...>) {
+    return std::array<async_context, N>{ async_context{
+      *this, m_buffer.subspan(stack_size * Is, stack_size) }... };
+  }(std::make_index_sequence<N>{});
 }
 
 class async_promise_base
@@ -428,31 +441,30 @@ public:
 
   constexpr async<T> get_return_object() noexcept;
 
-  // For non-void return type
-  template<typename U = T>
+  template<typename U>
   void return_value(U&& p_value) noexcept
-    requires(not std::is_void_v<T>)
+    requires std::is_constructible_v<T, U&&>
   {
-    new (m_value_address) T{ std::forward<U>(p_value) };
+    m_value_address->emplace(std::forward<U>(p_value));
   }
 
   /**
    * @brief We should only call this within await_resume
    *
    */
-  T get_result_or_rethrow()
+  T& get_result_or_rethrow()
   {
     m_context->rethrow_if_exception_caught();
     return *m_value_address;
   }
 
-  void set_object_address(T* p_value_address)
+  void set_object_address(std::optional<type_or_byte<T>>* p_value_address)
   {
     m_value_address = p_value_address;
   }
 
 private:
-  T* m_value_address;
+  std::optional<type_or_byte<T>>* m_value_address;
 };
 
 template<>
@@ -554,29 +566,20 @@ public:
    *
    * The result is undefined if `done()` does not return `true`.
    *
-   * @return T - value from this async operation.
+   * @return Type - reference to the value from this async operation.
    */
-  [[nodiscard]] T result(hal::unsafe)
+  [[nodiscard]] type_or_byte<T>& result(hal::unsafe)
   {
-    // Rethrow exception caught by top level coroutine
-    if constexpr (not std::is_void_v<T>) {
-      return *reinterpret_cast<T*>(m_result.data());
-    } else {
-      return;
-    }
+    return *m_result;
   }
 
   // Run synchronously and return result
-  T wait()
+  type_or_byte<T>& wait()
   {
     // If the handle is not set then this async object was completed
     // synchronously.
     if (not m_handle) {
-      if constexpr (std::is_void_v<T>) {
-        return;
-      } else {
-        return result(hal::unsafe{});
-      }
+      return result(hal::unsafe{});
     }
 
     auto& context = m_handle.promise().context();
@@ -588,12 +591,7 @@ public:
 
     // Rethrow exception caught by top level coroutine
     context.rethrow_if_exception_caught();
-
-    if constexpr (not std::is_void_v<T>) {
-      // It is safe to return this value here because the coroutine has
-      // completed.
-      return result(hal::unsafe{});
-    }
+    return result(hal::unsafe{});
   }
 
   // Awaiter for when this task is awaited
@@ -620,7 +618,7 @@ public:
       return m_async_operation->handle();
     }
 
-    T await_resume() const
+    type_or_byte<T>& await_resume() const
     {
       // The wait() operation, on a completed coroutine will return the result
       // or rethrow a caught exception.
@@ -641,16 +639,36 @@ public:
   async(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
-    static_assert(sizeof(Type) == sizeof(m_result));
-    new (m_result.data()) T{ std::forward<U>(p_value) };
+    m_result.emplace(std::forward<U>(p_value));
   };
 
   async(async const&) = delete;
   async& operator=(async const&) = delete;
+  // async(async&& p_other) noexcept
+  //   : m_handle(std::exchange(p_other.m_handle, {}))
+  // {
+  // }
+  // async& operator=(async&& p_other) noexcept
+  // {
+  //   if (this != &p_other) {
+  //     if (m_handle) {
+  //       m_handle.destroy();
+  //     }
+  //     m_handle = std::exchange(p_other.m_handle, {});
+  //   }
+  //   return *this;
+  // }
   async(async&& p_other) noexcept
     : m_handle(std::exchange(p_other.m_handle, {}))
+    , m_frame_size(p_other.m_frame_size)
+    , m_result(std::move(p_other.m_result))
   {
+    // Update promise to point to our new location
+    if (m_handle && !std::is_void_v<T>) {
+      m_handle.promise().set_object_address(&m_result);
+    }
   }
+
   async& operator=(async&& p_other) noexcept
   {
     if (this != &p_other) {
@@ -658,6 +676,13 @@ public:
         m_handle.destroy();
       }
       m_handle = std::exchange(p_other.m_handle, {});
+      m_frame_size = p_other.m_frame_size;
+      m_result = std::move(p_other.m_result);
+
+      // Update promise to point to our new location
+      if (m_handle && !std::is_void_v<T>) {
+        m_handle.promise().set_object_address(&m_result);
+      }
     }
     return *this;
   }
@@ -686,17 +711,15 @@ private:
   {
     auto& promise = m_handle.promise();
     if constexpr (not std::is_void_v<T>) {
-      promise.set_object_address(std::bit_cast<T*>(m_result.data()));
+      promise.set_object_address(&m_result);
     }
   }
 
-  // Replace void type with a byte
-  using Type = std::conditional_t<std::is_void_v<T>, hal::byte, T>;
-
   std::coroutine_handle<promise_type> m_handle = nullptr;
   hal::usize m_frame_size;
-  // Keep this member uninitialized to safe on cycles.
-  alignas(Type) std::array<hal::byte, sizeof(Type)> m_result;
+  // Keep this member uninitialized to save on cycles.
+  // alignas(Type) std::array<hal::byte, sizeof(Type)> m_result;
+  std::optional<type_or_byte<T>> m_result;
 };
 
 template<typename T>
@@ -709,11 +732,12 @@ constexpr async<T> async_promise_type<T>::get_return_object() noexcept
   // m_state to 'blocked_by::nothing'.
   auto const last_allocation_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
-  std::get<1>(m_context->m_state) = blocked_by::nothing;
+  m_context->m_state = blocked_by(blocked_by::nothing);
   return async<T>{ handle, last_allocation_size };
 }
 
-constexpr async<void> async_promise_type<void>::get_return_object() noexcept
+inline constexpr async<void>
+async_promise_type<void>::get_return_object() noexcept
 {
   auto handle =
     std::coroutine_handle<async_promise_type<void>>::from_promise(*this);
@@ -722,7 +746,7 @@ constexpr async<void> async_promise_type<void>::get_return_object() noexcept
   // m_state to 'blocked_by::nothing'.
   auto const last_allocation_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
-  std::get<1>(m_context->m_state) = blocked_by::nothing;
+  m_context->m_state = blocked_by::nothing;
   return async<void>{ handle, last_allocation_size };
 }
 }  // namespace hal::v5

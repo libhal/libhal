@@ -186,7 +186,7 @@ private:
 };
 
 // Setup common test infrastructure
-std::array<hal::byte, 4096> test_stack;
+std::array<hal::byte, 1024 * 10uz> test_stack;
 std::pmr::monotonic_buffer_resource test_resource(
   test_stack.data(),
   test_stack.size(),
@@ -794,7 +794,7 @@ hal::v5::async<std::string> conditional_process_string(
 }
 
 // Test infrastructure
-std::array<hal::byte, 2048> sync_test_stack;
+std::array<hal::byte, 2048 * 10uz> sync_test_stack;
 std::pmr::monotonic_buffer_resource sync_test_resource(
   sync_test_stack.data(),
   sync_test_stack.size(),
@@ -1113,4 +1113,397 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(throws<std::invalid_argument>(
       [&impl]() { impl.calculate(sync_test_ctx, -1, 5).wait(); }));
   };
+};
+
+namespace {
+
+struct split_test_state
+{
+  std::vector<int> context_transitions;  // Track which context had transitions
+  std::vector<hal::v5::blocked_by> transition_types;
+  int total_transitions = 0;
+  bool all_contexts_used = false;
+};
+
+split_test_state global_split_state;
+
+auto split_test_handler = [](hal::v5::async_context& p_context,
+                             hal::v5::blocked_by p_state,
+                             hal::time_duration p_duration) noexcept {
+  global_split_state.total_transitions++;
+  global_split_state.transition_types.push_back(p_state);
+
+  // Try to identify which context this is (simple heuristic based on address)
+  auto context_addr = reinterpret_cast<uintptr_t>(&p_context);
+  int context_id = static_cast<int>(context_addr) % 100;  // Simple ID
+  global_split_state.context_transitions.push_back(context_id);
+
+  std::println("🔄 Split context #{} transition to {}",
+               context_id,
+               static_cast<int>(p_state));
+
+  switch (p_state) {
+    case hal::v5::blocked_by::time:
+      std::println(
+        "⏰ Split context time block: {}ms",
+        std::chrono::duration_cast<std::chrono::milliseconds>(p_duration)
+          .count());
+      p_context.unblock_without_notification();
+      break;
+
+    case hal::v5::blocked_by::io:
+      std::println("🔌 Split context I/O block");
+      // Simulate async I/O completion
+      std::thread([&p_context]() {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        p_context.unblock_without_notification();
+      }).detach();
+      break;
+
+    case hal::v5::blocked_by::sync:
+      std::println("🔒 Split context sync block");
+      p_context.unblock_without_notification();
+      break;
+
+    default:
+      break;
+  }
+};
+
+void reset_split_test_state()
+{
+  global_split_state = {};
+}
+
+// Simple coroutine tasks for testing split contexts
+hal::v5::async<int> simple_task(hal::v5::async_context& ctx,
+                                int id,
+                                int delay_ms)
+{
+  using namespace std::chrono_literals;
+
+  std::println("🎯 Task {} starting with {}ms delay", id, delay_ms);
+  co_await std::chrono::milliseconds(delay_ms);
+
+  std::println("🎯 Task {} middle operation", id);
+  ctx.block_by_sync();
+  co_await std::suspend_always{};
+
+  std::println("🎯 Task {} completing", id);
+  co_return id * 10;
+}
+
+#if 0
+hal::v5::async<std::string> io_task(hal::v5::async_context& ctx,
+                                    std::string const& name)
+{
+  std::println("🔌 I/O Task {} starting", name);
+
+  ctx.block_by_io();
+  co_await std::suspend_always{};
+
+  std::println("🔌 I/O Task {} completing", name);
+  co_return "Result from " + name;
+}
+
+hal::v5::async<void> void_task(hal::v5::async_context& ctx, int iterations)
+{
+  using namespace std::chrono_literals;
+
+  for (int i = 0; i < iterations; ++i) {
+    std::println("🔄 Void task iteration {}", i);
+    co_await 1ms;
+  }
+
+  std::println("🔄 Void task completed {} iterations", iterations);
+  co_return;
+}
+#endif
+
+// Test concurrent execution coordinator
+template<hal::usize N>
+struct concurrent_executor
+{
+  std::array<hal::v5::async_context, N> contexts;
+  std::vector<hal::v5::async<int>> tasks;
+
+  concurrent_executor(hal::v5::async_thread_manager& manager)
+    : contexts(manager.split_context<N>())
+  {
+  }
+
+  void start_simple_tasks()
+  {
+    for (hal::usize i = 0; i < N; ++i) {
+      std::println("Creating task {}...", i);
+      tasks.push_back(
+        simple_task(contexts[i], static_cast<int>(i), (i + 1) * 10));
+    }
+  }
+
+  std::array<int, N> wait_all()
+  {
+    std::array<int, N> results{};
+    for (size_t i = 0; i < N; ++i) {
+      results[i] = tasks[i].wait();
+    }
+    return results;
+  }
+};
+
+}  // namespace
+
+// Test suite for split context functionality
+boost::ut::suite<"split_context_tests"> split_context_tests = []() {
+  using namespace boost::ut;
+  using namespace std::chrono_literals;
+
+  std::println("\nStarting split context tests...\n");
+
+  "Basic split context creation"_test = []() {
+    reset_split_test_state();
+
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    // Test splitting into 2 contexts
+    auto contexts = manager.split_context<2>();
+
+    expect(that % contexts.size() == 2);
+
+    // Verify contexts are different objects
+    expect(&contexts[0] != &contexts[1]);
+
+    // Test that we can create simple coroutines on each context
+    auto task1 = simple_task(contexts[0], 1, 5);
+    auto task2 = simple_task(contexts[1], 2, 10);
+
+    auto result1 = task1.wait();
+    auto result2 = task2.wait();
+
+    expect(that % result1 == 10);
+    expect(that % result2 == 20);
+    expect(that % global_split_state.total_transitions > 0);
+  };
+
+  "Concurrent execution with split contexts"_test = []() {
+    reset_split_test_state();
+
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    // Test with 3 concurrent contexts
+    concurrent_executor<3> executor(manager);
+    executor.start_simple_tasks();
+
+    auto results = executor.wait_all();
+
+    expect(that % results[0] == 0);   // 0 * 10
+    expect(that % results[1] == 10);  // 1 * 10
+    expect(that % results[2] == 20);  // 2 * 10
+
+    // Should have had transitions from multiple contexts
+    expect(that % global_split_state.total_transitions >=
+           6);  // At least 2 per task
+    expect(that % global_split_state.transition_types.size() >= 6);
+  };
+
+#if 0
+  "Different task types on split contexts"_test = []() {
+    reset_split_test_state();
+
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    auto contexts = manager.split_context<3>();
+
+    // Run different types of tasks on each context
+    auto int_task = simple_task(contexts[0], 42, 5);
+    auto io_task_coro = io_task(contexts[1], "TestDevice");
+    auto void_task_coro = void_task(contexts[2], 2);
+
+    // Wait for all to complete
+    auto int_result = int_task.wait();
+    auto io_result = io_task_coro.wait();
+    void_task_coro.wait();  // void return
+
+    expect(that % int_result == 420);
+    expect(that % io_result == std::string("Result from TestDevice"));
+
+    // Verify different block types were used
+    bool has_time_block = false;
+    bool has_io_block = false;
+    bool has_sync_block = false;
+
+    for (auto block_type : global_split_state.transition_types) {
+      if (block_type == hal::v5::blocked_by::time)
+        has_time_block = true;
+      if (block_type == hal::v5::blocked_by::io)
+        has_io_block = true;
+      if (block_type == hal::v5::blocked_by::sync)
+        has_sync_block = true;
+    }
+
+    expect(that % has_time_block == true);
+    expect(that % has_io_block == true);
+    expect(that % has_sync_block == true);
+  };
+
+  "Memory isolation between split contexts"_test = []() {
+    reset_split_test_state();
+
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    auto contexts = manager.split_context<2>();
+
+    // Create tasks that use memory differently
+    auto memory_task1 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+      // Allocate some memory via coroutine frame
+      std::array<int, 50> large_array{};
+      large_array.fill(1);
+
+      co_await 1ms;
+
+      int sum = 0;
+      for (auto val : large_array) {
+        sum += val;
+      }
+      co_return sum;
+    };
+
+    auto memory_task2 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+      // Different memory usage pattern
+      std::array<int, 30> smaller_array{};
+      smaller_array.fill(2);
+
+      co_await 2ms;
+
+      int product = 1;
+      for (size_t i = 0; i < 5; ++i) {
+        product *= smaller_array[i];
+      }
+      co_return product;
+    };
+
+    auto task1 = memory_task1(contexts[0]);
+    auto task2 = memory_task2(contexts[1]);
+
+    auto result1 = task1.wait();
+    auto result2 = task2.wait();
+
+    expect(that % result1 == 50);  // 50 * 1
+    expect(that % result2 == 32);  // 2^5
+  };
+
+  "Large number of split contexts"_test = []() {
+    reset_split_test_state();
+
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    // Test with larger number of contexts
+    constexpr size_t context_count = 8;
+    auto contexts = manager.split_context<context_count>();
+
+    expect(that % contexts.size() == context_count);
+
+    // Create a simple task for each context
+    std::vector<hal::v5::async<int>> tasks;
+    tasks.reserve(context_count);
+    for (size_t i = 0; i < context_count; ++i) {
+      tasks.push_back(simple_task(contexts[i], static_cast<int>(i), 1));
+    }
+
+    // Wait for all and verify results
+    for (size_t i = 0; i < context_count; ++i) {
+      auto result = tasks[i].wait();
+      expect(that % result == static_cast<int>(i * 10));
+    }
+
+    // Should have many transitions from different contexts
+    expect(that % global_split_state.total_transitions >= context_count * 2);
+  };
+
+  "Split context error handling"_test = []() {
+    std::array<hal::byte, 8192> split_test_stack;
+    std::pmr::monotonic_buffer_resource split_test_resource(
+      split_test_stack.data(),
+      split_test_stack.size(),
+      std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager manager(
+      split_test_resource, split_test_stack.size(), split_test_handler);
+
+    // Test that we can handle exceptions in split contexts independently
+    auto contexts = manager.split_context<2>();
+
+    auto throwing_task = [](hal::v5::async_context& ctx,
+                            bool should_throw) -> hal::v5::async<int> {
+      co_await 1ms;
+
+      if (should_throw) {
+        throw std::runtime_error("Split context exception");
+      }
+
+      co_return 42;
+    };
+
+    auto good_task = throwing_task(contexts[0], false);
+    auto bad_task = throwing_task(contexts[1], true);
+
+    // Good task should complete normally
+    auto good_result = good_task.wait();
+    expect(that % good_result == 42);
+
+    // Bad task should throw
+    expect(throws<std::runtime_error>([&bad_task]() { bad_task.wait(); }));
+  };
+
+  "Insufficient memory for split"_test = []() {
+    // Test with very small memory that can't be split much
+    std::array<hal::byte, 64> tiny_stack;
+    std::pmr::monotonic_buffer_resource tiny_resource(
+      tiny_stack.data(), tiny_stack.size(), std::pmr::null_memory_resource());
+
+    hal::v5::async_thread_manager tiny_manager(
+      tiny_resource, tiny_stack.size(), split_test_handler);
+
+    // Should throw when trying to split into too many contexts
+    expect(throws<std::bad_alloc>([&tiny_manager]() {
+      auto contexts =
+        tiny_manager.split_context<32>();  // Too many for tiny stack
+    }));
+  };
+#endif
 };
