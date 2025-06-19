@@ -1193,9 +1193,8 @@ hal::v5::async<int> simple_task(hal::v5::async_context& ctx,
   co_return id * 10;
 }
 
-#if 0
 hal::v5::async<std::string> io_task(hal::v5::async_context& ctx,
-                                    std::string const& name)
+                                    std::string name)
 {
   std::println("🔌 I/O Task {} starting", name);
 
@@ -1218,7 +1217,6 @@ hal::v5::async<void> void_task(hal::v5::async_context& ctx, int iterations)
   std::println("🔄 Void task completed {} iterations", iterations);
   co_return;
 }
-#endif
 
 // Test concurrent execution coordinator
 template<hal::usize N>
@@ -1320,7 +1318,6 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % global_split_state.transition_types.size() >= 6);
   };
 
-#if 0
   "Different task types on split contexts"_test = []() {
     reset_split_test_state();
 
@@ -1505,5 +1502,4 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
         tiny_manager.split_context<32>();  // Too many for tiny stack
     }));
   };
-#endif
 };
