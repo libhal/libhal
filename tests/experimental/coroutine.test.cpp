@@ -5,7 +5,6 @@
 #include <print>
 #include <stdexcept>
 #include <string>
-#include <thread>
 
 #include <libhal/experimental/coroutine.hpp>
 #include <libhal/units.hpp>
@@ -185,13 +184,6 @@ private:
     std::span<hal::byte const> p_data) = 0;
 };
 
-// Setup common test infrastructure
-std::array<hal::byte, 1024 * 10uz> test_stack;
-std::pmr::monotonic_buffer_resource test_resource(
-  test_stack.data(),
-  test_stack.size(),
-  std::pmr::null_memory_resource());
-
 // State tracking for tests
 struct test_state
 {
@@ -229,29 +221,21 @@ auto test_handler = [](hal::v5::async_context& p_context,
     case hal::v5::blocked_by::io:
       global_test_state.io_handler_called = true;
       std::println("🔌 I/O block detected");
-      // Simulate I/O completion after a short delay
-      std::thread([&p_context]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        p_context.unblock_without_notification();
-      }).detach();
       break;
 
     case hal::v5::blocked_by::sync:
       global_test_state.sync_handler_called = true;
       std::println("🔒 Sync block detected");
-      p_context.unblock_without_notification();
       break;
 
     case hal::v5::blocked_by::inbox_empty:
       global_test_state.inbox_handler_called = true;
       std::println("📪 Inbox empty block detected");
-      p_context.unblock_without_notification();
       break;
 
     case hal::v5::blocked_by::outbox_full:
       global_test_state.outbox_handler_called = true;
       std::println("📤 Outbox full block detected");
-      p_context.unblock_without_notification();
       break;
 
     case hal::v5::blocked_by::nothing:
@@ -264,10 +248,9 @@ void reset_test_state()
 {
   global_test_state = {};
 }
-hal::v5::async_thread_manager manager(test_resource,
-                                      test_stack.size(),
-                                      test_handler);
-hal::v5::async_context test_ctx = manager.entire_context();
+
+// Setup common test infrastructure
+std::array<hal::byte, 1024 * 10uz> test_stack;
 
 // Test suite implementation
 boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
@@ -276,6 +259,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
   "State transitions test"_test = []() {
     reset_test_state();
+
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime context(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = context[0];
 
     auto test_coro = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
       // Test various blocking states
@@ -330,6 +319,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     reset_test_state();
     exception_thrower thrower;
 
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
+
     auto coro = thrower.throw_immediately(test_ctx);
 
     expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
@@ -339,6 +334,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     reset_test_state();
     exception_thrower thrower;
 
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
+
     auto coro = thrower.throw_after_suspend(test_ctx);
 
     expect(throws<std::logic_error>([&coro]() { coro.wait(); }));
@@ -347,6 +348,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
   "Exception handling - throw after time wait"_test = []() {
     reset_test_state();
     exception_thrower thrower;
+
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
 
     auto coro = thrower.throw_after_time_wait(test_ctx);
 
@@ -359,6 +366,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     reset_test_state();
     exception_thrower thrower;
 
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
+
     auto coro = thrower.nested_exception_call(test_ctx);
 
     expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
@@ -367,6 +380,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
   "Complex composition test"_test = []() {
     reset_test_state();
     compositor comp;
+
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
 
     auto coro = comp.complex_operation(test_ctx);
     auto result = coro.wait();
@@ -382,6 +401,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     reset_test_state();
     compositor comp;
 
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
+
     auto coro = comp.exception_recovery(test_ctx);
     auto result = coro.wait();
 
@@ -391,6 +416,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
   "Multiple coroutine chaining"_test = []() {
     reset_test_state();
+
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
 
     auto chain_test = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
       auto step1 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
@@ -429,6 +460,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
   "Void coroutine test"_test = []() {
     reset_test_state();
 
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
+
     auto void_test = [](hal::v5::async_context& ctx) -> hal::v5::async<void> {
       std::println("🎯 Void coroutine starting");
       co_await 1ms;
@@ -455,9 +492,9 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     std::array<hal::byte, 128> small_stack;
     std::pmr::monotonic_buffer_resource small_resource(
       small_stack.data(), small_stack.size(), std::pmr::null_memory_resource());
-    hal::v5::async_thread_manager small_manager(
+    hal::v5::async_runtime small_manager(
       small_resource, small_stack.size(), test_handler);
-    hal::v5::async_context small_ctx = small_manager.entire_context();
+    auto& small_ctx = small_manager[0];
 
     auto memory_test = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
       std::println("📊 Testing with limited memory");
@@ -474,6 +511,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
   "Coroutine state inspection"_test = []() {
     reset_test_state();
+
+    std::pmr::monotonic_buffer_resource test_resource(
+      test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+    hal::v5::async_runtime manager(
+      test_resource, test_stack.size(), test_handler);
+    hal::v5::async_context& test_ctx = manager[0];
 
     auto inspection_test =
       [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
@@ -501,7 +544,16 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
   using namespace boost::ut;
 
-  "Interface exception propagation"_test = []() {
+  // Setup common test infrastructure
+  std::array<hal::byte, 1024 * 10uz> test_stack;
+  std::pmr::monotonic_buffer_resource test_resource(
+    test_stack.data(), test_stack.size(), std::pmr::null_memory_resource());
+
+  hal::v5::async_runtime manager(
+    test_resource, test_stack.size(), test_handler);
+  hal::v5::async_context& test_ctx = manager[0];
+
+  "Interface exception propagation"_test = [&]() {
     class throwing_interface : public interface
     {
     private:
@@ -527,7 +579,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     expect(throws<std::domain_error>([&coro]() { coro.wait(); }));
   };
 
-  "Interface composition with exception handling"_test = []() {
+  "Interface composition with exception handling"_test = [&]() {
     class safe_wrapper : public interface
     {
     public:
@@ -793,13 +845,6 @@ hal::v5::async<std::string> conditional_process_string(
   return "Long: " + p_input.substr(0, 10) + "...";
 }
 
-// Test infrastructure
-std::array<hal::byte, 2048 * 10uz> sync_test_stack;
-std::pmr::monotonic_buffer_resource sync_test_resource(
-  sync_test_stack.data(),
-  sync_test_stack.size(),
-  std::pmr::null_memory_resource());
-
 struct sync_test_state
 {
   int transition_count = 0;
@@ -831,12 +876,6 @@ void reset_sync_test_state()
 {
   global_sync_state = {};
 }
-
-hal::v5::async_thread_manager sync_manager(sync_test_resource,
-                                           sync_test_stack.size(),
-                                           sync_test_handler);
-hal::v5::async_context sync_test_ctx = sync_manager.entire_context();
-
 }  // namespace sync_tests
 
 // Test suite for synchronous returns
@@ -844,7 +883,18 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
   using namespace boost::ut;
   using namespace sync_tests;
 
-  "Free function immediate returns"_test = []() {
+  // Test infrastructure
+  std::array<hal::byte, 2048 * 10uz> sync_test_stack;
+  std::pmr::monotonic_buffer_resource sync_test_resource(
+    sync_test_stack.data(),
+    sync_test_stack.size(),
+    std::pmr::null_memory_resource());
+
+  hal::v5::async_runtime sync_manager(
+    sync_test_resource, sync_test_stack.size(), sync_test_handler);
+  hal::v5::async_context sync_test_ctx = sync_manager[0];
+
+  "Free function immediate returns"_test = [&]() {
     reset_sync_test_state();
 
     // Test immediate int return
@@ -874,7 +924,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % global_sync_state.transition_count == 0);
   };
 
-  "Conditional sync/async free functions"_test = []() {
+  "Conditional sync/async free functions"_test = [&]() {
     reset_sync_test_state();
 
     // Test immediate factorial (n=1)
@@ -922,7 +972,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % global_sync_state.any_time_blocks == false);
   };
 
-  "Interface immediate returns"_test = []() {
+  "Interface immediate returns"_test = [&]() {
     reset_sync_test_state();
     immediate_impl impl;
 
@@ -953,7 +1003,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % global_sync_state.transition_count == 0);
   };
 
-  "Interface conditional sync/async"_test = []() {
+  "Interface conditional sync/async"_test = [&]() {
     reset_sync_test_state();
     conditional_impl impl;
 
@@ -1011,7 +1061,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % global_sync_state.any_time_blocks == false);
   };
 
-  "Mixed sync/async composition"_test = []() {
+  "Mixed sync/async composition"_test = [&]() {
     reset_sync_test_state();
 
     auto mixed_task =
@@ -1040,7 +1090,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
            std::string("mult=42, even=true, fact=720, format='Number: 720'"));
   };
 
-  "Performance comparison test"_test = []() {
+  "Performance comparison test"_test = [&]() {
     reset_sync_test_state();
 
     auto performance_test =
@@ -1067,7 +1117,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % global_sync_state.transition_count == 0);
   };
 
-  "Error handling with immediate returns"_test = []() {
+  "Error handling with immediate returns"_test = [&]() {
     class error_prone_impl : public sync_interface
     {
     private:
@@ -1110,8 +1160,9 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     expect(that % success_result == 15);
 
     // Test immediate exception
-    expect(throws<std::invalid_argument>(
-      [&impl]() { impl.calculate(sync_test_ctx, -1, 5).wait(); }));
+    expect(throws<std::invalid_argument>([&sync_test_ctx, &impl]() {
+      impl.calculate(sync_test_ctx, -1, 5).wait();
+    }));
   };
 };
 
@@ -1154,10 +1205,7 @@ auto split_test_handler = [](hal::v5::async_context& p_context,
     case hal::v5::blocked_by::io:
       std::println("🔌 Split context I/O block");
       // Simulate async I/O completion
-      std::thread([&p_context]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        p_context.unblock_without_notification();
-      }).detach();
+      p_context.unblock_without_notification();
       break;
 
     case hal::v5::blocked_by::sync:
@@ -1222,11 +1270,11 @@ hal::v5::async<void> void_task(hal::v5::async_context& ctx, int iterations)
 template<hal::usize N>
 struct concurrent_executor
 {
-  std::array<hal::v5::async_context, N> contexts;
+  hal::v5::async_runtime<N>* contexts;
   std::vector<hal::v5::async<int>> tasks;
 
-  concurrent_executor(hal::v5::async_thread_manager& manager)
-    : contexts(manager.split_context<N>())
+  concurrent_executor(hal::v5::async_runtime<N>& manager)
+    : contexts(&manager)
   {
   }
 
@@ -1235,7 +1283,7 @@ struct concurrent_executor
     for (hal::usize i = 0; i < N; ++i) {
       std::println("Creating task {}...", i);
       tasks.push_back(
-        simple_task(contexts[i], static_cast<int>(i), (i + 1) * 10));
+        simple_task((*contexts)[i], static_cast<int>(i), (i + 1) * 10));
     }
   }
 
@@ -1258,7 +1306,7 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
 
   std::println("\nStarting split context tests...\n");
 
-  "Basic split context creation"_test = []() {
+  "Basic split context creation"_test = [&]() {
     reset_split_test_state();
 
     std::array<hal::byte, 8192> split_test_stack;
@@ -1267,16 +1315,14 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
-
-    // Test splitting into 2 contexts
-    auto contexts = manager.split_context<2>();
-
-    expect(that % contexts.size() == 2);
+    hal::v5::async_runtime<2> contexts(
+      split_test_resource, split_test_stack.size() / 2, split_test_handler);
 
     // Verify contexts are different objects
     expect(&contexts[0] != &contexts[1]);
+
+    contexts.release(0);
+    contexts.release(1);
 
     // Test that we can create simple coroutines on each context
     auto task1 = simple_task(contexts[0], 1, 5);
@@ -1290,20 +1336,23 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % global_split_state.total_transitions > 0);
   };
 
-  "Concurrent execution with split contexts"_test = []() {
+  "Concurrent execution with split contexts"_test = [&]() {
     reset_split_test_state();
 
+    constexpr auto context_count = 3;
     std::array<hal::byte, 8192> split_test_stack;
     std::pmr::monotonic_buffer_resource split_test_resource(
       split_test_stack.data(),
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
+    hal::v5::async_runtime<context_count> manager(split_test_resource,
+                                                  split_test_stack.size() /
+                                                    context_count,
+                                                  split_test_handler);
 
     // Test with 3 concurrent contexts
-    concurrent_executor<3> executor(manager);
+    concurrent_executor<context_count> executor(manager);
     executor.start_simple_tasks();
 
     auto results = executor.wait_all();
@@ -1318,19 +1367,18 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % global_split_state.transition_types.size() >= 6);
   };
 
-  "Different task types on split contexts"_test = []() {
+  "Different task types on split contexts"_test = [&]() {
     reset_split_test_state();
 
+    constexpr auto context_count = 3;
     std::array<hal::byte, 8192> split_test_stack;
     std::pmr::monotonic_buffer_resource split_test_resource(
       split_test_stack.data(),
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
-
-    auto contexts = manager.split_context<3>();
+    hal::v5::async_runtime<context_count> contexts(
+      split_test_resource, split_test_stack.size() / 3, split_test_handler);
 
     // Run different types of tasks on each context
     auto int_task = simple_task(contexts[0], 42, 5);
@@ -1364,19 +1412,20 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % has_sync_block == true);
   };
 
-  "Memory isolation between split contexts"_test = []() {
+  "Memory isolation between split contexts"_test = [&]() {
     reset_split_test_state();
 
+    constexpr auto context_count = 2;
     std::array<hal::byte, 8192> split_test_stack;
     std::pmr::monotonic_buffer_resource split_test_resource(
       split_test_stack.data(),
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
-
-    auto contexts = manager.split_context<2>();
+    hal::v5::async_runtime<context_count> contexts(split_test_resource,
+                                                   split_test_stack.size() /
+                                                     context_count,
+                                                   split_test_handler);
 
     // Create tasks that use memory differently
     auto memory_task1 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
@@ -1417,23 +1466,20 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % result2 == 32);  // 2^5
   };
 
-  "Large number of split contexts"_test = []() {
+  "Large number of split contexts"_test = [&]() {
     reset_split_test_state();
 
+    constexpr auto context_count = 8;
     std::array<hal::byte, 8192> split_test_stack;
     std::pmr::monotonic_buffer_resource split_test_resource(
       split_test_stack.data(),
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
-
-    // Test with larger number of contexts
-    constexpr size_t context_count = 8;
-    auto contexts = manager.split_context<context_count>();
-
-    expect(that % contexts.size() == context_count);
+    hal::v5::async_runtime<context_count> contexts(split_test_resource,
+                                                   split_test_stack.size() /
+                                                     context_count,
+                                                   split_test_handler);
 
     // Create a simple task for each context
     std::vector<hal::v5::async<int>> tasks;
@@ -1452,18 +1498,18 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     expect(that % global_split_state.total_transitions >= context_count * 2);
   };
 
-  "Split context error handling"_test = []() {
+  "Split context error handling"_test = [&]() {
+    constexpr auto context_count = 2;
     std::array<hal::byte, 8192> split_test_stack;
     std::pmr::monotonic_buffer_resource split_test_resource(
       split_test_stack.data(),
       split_test_stack.size(),
       std::pmr::null_memory_resource());
 
-    hal::v5::async_thread_manager manager(
-      split_test_resource, split_test_stack.size(), split_test_handler);
-
-    // Test that we can handle exceptions in split contexts independently
-    auto contexts = manager.split_context<2>();
+    hal::v5::async_runtime<context_count> contexts(split_test_resource,
+                                                   split_test_stack.size() /
+                                                     context_count,
+                                                   split_test_handler);
 
     auto throwing_task = [](hal::v5::async_context& ctx,
                             bool should_throw) -> hal::v5::async<int> {
@@ -1485,21 +1531,5 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
 
     // Bad task should throw
     expect(throws<std::runtime_error>([&bad_task]() { bad_task.wait(); }));
-  };
-
-  "Insufficient memory for split"_test = []() {
-    // Test with very small memory that can't be split much
-    std::array<hal::byte, 64> tiny_stack;
-    std::pmr::monotonic_buffer_resource tiny_resource(
-      tiny_stack.data(), tiny_stack.size(), std::pmr::null_memory_resource());
-
-    hal::v5::async_thread_manager tiny_manager(
-      tiny_resource, tiny_stack.size(), split_test_handler);
-
-    // Should throw when trying to split into too many contexts
-    expect(throws<std::bad_alloc>([&tiny_manager]() {
-      auto contexts =
-        tiny_manager.split_context<32>();  // Too many for tiny stack
-    }));
   };
 };

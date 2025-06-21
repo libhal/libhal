@@ -1,12 +1,11 @@
 #pragma once
 
-#include <bit>
+#include <bitset>
 #include <chrono>
 #include <coroutine>
 #include <exception>
 #include <memory_resource>
-#include <new>
-#include <stdexcept>
+#include <numeric>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -14,6 +13,7 @@
 #include "../functional.hpp"
 #include "../initializers.hpp"
 #include "../units.hpp"
+#include "libhal/error.hpp"
 
 namespace hal::v5 {
 
@@ -87,12 +87,26 @@ using type_or_byte = std::conditional_t<std::is_void_v<T>, u8, T>;
 using async_transition_handler =
   hal::callback<void(async_context&, blocked_by, hal::time_duration)>;
 
-class async_thread_manager
+class async_runtime_base
 {
 public:
-  explicit async_thread_manager(std::pmr::memory_resource& p_resource,
-                                hal::usize p_coroutine_stack_size,
-                                async_transition_handler p_handler)
+  ~async_runtime_base()
+  {
+    if (m_resource) {
+      std::pmr::polymorphic_allocator<hal::byte>(m_resource)
+        .deallocate(m_buffer.data(), m_buffer.size());
+    }
+  }
+
+  async_runtime_base(async_runtime_base const&) = delete;
+  async_runtime_base& operator=(async_runtime_base const&) = delete;
+  async_runtime_base(async_runtime_base&&) = default;
+  async_runtime_base& operator=(async_runtime_base&&) = default;
+
+protected:
+  explicit async_runtime_base(std::pmr::memory_resource& p_resource,
+                              hal::usize p_coroutine_stack_size,
+                              async_transition_handler p_handler)
     : m_resource(&p_resource)
     , m_handler(std::move(p_handler))
   {
@@ -103,20 +117,6 @@ public:
     };
   }
 
-  async_context entire_context();
-
-  template<usize N>
-  std::array<async_context, N> split_context();
-
-  ~async_thread_manager()
-  {
-    if (m_resource) {
-      std::pmr::polymorphic_allocator<hal::byte>(m_resource)
-        .deallocate(m_buffer.data(), m_buffer.size());
-    }
-  }
-
-private:
   friend class async_context;
 
   std::pmr::memory_resource* m_resource = nullptr;  // word 1
@@ -129,6 +129,13 @@ class async_context
 public:
   static auto constexpr default_timeout = hal::time_duration(0);
 
+  /**
+   * @brief Default construct a new async context object
+   *
+   * Using this async context on a coroutine will result in the allocation
+   * throwing an exception.
+   */
+  async_context() = default;
   void unblock()
   {
     transition_to(blocked_by::nothing, default_timeout);
@@ -177,7 +184,10 @@ private:
   template<typename>
   friend class async;
 
-  friend class async_thread_manager;
+  friend class async_runtime_base;
+
+  template<usize N>
+  friend class async_runtime;
 
   /**
    * @brief Construct a new async context object from a parent async context
@@ -191,7 +201,7 @@ private:
    * async_context's coroutine stack
    * @param p_handler - handler for this async context
    */
-  explicit async_context(async_thread_manager& p_manager,
+  explicit async_context(async_runtime_base& p_manager,
                          std::span<hal::byte> p_buffer)
     : m_manager(&p_manager)
     , m_buffer(p_buffer)
@@ -216,17 +226,14 @@ private:
 
   [[nodiscard]] constexpr void* allocate(std::size_t p_bytes)
   {
-    m_state = p_bytes;
-
-    if (m_stack_pointer + p_bytes > m_buffer.size()) [[unlikely]] {
-      throw std::bad_alloc{};
+    auto const new_stack_pointer = m_stack_pointer + p_bytes;
+    if (new_stack_pointer > m_buffer.size()) [[unlikely]] {
+      hal::safe_throw(hal::bad_coroutine_alloc(this));
     }
-
-    // TODO(148): consider making this memory safe by performing a check for
-    // stack exhaustion.
-    auto* const new_stack_pointer = &m_buffer[m_stack_pointer];
-    m_stack_pointer += p_bytes;
-    return new_stack_pointer;
+    m_state = p_bytes;
+    auto* const stack_address = &m_buffer[m_stack_pointer];
+    m_stack_pointer = new_stack_pointer;
+    return stack_address;
   }
 
   constexpr void deallocate(std::size_t p_bytes)
@@ -245,39 +252,98 @@ private:
   }
 
   std::coroutine_handle<> m_active_handle = std::noop_coroutine();  // word 1
-  async_thread_manager* m_manager = nullptr;                        // word 2
-  std::span<hal::byte> m_buffer;                                    // word 3-4
+  async_runtime_base* m_manager = nullptr;                          // word 2
+  std::span<hal::byte> m_buffer{};                                  // word 3-4
   usize m_stack_pointer = 0;                                        // word 5
   std::variant<usize, blocked_by, std::exception_ptr> m_state;      // word 6-8
 };
 
-auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
-auto constexpr async_manager = sizeof(async_thread_manager);
-auto constexpr async_context_size = sizeof(async_context);
-auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
-
-inline async_context async_thread_manager::entire_context()
+template<usize context_count = 1>
+class async_runtime : public async_runtime_base
 {
-  return async_context(*this, m_buffer);
-}
+public:
+  static_assert(context_count >= 1);
 
-template<usize N>
-std::array<async_context, N> async_thread_manager::split_context()
-{
-  constexpr auto arbitrary_word_limit = 4;
-  constexpr auto min_stack_size = sizeof(void*) * arbitrary_word_limit;
-
-  auto const stack_size = m_buffer.size() / N;
-
-  if (min_stack_size >= stack_size) {
-    throw std::bad_alloc{};
+  // Constructor with individual sizes
+  async_runtime(std::pmr::memory_resource& p_resource,
+                std::array<usize, context_count> const& p_stack_sizes,
+                async_transition_handler p_handler)
+    : async_runtime_base(
+        p_resource,
+        std::accumulate(p_stack_sizes.begin(), p_stack_sizes.end(), 0uz),
+        p_handler)
+  {
+    // Partition buffer and construct contexts
+    usize offset = 0;
+    for (usize i = 0; i < context_count; ++i) {
+      m_contexts[i] =
+        async_context(*this, m_buffer.subspan(offset, p_stack_sizes[i]));
+      offset += p_stack_sizes[i];
+    }
   }
 
-  return [this, stack_size]<std::size_t... Is>(std::index_sequence<Is...>) {
-    return std::array<async_context, N>{ async_context{
-      *this, m_buffer.subspan(stack_size * Is, stack_size) }... };
-  }(std::make_index_sequence<N>{});
-}
+  static constexpr auto make_array(usize p_stack_size_per_context)
+  {
+    std::array<usize, context_count> result{};
+    result.fill(p_stack_size_per_context);
+    return result;
+  }
+
+  // Constructor with equal sizes
+  async_runtime(std::pmr::memory_resource& resource,
+                usize p_stack_size_per_context,
+                async_transition_handler handler)
+    : async_runtime(resource, make_array(p_stack_size_per_context), handler)
+  {
+  }
+
+  async_runtime(async_runtime const&) = delete;
+  async_runtime& operator=(async_runtime const&) = delete;
+  // Move constructor is deleted to prevent invalidation of async_context. Each
+  // has a pointer to this object which is being relocated.
+  async_runtime(async_runtime&&) = delete;
+  async_runtime& operator=(async_runtime&&) = delete;
+
+  /**
+   * @brief Lease access to an async_context
+   *
+   * @param p_index - which async context to use.
+   * @return async_context&
+   */
+  async_context& operator[](usize p_index)
+  {
+    if (p_index >= context_count) {
+      hal::safe_throw(hal::out_of_range(this,
+                                        {
+                                          .m_index = p_index,
+                                          .m_capacity = context_count,
+                                        }));
+    }
+    if (m_busy[p_index]) {
+      hal::safe_throw(hal::device_or_resource_busy(this));
+    }
+
+    m_busy[p_index] = true;
+
+    return m_contexts[p_index];
+  }
+
+  constexpr void release(usize idx)
+  {
+    if (idx < context_count) {
+      m_busy[idx] = false;
+    }
+  }
+
+private:
+  std::bitset<context_count> m_busy;
+  std::array<async_context, context_count> m_contexts;
+};
+
+auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
+auto constexpr async_manager = sizeof(async_runtime_base);
+auto constexpr async_context_size = sizeof(async_context);
+auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
 
 class async_promise_base
 {
@@ -718,7 +784,6 @@ private:
   std::coroutine_handle<promise_type> m_handle = nullptr;
   hal::usize m_frame_size;
   // Keep this member uninitialized to save on cycles.
-  // alignas(Type) std::array<hal::byte, sizeof(Type)> m_result;
   std::optional<type_or_byte<T>> m_result;
 };
 
