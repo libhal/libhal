@@ -103,12 +103,23 @@ public:
   async_runtime_base(async_runtime_base&&) = default;
   async_runtime_base& operator=(async_runtime_base&&) = default;
 
+  void release_context(usize idx)
+  {
+    if (m_release) {
+      m_release(this, idx);
+    }
+  }
+
 protected:
+  using release_function = void(async_runtime_base*, usize);
+
   explicit async_runtime_base(std::pmr::memory_resource& p_resource,
                               hal::usize p_coroutine_stack_size,
-                              async_transition_handler p_handler)
+                              async_transition_handler p_handler,
+                              release_function* p_release_function)
     : m_resource(&p_resource)
     , m_handler(std::move(p_handler))
+    , m_release(p_release_function)
   {
     m_buffer = std::span{
       std::pmr::polymorphic_allocator<hal::byte>(m_resource)
@@ -120,8 +131,9 @@ protected:
   friend class async_context;
 
   std::pmr::memory_resource* m_resource = nullptr;  // word 1
-  std::span<hal::byte> m_buffer{};
-  async_transition_handler m_handler;  // word 4-7
+  std::span<hal::byte> m_buffer{};                  // word 2-3
+  async_transition_handler m_handler;               // word 4-7
+  release_function* m_release = nullptr;            // word 8
 };
 
 class async_context
@@ -136,6 +148,7 @@ public:
    * throwing an exception.
    */
   async_context() = default;
+
   void unblock()
   {
     transition_to(blocked_by::nothing, default_timeout);
@@ -175,6 +188,11 @@ public:
     return std::get<1>(m_state);
   }
 
+  constexpr void active_handle(std::coroutine_handle<> p_active_handle)
+  {
+    m_active_handle = p_active_handle;
+  }
+
 private:
   friend class async_promise_base;
 
@@ -188,6 +206,8 @@ private:
 
   template<usize N>
   friend class async_runtime;
+
+  friend class context_lease;
 
   /**
    * @brief Construct a new async context object from a parent async context
@@ -206,11 +226,6 @@ private:
     : m_manager(&p_manager)
     , m_buffer(p_buffer)
   {
-  }
-
-  constexpr void active_handle(std::coroutine_handle<> p_active_handle)
-  {
-    m_active_handle = p_active_handle;
   }
 
   constexpr auto last_allocation_size()
@@ -245,7 +260,6 @@ private:
   {
     if (std::holds_alternative<std::exception_ptr>(m_state)) [[unlikely]] {
       auto const exception_ptr_copy = std::get<std::exception_ptr>(m_state);
-      // TODO(kammce): spurious "bad variant access" errors have occurred.
       m_state = 0uz;  // destroy exception_ptr and set state to `usize`
       std::rethrow_exception(exception_ptr_copy);
     }
@@ -256,6 +270,61 @@ private:
   std::span<hal::byte> m_buffer{};                                  // word 3-4
   usize m_stack_pointer = 0;                                        // word 5
   std::variant<usize, blocked_by, std::exception_ptr> m_state;      // word 6-8
+};
+
+template<usize N>
+class async_runtime;
+
+class context_lease
+{
+  async_context* m_context;  // word 1
+  usize m_index;             // word 2
+
+public:
+  template<usize N>
+  context_lease(async_runtime<N>& p_runtime, usize p_index);
+
+  ~context_lease()
+  {
+    if (m_context) {  // Check if moved-from
+      m_context->m_manager->release_context(m_index);
+    }
+  }
+
+  async_context& get()
+  {
+    return *m_context;
+  }
+  async_context& operator*()
+  {
+    return *m_context;
+  }
+  async_context* operator->()
+  {
+    return m_context;
+  }
+
+  // Move-only semantics
+  context_lease(context_lease const&) = delete;
+  context_lease& operator=(context_lease const&) = delete;
+
+  context_lease(context_lease&& p_other) noexcept
+    : m_context(std::exchange(p_other.m_context, nullptr))
+    , m_index(p_other.m_index)
+  {
+  }
+
+  context_lease& operator=(context_lease&& p_other) noexcept
+  {
+    if (this != &p_other) {
+      if (m_context) {
+        m_context->m_manager->release_context(m_index);
+      }
+      m_context = std::exchange(p_other.m_context, nullptr);
+      m_index = p_other.m_index;
+    }
+    return *this;
+  }
 };
 
 template<usize context_count = 1>
@@ -271,7 +340,8 @@ public:
     : async_runtime_base(
         p_resource,
         std::accumulate(p_stack_sizes.begin(), p_stack_sizes.end(), 0uz),
-        p_handler)
+        p_handler,
+        &async_runtime<context_count>::static_release)
   {
     // Partition buffer and construct contexts
     usize offset = 0;
@@ -280,13 +350,6 @@ public:
         async_context(*this, m_buffer.subspan(offset, p_stack_sizes[i]));
       offset += p_stack_sizes[i];
     }
-  }
-
-  static constexpr auto make_array(usize p_stack_size_per_context)
-  {
-    std::array<usize, context_count> result{};
-    result.fill(p_stack_size_per_context);
-    return result;
   }
 
   // Constructor with equal sizes
@@ -328,6 +391,12 @@ public:
     return m_contexts[p_index];
   }
 
+  context_lease lease(usize p_index)
+  {
+    return context_lease(*this, p_index);
+  }
+
+private:
   constexpr void release(usize idx)
   {
     if (idx < context_count) {
@@ -335,15 +404,37 @@ public:
     }
   }
 
-private:
+  static constexpr auto make_array(usize p_stack_size_per_context)
+  {
+    std::array<usize, context_count> result{};
+    result.fill(p_stack_size_per_context);
+    return result;
+  }
+
+  static void static_release(async_runtime_base* p_base, usize p_index)
+  {
+    // Cast back to this type and call release
+    static_cast<async_runtime<context_count>*>(p_base)->release(p_index);
+  }
+
   std::bitset<context_count> m_busy;
   std::array<async_context, context_count> m_contexts;
 };
+
+template<usize N>
+context_lease::context_lease(async_runtime<N>& p_runtime, usize p_index)
+  : m_context(&p_runtime[p_index])
+  , m_index(p_index)
+{
+}
 
 auto constexpr async_transition_handler_size = sizeof(async_transition_handler);
 auto constexpr async_manager = sizeof(async_runtime_base);
 auto constexpr async_context_size = sizeof(async_context);
 auto constexpr sizeof_std_exception_ptr = sizeof(std::exception_ptr);
+
+struct pop_active_coroutine_directly
+{};
 
 class async_promise_base
 {
@@ -414,6 +505,11 @@ public:
   {
     m_context->block_by_time(p_time_duration);
     return std::suspend_always{};
+  }
+
+  constexpr auto await_transform(pop_active_coroutine_directly) noexcept
+  {
+    return pop_active_coroutine();
   }
 
   template<typename U>
@@ -652,6 +748,9 @@ public:
 
     while (not m_handle.done()) {
       auto active = context.active_handle();
+      if (active == std::noop_coroutine()) {
+        break;
+      }
       active.resume();
     }
 
@@ -688,7 +787,14 @@ public:
     {
       // The wait() operation, on a completed coroutine will return the result
       // or rethrow a caught exception.
-      return m_async_operation->wait();
+      if (m_async_operation->m_handle) {
+        auto& context = m_async_operation->m_handle.promise().context();
+        // Rethrow exception caught by top level coroutine
+        context.rethrow_if_exception_caught();
+        return m_async_operation->result(hal::unsafe{});
+      } else {
+        return m_async_operation->result(hal::unsafe{});
+      }
     }
   };
 
@@ -708,30 +814,39 @@ public:
     m_result.emplace(std::forward<U>(p_value));
   };
 
-  async(async const&) = delete;
-  async& operator=(async const&) = delete;
-  // async(async&& p_other) noexcept
-  //   : m_handle(std::exchange(p_other.m_handle, {}))
-  // {
-  // }
-  // async& operator=(async&& p_other) noexcept
-  // {
-  //   if (this != &p_other) {
-  //     if (m_handle) {
-  //       m_handle.destroy();
-  //     }
-  //     m_handle = std::exchange(p_other.m_handle, {});
-  //   }
-  //   return *this;
-  // }
+  async(async const& p_other)
+    : m_handle(p_other.m_handle)
+  {
+    if constexpr (not std::is_void_v<T>) {
+      if (m_handle) {
+        m_handle.promise().set_object_address(&m_result);
+      }
+    }
+  }
+  async& operator=(async const& p_other)
+  {
+    if (this != &p_other) {
+      m_handle = p_other.m_handle;
+      m_frame_size = 0;
+
+      if constexpr (not std::is_void_v<T>) {
+        if (m_handle) {
+          m_handle.promise().set_object_address(&m_result);
+        }
+      }
+    }
+    return *this;
+  }
+
   async(async&& p_other) noexcept
     : m_handle(std::exchange(p_other.m_handle, {}))
     , m_frame_size(p_other.m_frame_size)
     , m_result(std::move(p_other.m_result))
   {
-    // Update promise to point to our new location
-    if (m_handle && !std::is_void_v<T>) {
-      m_handle.promise().set_object_address(&m_result);
+    if constexpr (not std::is_void_v<T>) {
+      if (m_handle) {
+        m_handle.promise().set_object_address(&m_result);
+      }
     }
   }
 
@@ -745,9 +860,10 @@ public:
       m_frame_size = p_other.m_frame_size;
       m_result = std::move(p_other.m_result);
 
-      // Update promise to point to our new location
-      if (m_handle && !std::is_void_v<T>) {
-        m_handle.promise().set_object_address(&m_result);
+      if constexpr (not std::is_void_v<T>) {
+        if (m_handle) {
+          m_handle.promise().set_object_address(&m_result);
+        }
       }
     }
     return *this;
@@ -755,7 +871,7 @@ public:
 
   ~async()
   {
-    if (m_handle) {
+    if (m_handle && m_frame_size) {
       auto& context = m_handle.promise().context();
       m_handle.destroy();
       context.deallocate(m_frame_size);
@@ -765,6 +881,11 @@ public:
   auto handle()
   {
     return m_handle;
+  }
+
+  void set_context(async_context& p_context)
+  {
+    m_handle.promise().context() = p_context;
   }
 
 private:
@@ -782,8 +903,7 @@ private:
   }
 
   std::coroutine_handle<promise_type> m_handle = nullptr;
-  hal::usize m_frame_size;
-  // Keep this member uninitialized to save on cycles.
+  hal::usize m_frame_size = 0;
   std::optional<type_or_byte<T>> m_result;
 };
 

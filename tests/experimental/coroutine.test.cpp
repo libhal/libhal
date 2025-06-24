@@ -1318,18 +1318,21 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     hal::v5::async_runtime<2> contexts(
       split_test_resource, split_test_stack.size() / 2, split_test_handler);
 
-    // Verify contexts are different objects
-    expect(&contexts[0] != &contexts[1]);
+    auto context0 = contexts.lease(0);
+    auto context1 = contexts.lease(1);
 
-    contexts.release(0);
-    contexts.release(1);
+    // Verify contexts are different objects
+    expect(&(*context0) != &(*context1));
 
     // Test that we can create simple coroutines on each context
-    auto task1 = simple_task(contexts[0], 1, 5);
-    auto task2 = simple_task(contexts[1], 2, 10);
+    auto task1 = simple_task(*context0, 1, 5);
+    auto task2 = simple_task(*context1, 2, 10);
 
     auto result1 = task1.wait();
     auto result2 = task2.wait();
+    // TODO(kammce): MUST FIX this will infinite loop!
+    // auto task3 = simple_task(*context1, 2, 15);
+    // auto result3 = task3.wait();
 
     expect(that % result1 == 10);
     expect(that % result2 == 20);
