@@ -193,6 +193,13 @@ public:
     m_active_handle = p_active_handle;
   }
 
+  void sync_wait()
+  {
+    while (m_active_handle != std::noop_coroutine()) {
+      m_active_handle.resume();
+    }
+  }
+
 private:
   friend class async_promise_base;
 
@@ -745,14 +752,7 @@ public:
     }
 
     auto& context = m_handle.promise().context();
-
-    while (not m_handle.done()) {
-      auto active = context.active_handle();
-      if (active == std::noop_coroutine()) {
-        break;
-      }
-      active.resume();
-    }
+    context.sync_wait();
 
     // Rethrow exception caught by top level coroutine
     context.rethrow_if_exception_caught();
@@ -791,10 +791,8 @@ public:
         auto& context = m_async_operation->m_handle.promise().context();
         // Rethrow exception caught by top level coroutine
         context.rethrow_if_exception_caught();
-        return m_async_operation->result(hal::unsafe{});
-      } else {
-        return m_async_operation->result(hal::unsafe{});
       }
+      return m_async_operation->result(hal::unsafe{});
     }
   };
 
