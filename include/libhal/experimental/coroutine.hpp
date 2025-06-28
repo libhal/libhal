@@ -82,7 +82,7 @@ enum class blocked_by : u8
 class async_context;
 
 template<typename T>
-using type_or_byte = std::conditional_t<std::is_void_v<T>, u8, T>;
+using monostate_or = std::conditional_t<std::is_void_v<T>, std::monostate, T>;
 
 using async_transition_handler =
   hal::callback<void(async_context&, blocked_by, hal::time_duration)>;
@@ -130,6 +130,7 @@ protected:
 
   friend class async_context;
 
+  // Should stay within a cache-line of 64 bytes (8 words) on 64-bit systems
   std::pmr::memory_resource* m_resource = nullptr;  // word 1
   std::span<hal::byte> m_buffer{};                  // word 2-3
   async_transition_handler m_handler;               // word 4-7
@@ -272,6 +273,7 @@ private:
     }
   }
 
+  // Should stay within a cache-line of 64 bytes (8 words) on 64-bit systems
   std::coroutine_handle<> m_active_handle = std::noop_coroutine();  // word 1
   async_runtime_base* m_manager = nullptr;                          // word 2
   std::span<hal::byte> m_buffer{};                                  // word 3-4
@@ -559,6 +561,7 @@ class async_promise_type : public async_promise_base
 public:
   using async_promise_base::async_promise_base;  // Inherit constructors
   using async_promise_base::operator new;
+  using our_handle = std::coroutine_handle<async_promise_type<T>>;
 
   // Add regular delete operators for normal coroutine destruction
   static constexpr void operator delete(void*) noexcept
@@ -614,7 +617,8 @@ public:
   void return_value(U&& p_value) noexcept
     requires std::is_constructible_v<T, U&&>
   {
-    m_value_address->emplace(std::forward<U>(p_value));
+    m_value_address->template emplace<T>(std::forward<U>(p_value));
+    self_destruct();
   }
 
   /**
@@ -624,16 +628,27 @@ public:
   T& get_result_or_rethrow()
   {
     m_context->rethrow_if_exception_caught();
-    return *m_value_address;
+    return std::get<T>(*m_value_address);
   }
 
-  void set_object_address(std::optional<type_or_byte<T>>* p_value_address)
+  void set_object_address(
+    std::variant<monostate_or<T>, our_handle>* p_value_address)
   {
     m_value_address = p_value_address;
   }
 
+  void self_destruct()
+  {
+    auto* const context = m_context;
+    auto handle = our_handle::from_promise(*this);
+    handle.destroy();
+    context->deallocate(m_frame_size);
+  }
+
 private:
-  std::optional<type_or_byte<T>>* m_value_address;
+  std::variant<monostate_or<T>, std::coroutine_handle<async_promise_type<T>>>*
+    m_value_address;
+  hal::usize m_frame_size;
 };
 
 template<>
@@ -643,11 +658,20 @@ public:
   // Inherit constructors & operator new
   using async_promise_base::async_promise_base;
   using async_promise_base::operator new;
+  using our_handle = std::coroutine_handle<async_promise_type<void>>;
 
   async_promise_type();
 
+  void set_object_address(
+    std::variant<monostate_or<void>, our_handle>* p_value_address)
+  {
+    m_value_address = p_value_address;
+  }
+
   constexpr void return_void() noexcept
   {
+    *m_value_address = std::monostate{};
+    self_destruct();
   }
 
   constexpr async<void> get_return_object() noexcept;
@@ -706,6 +730,18 @@ public:
   {
     m_context->rethrow_if_exception_caught();
   }
+
+  void self_destruct()
+  {
+    auto* const context = m_context;
+    auto handle = our_handle::from_promise(*this);
+    handle.destroy();
+    context->deallocate(m_frame_size);
+  }
+
+private:
+  std::variant<monostate_or<void>, our_handle>* m_value_address = nullptr;
+  hal::usize m_frame_size = 0;
 };
 
 template<typename T>
@@ -714,20 +750,29 @@ class async
 public:
   using promise_type = async_promise_type<T>;
   friend promise_type;
+  using task_handle_type = std::coroutine_handle<promise_type>;
 
   void resume() const
   {
-    auto active = m_handle.promise().context().active_handle();
+    auto active = handle().promise().context().active_handle();
     active.resume();
   }
 
+  /**
+   * @brief Reports if this async object has finished its operation and now
+   * contains a value.
+   *
+   * @return true - operation finished and the response can be acquired by
+   * `result()`
+   * @return false - operation has yet to completed and does have a value.
+   */
   [[nodiscard]] bool done() const
   {
     // True if the handle isn't valid
     // OR
     // If the coroutine is valid, then check if it has suspended at its final
     // suspension point.
-    return not m_handle || m_handle.done();
+    return std::holds_alternative<monostate_or<T>>(m_result);
   }
 
   /**
@@ -737,25 +782,26 @@ public:
    *
    * @return Type - reference to the value from this async operation.
    */
-  [[nodiscard]] type_or_byte<T>& result(hal::unsafe)
+  [[nodiscard]] monostate_or<T>& result(hal::unsafe)
   {
-    return *m_result;
+    return std::get<monostate_or<T>>(m_result);
   }
 
   // Run synchronously and return result
-  type_or_byte<T>& wait()
+  monostate_or<T>& wait()
   {
     // If the handle is not set then this async object was completed
     // synchronously.
-    if (not m_handle) {
+    if (std::holds_alternative<monostate_or<T>>(m_result)) {
       return result(hal::unsafe{});
     }
 
-    auto& context = m_handle.promise().context();
+    auto& context = handle().promise().context();
     context.sync_wait();
 
     // Rethrow exception caught by top level coroutine
     context.rethrow_if_exception_caught();
+
     return result(hal::unsafe{});
   }
 
@@ -783,12 +829,14 @@ public:
       return m_async_operation->handle();
     }
 
-    type_or_byte<T>& await_resume() const
+    monostate_or<T>& await_resume() const
     {
-      // The wait() operation, on a completed coroutine will return the result
-      // or rethrow a caught exception.
-      if (m_async_operation->m_handle) {
-        auto& context = m_async_operation->m_handle.promise().context();
+      // If the async object is being resumed and it has not destroyed itself
+      // and been replaced with the result value, then there MUST be an
+      // exception that needs to be propagated through the calling coroutine.
+      if (std::holds_alternative<task_handle_type>(
+            m_async_operation->m_result)) {
+        auto& context = m_async_operation->handle().promise().context();
         // Rethrow exception caught by top level coroutine
         context.rethrow_if_exception_caught();
       }
@@ -803,65 +851,34 @@ public:
 
   async() noexcept
     requires(std::is_void_v<T>)
-  = default;
+    : m_result(monostate_or<T>{})
+  {
+  }
 
   template<typename U>
   async(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
-    m_result.emplace(std::forward<U>(p_value));
+    m_result.template emplace<T>(std::forward<U>(p_value));
   };
 
-  async(async const& p_other)
-    : m_handle(p_other.m_handle)
-  {
-    if constexpr (not std::is_void_v<T>) {
-      if (m_handle) {
-        m_handle.promise().set_object_address(&m_result);
-      }
-    }
-  }
-  async& operator=(async const& p_other)
-  {
-    if (this != &p_other) {
-      m_handle = p_other.m_handle;
-      m_frame_size = 0;
-
-      if constexpr (not std::is_void_v<T>) {
-        if (m_handle) {
-          m_handle.promise().set_object_address(&m_result);
-        }
-      }
-    }
-    return *this;
-  }
+  async(async const& p_other) = delete;
+  async& operator=(async const& p_other) = delete;
 
   async(async&& p_other) noexcept
-    : m_handle(std::exchange(p_other.m_handle, {}))
-    , m_frame_size(p_other.m_frame_size)
-    , m_result(std::move(p_other.m_result))
+    : m_result(std::exchange(p_other.m_result, {}))
   {
-    if constexpr (not std::is_void_v<T>) {
-      if (m_handle) {
-        m_handle.promise().set_object_address(&m_result);
-      }
+    if (std::holds_alternative<task_handle_type>(m_result)) {
+      handle().promise().set_object_address(&m_result);
     }
   }
 
   async& operator=(async&& p_other) noexcept
   {
     if (this != &p_other) {
-      if (m_handle) {
-        m_handle.destroy();
-      }
-      m_handle = std::exchange(p_other.m_handle, {});
-      m_frame_size = p_other.m_frame_size;
-      m_result = std::move(p_other.m_result);
-
-      if constexpr (not std::is_void_v<T>) {
-        if (m_handle) {
-          m_handle.promise().set_object_address(&m_result);
-        }
+      m_result = std::exchange(p_other.m_result, {});
+      if (std::holds_alternative<task_handle_type>(m_result)) {
+        handle().promise().set_object_address(&m_result);
       }
     }
     return *this;
@@ -869,40 +886,32 @@ public:
 
   ~async()
   {
-    if (m_handle && m_frame_size) {
-      auto& context = m_handle.promise().context();
-      m_handle.destroy();
-      context.deallocate(m_frame_size);
+    if (std::holds_alternative<task_handle_type>(m_result)) {
+      handle().promise().self_destruct();
     }
   }
 
-  auto handle()
+  [[nodiscard]] auto handle() const
   {
-    return m_handle;
+    return std::get<task_handle_type>(m_result);
   }
 
   void set_context(async_context& p_context)
   {
-    m_handle.promise().context() = p_context;
+    handle().promise().context() = p_context;
   }
 
 private:
   friend promise_type;
 
-  explicit constexpr async(std::coroutine_handle<promise_type> p_handle,
-                           hal::usize p_frame_size)
-    : m_handle(p_handle)
-    , m_frame_size(p_frame_size)
+  explicit constexpr async(task_handle_type p_handle)
+    : m_result(p_handle)
   {
-    auto& promise = m_handle.promise();
-    if constexpr (not std::is_void_v<T>) {
-      promise.set_object_address(&m_result);
-    }
+    auto& promise = p_handle.promise();
+    promise.set_object_address(&m_result);
   }
 
-  std::coroutine_handle<promise_type> m_handle = nullptr;
-  hal::usize m_frame_size = 0;
-  std::optional<type_or_byte<T>> m_result;
+  std::variant<monostate_or<T>, task_handle_type> m_result;
 };
 
 template<typename T>
@@ -913,10 +922,10 @@ constexpr async<T> async_promise_type<T>::get_return_object() noexcept
   m_context->active_handle(handle);
   // Copy the last allocation size before changing the representation of
   // m_state to 'blocked_by::nothing'.
-  auto const last_allocation_size = m_context->last_allocation_size();
+  m_frame_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
   m_context->m_state = blocked_by(blocked_by::nothing);
-  return async<T>{ handle, last_allocation_size };
+  return async<T>{ handle };
 }
 
 inline constexpr async<void>
@@ -927,9 +936,9 @@ async_promise_type<void>::get_return_object() noexcept
   m_context->active_handle(handle);
   // Copy the last allocation size before changing the representation of
   // m_state to 'blocked_by::nothing'.
-  auto const last_allocation_size = m_context->last_allocation_size();
+  m_frame_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
   m_context->m_state = blocked_by::nothing;
-  return async<void>{ handle, last_allocation_size };
+  return async<void>{ handle };
 }
 }  // namespace hal::v5
