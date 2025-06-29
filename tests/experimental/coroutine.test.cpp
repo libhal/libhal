@@ -265,6 +265,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     hal::v5::async_runtime context(
       test_resource, test_stack.size(), test_handler);
     hal::v5::async_context& test_ctx = context[0];
+    expect(that % 0uz == test_ctx.memory_used());
 
     auto test_coro = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
       // Test various blocking states
@@ -286,31 +287,39 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = test_coro(test_ctx);
+    expect(that % 0uz < test_ctx.memory_used());
 
     coro.resume();
+    expect(that % 0uz < test_ctx.memory_used());
     expect(that % global_test_state.time_handler_called == true);
     expect(that % global_test_state.io_handler_called == false);
     expect(that % global_test_state.sync_handler_called == false);
     expect(that % global_test_state.inbox_handler_called == false);
     expect(that % global_test_state.outbox_handler_called == false);
     coro.resume();
+    expect(that % 0uz < test_ctx.memory_used());
     expect(that % global_test_state.io_handler_called == true);
     expect(that % global_test_state.sync_handler_called == false);
     expect(that % global_test_state.inbox_handler_called == false);
     expect(that % global_test_state.outbox_handler_called == false);
     coro.resume();
+    expect(that % 0uz < test_ctx.memory_used());
     expect(that % global_test_state.sync_handler_called == true);
     expect(that % global_test_state.inbox_handler_called == false);
     expect(that % global_test_state.outbox_handler_called == false);
     coro.resume();
+    expect(that % 0uz < test_ctx.memory_used());
     expect(that % global_test_state.inbox_handler_called == true);
     expect(that % global_test_state.outbox_handler_called == false);
     coro.resume();
+    expect(that % 0uz < test_ctx.memory_used());
     expect(that % global_test_state.outbox_handler_called == true);
     coro.resume();
+    expect(that % 0uz == test_ctx.memory_used());
     expect(that % coro.done());
+    expect(that % 0uz == test_ctx.memory_used());
 
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
     expect(that % result == 12345);
     expect(that % global_test_state.transition_count >= 5);
   };
@@ -325,9 +334,12 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       test_resource, test_stack.size(), test_handler);
     hal::v5::async_context& test_ctx = manager[0];
 
+    expect(that % 0uz == test_ctx.memory_used());
     auto coro = thrower.throw_immediately(test_ctx);
+    expect(that % 0uz < test_ctx.memory_used());
 
-    expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
+    expect(throws<std::runtime_error>([&coro]() { coro.sync_wait(); }));
+    expect(that % 0uz == test_ctx.memory_used());
   };
 
   "Exception handling - throw after suspend"_test = []() {
@@ -342,7 +354,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.throw_after_suspend(test_ctx);
 
-    expect(throws<std::logic_error>([&coro]() { coro.wait(); }));
+    expect(throws<std::logic_error>([&coro]() { coro.sync_wait(); }));
   };
 
   "Exception handling - throw after time wait"_test = []() {
@@ -357,7 +369,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.throw_after_time_wait(test_ctx);
 
-    expect(throws<std::invalid_argument>([&coro]() { coro.wait(); }));
+    expect(throws<std::invalid_argument>([&coro]() { coro.sync_wait(); }));
 
     expect(that % global_test_state.time_handler_called == true);
   };
@@ -374,7 +386,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
 
     auto coro = thrower.nested_exception_call(test_ctx);
 
-    expect(throws<std::runtime_error>([&coro]() { coro.wait(); }));
+    expect(throws<std::runtime_error>([&coro]() { coro.sync_wait(); }));
   };
 
   "Complex composition test"_test = []() {
@@ -388,7 +400,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     hal::v5::async_context& test_ctx = manager[0];
 
     auto coro = comp.complex_operation(test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result == 142);  // 42 (lock_value) + 100 (io_result bonus)
     expect(that % global_test_state.time_handler_called == true);
@@ -408,7 +420,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     hal::v5::async_context& test_ctx = manager[0];
 
     auto coro = comp.exception_recovery(test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result == std::string("Recovered: Hello from message queue"));
     expect(that % global_test_state.inbox_handler_called == true);
@@ -449,7 +461,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = chain_test(test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result == 25);  // ((10 * 2) + 5) = 25
     expect(that % global_test_state.time_handler_called == true);
@@ -479,7 +491,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = void_test(test_ctx);
-    coro.wait();  // Should not throw
+    coro.sync_wait();  // Should not throw
 
     expect(that % global_test_state.time_handler_called == true);
     expect(that % global_test_state.sync_handler_called == true);
@@ -503,7 +515,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = memory_test(small_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result == 999);
     expect(that % global_test_state.time_handler_called == true);
@@ -534,7 +546,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     };
 
     auto coro = inspection_test(test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result == 777);
   };
@@ -576,7 +588,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
 
     auto coro = task(test_ctx);
 
-    expect(throws<std::domain_error>([&coro]() { coro.wait(); }));
+    expect(throws<std::domain_error>([&coro]() { coro.sync_wait(); }));
   };
 
   "Interface composition with exception handling"_test = [&]() {
@@ -621,7 +633,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     std::array<hal::byte, 5> buffer{};
 
     auto coro = safe_impl.evaluate(test_ctx, buffer);
-    auto result = coro.wait();  // Should not throw
+    auto result = coro.sync_wait();  // Should not throw
 
     expect(that % result == 0);  // Safe fallback value
   };
@@ -900,26 +912,30 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     // Test immediate int return
     auto mult_coro = sync_multiply(sync_test_ctx, 6, 7);
     expect(that % mult_coro.done() == true);  // Should be immediately done
-    auto mult_result = mult_coro.wait();
+    auto mult_result = mult_coro.sync_wait();
+    expect(that % 0uz == sync_test_ctx.memory_used());
     expect(that % mult_result == 42);
     expect(that % global_sync_state.any_async_operations == false);
 
     // Test immediate string return
     auto format_coro = sync_format_number(sync_test_ctx, 123);
     expect(that % format_coro.done() == true);
-    auto format_result = format_coro.wait();
+    expect(that % 0uz == sync_test_ctx.memory_used());
+    auto format_result = format_coro.sync_wait();
     expect(that % format_result == std::string("Number: 123"));
 
     // Test immediate bool return
     auto even_coro = sync_is_even(sync_test_ctx, 8);
     expect(that % even_coro.done() == true);
-    auto even_result = even_coro.wait();
+    expect(that % 0uz == sync_test_ctx.memory_used());
+    auto even_result = even_coro.sync_wait();
     expect(that % even_result == true);
 
     // Test immediate void return
     auto log_coro = sync_log_message(sync_test_ctx, "Test message");
     expect(that % log_coro.done() == true);
-    log_coro.wait();  // Should not throw
+    log_coro.sync_wait();
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     expect(that % global_sync_state.transition_count == 0);
   };
@@ -930,22 +946,25 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     // Test immediate factorial (n=1)
     auto fact1_coro = conditional_factorial(sync_test_ctx, 1);
     expect(that % fact1_coro.done() == true);
-    auto fact1_result = fact1_coro.wait();
+    auto fact1_result = fact1_coro.sync_wait();
     expect(that % fact1_result == 1);
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     // Test sync factorial (n=4)
     auto fact4_coro = conditional_factorial(sync_test_ctx, 4);
     expect(that % fact4_coro.done() == true);
-    auto fact4_result = fact4_coro.wait();
+    auto fact4_result = fact4_coro.sync_wait();
     expect(that % fact4_result == 24);
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     // Test sync factorial (n=8)
     reset_sync_test_state();
     auto fact8_coro = conditional_factorial(sync_test_ctx, 8);
     expect(that % fact8_coro.done() == true);
-    auto fact8_result = fact8_coro.wait();
+    auto fact8_result = fact8_coro.sync_wait();
     expect(that % fact8_result == 40320);
     expect(that % global_sync_state.any_time_blocks == false);
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     // Test string processing
     reset_sync_test_state();
@@ -953,23 +972,26 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     // Empty string - immediate
     auto empty_coro = conditional_process_string(sync_test_ctx, "");
     expect(that % empty_coro.done() == true);
-    auto empty_result = empty_coro.wait();
+    auto empty_result = empty_coro.sync_wait();
     expect(that % empty_result == std::string("Empty"));
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     // Short string - sync
     auto short_coro = conditional_process_string(sync_test_ctx, "Hello");
     expect(that % short_coro.done() == true);
-    auto short_result = short_coro.wait();
+    auto short_result = short_coro.sync_wait();
     expect(that % short_result == std::string("Short: Hello"));
+    expect(that % 0uz == sync_test_ctx.memory_used());
 
     // Long string - sync
     reset_sync_test_state();
     auto long_coro = conditional_process_string(
       sync_test_ctx, "This is a very long string for testing");
     expect(that % long_coro.done() == true);
-    auto long_result = long_coro.wait();
+    auto long_result = long_coro.sync_wait();
     expect(that % long_result == std::string("Long: This is a ..."));
     expect(that % global_sync_state.any_time_blocks == false);
+    expect(that % 0uz == sync_test_ctx.memory_used());
   };
 
   "Interface immediate returns"_test = [&]() {
@@ -979,26 +1001,26 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     // Test immediate calculation
     auto calc_coro = impl.calculate(sync_test_ctx, 15, 27);
     expect(that % calc_coro.done() == true);
-    auto calc_result = calc_coro.wait();
+    auto calc_result = calc_coro.sync_wait();
     expect(that % calc_result == 42);
 
     // Test immediate status
     auto status_coro = impl.get_status(sync_test_ctx);
     expect(that % status_coro.done() == true);
-    auto status_result = status_coro.wait();
+    auto status_result = status_coro.sync_wait();
     expect(that % status_result == std::string("Ready"));
 
     // Test immediate validation
     std::array<hal::byte, 5> test_data{ 1, 2, 3, 4, 5 };
     auto valid_coro = impl.validate_data(sync_test_ctx, test_data);
     expect(that % valid_coro.done() == true);
-    auto valid_result = valid_coro.wait();
+    auto valid_result = valid_coro.sync_wait();
     expect(that % valid_result == true);
 
     // Test immediate void processing
     auto process_coro = impl.process_conditionally(sync_test_ctx, true);
     expect(that % process_coro.done() == true);
-    process_coro.wait();
+    process_coro.sync_wait();
 
     expect(that % global_sync_state.transition_count == 0);
   };
@@ -1011,14 +1033,14 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     auto small_calc = impl.calculate(sync_test_ctx, 3, 4);
     expect(that % small_calc.done() ==
            false);  // Uses co_return, so still async
-    auto small_result = small_calc.wait();
+    auto small_result = small_calc.sync_wait();
     expect(that % small_result == 7);
 
     // Large calculation - async with delay
     reset_sync_test_state();
     auto large_calc = impl.calculate(sync_test_ctx, 15, 20);
     expect(that % large_calc.done() == false);
-    auto large_result = large_calc.wait();
+    auto large_result = large_calc.sync_wait();
     expect(that % large_result == 35);
     expect(that % global_sync_state.any_time_blocks == true);
 
@@ -1026,7 +1048,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     reset_sync_test_state();
     auto status_coro = impl.get_status(sync_test_ctx);
     expect(that % status_coro.done() == true);
-    auto status_result = status_coro.wait();
+    auto status_result = status_coro.sync_wait();
     expect(that % status_result == std::string("Conditional Ready"));
     expect(that % global_sync_state.any_async_operations == false);
 
@@ -1034,7 +1056,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     std::array<hal::byte, 5> small_data{ 1, 2, 3, 4, 5 };
     auto small_valid = impl.validate_data(sync_test_ctx, small_data);
     expect(that % small_valid.done() == true);
-    auto small_valid_result = small_valid.wait();
+    auto small_valid_result = small_valid.sync_wait();
     expect(that % small_valid_result == true);
 
     // Large data validation - sync
@@ -1042,7 +1064,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     std::array<hal::byte, 50> large_data{};
     auto large_valid = impl.validate_data(sync_test_ctx, large_data);
     expect(that % large_valid.done() == true);
-    auto large_valid_result = large_valid.wait();
+    auto large_valid_result = large_valid.sync_wait();
     expect(that % large_valid_result == true);
     expect(that % global_sync_state.any_time_blocks == false);
 
@@ -1050,14 +1072,14 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     reset_sync_test_state();
     auto no_process = impl.process_conditionally(sync_test_ctx, false);
     expect(that % no_process.done() == true);
-    no_process.wait();
+    no_process.sync_wait();
     expect(that % global_sync_state.any_async_operations == false);
 
     // With processing - sync void
     reset_sync_test_state();
     auto with_process = impl.process_conditionally(sync_test_ctx, true);
     expect(that % with_process.done() == true);
-    with_process.wait();
+    with_process.sync_wait();
     expect(that % global_sync_state.any_time_blocks == false);
   };
 
@@ -1084,7 +1106,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     };
 
     auto coro = mixed_task(sync_test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     expect(that % result ==
            std::string("mult=42, even=true, fact=720, format='Number: 720'"));
@@ -1110,7 +1132,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     };
 
     auto coro = performance_test(sync_test_ctx);
-    auto result = coro.wait();
+    auto result = coro.sync_wait();
 
     // 0*2 + 1*2 + 2*2 + ... + 9*2 + 720 = 90 + 720 = 810
     expect(that % result == 810);
@@ -1156,12 +1178,12 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     // Test successful immediate operation
     auto success_coro = impl.calculate(sync_test_ctx, 5, 10);
     expect(that % success_coro.done() == true);
-    auto success_result = success_coro.wait();
+    auto success_result = success_coro.sync_wait();
     expect(that % success_result == 15);
 
     // Test immediate exception
     expect(throws<std::invalid_argument>([&sync_test_ctx, &impl]() {
-      impl.calculate(sync_test_ctx, -1, 5).wait();
+      impl.calculate(sync_test_ctx, -1, 5).sync_wait();
     }));
   };
 };
@@ -1291,7 +1313,7 @@ struct concurrent_executor
   {
     std::array<int, N> results{};
     for (size_t i = 0; i < N; ++i) {
-      results[i] = tasks[i].wait();
+      results[i] = tasks[i].sync_wait();
     }
     return results;
   }
@@ -1328,8 +1350,8 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     auto task1 = simple_task(*context0, 1, 5);
     auto task2 = simple_task(*context1, 2, 10);
 
-    auto result1 = task1.wait();
-    auto result2 = task2.wait();
+    auto result1 = task1.sync_wait();
+    auto result2 = task2.sync_wait();
     // TODO(kammce): MUST FIX this will infinite loop!
     // auto task3 = simple_task(*context1, 2, 15);
     // auto result3 = task3.wait();
@@ -1389,9 +1411,9 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     auto void_task_coro = void_task(contexts[2], 2);
 
     // Wait for all to complete
-    auto int_result = int_task.wait();
-    auto io_result = io_task_coro.wait();
-    void_task_coro.wait();  // void return
+    auto int_result = int_task.sync_wait();
+    auto io_result = io_task_coro.sync_wait();
+    void_task_coro.sync_wait();  // void return
 
     expect(that % int_result == 420);
     expect(that % io_result == std::string("Result from TestDevice"));
@@ -1462,8 +1484,8 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     auto task1 = memory_task1(contexts[0]);
     auto task2 = memory_task2(contexts[1]);
 
-    auto result1 = task1.wait();
-    auto result2 = task2.wait();
+    auto result1 = task1.sync_wait();
+    auto result2 = task2.sync_wait();
 
     expect(that % result1 == 50);  // 50 * 1
     expect(that % result2 == 32);  // 2^5
@@ -1493,7 +1515,7 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
 
     // Wait for all and verify results
     for (size_t i = 0; i < context_count; ++i) {
-      auto result = tasks[i].wait();
+      auto result = tasks[i].sync_wait();
       expect(that % result == static_cast<int>(i * 10));
     }
 
@@ -1529,10 +1551,10 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
     auto bad_task = throwing_task(contexts[1], true);
 
     // Good task should complete normally
-    auto good_result = good_task.wait();
+    auto good_result = good_task.sync_wait();
     expect(that % good_result == 42);
 
     // Bad task should throw
-    expect(throws<std::runtime_error>([&bad_task]() { bad_task.wait(); }));
+    expect(throws<std::runtime_error>([&bad_task]() { bad_task.sync_wait(); }));
   };
 };

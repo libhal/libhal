@@ -201,6 +201,21 @@ public:
     }
   }
 
+  constexpr auto memory_used()
+  {
+    return m_stack_pointer;
+  }
+
+  constexpr auto capacity()
+  {
+    return m_buffer.size();
+  }
+
+  constexpr auto memory_remaining()
+  {
+    return capacity() - memory_used();
+  }
+
 private:
   friend class async_promise_base;
 
@@ -787,24 +802,6 @@ public:
     return std::get<monostate_or<T>>(m_result);
   }
 
-  // Run synchronously and return result
-  monostate_or<T>& wait()
-  {
-    // If the handle is not set then this async object was completed
-    // synchronously.
-    if (std::holds_alternative<monostate_or<T>>(m_result)) {
-      return result(hal::unsafe{});
-    }
-
-    auto& context = handle().promise().context();
-    context.sync_wait();
-
-    // Rethrow exception caught by top level coroutine
-    context.rethrow_if_exception_caught();
-
-    return result(hal::unsafe{});
-  }
-
   // Awaiter for when this task is awaited
   struct awaiter
   {
@@ -837,6 +834,7 @@ public:
       if (std::holds_alternative<task_handle_type>(
             m_async_operation->m_result)) {
         auto& context = m_async_operation->handle().promise().context();
+        m_async_operation->handle().promise().self_destruct();
         // Rethrow exception caught by top level coroutine
         context.rethrow_if_exception_caught();
       }
@@ -847,6 +845,22 @@ public:
   [[nodiscard]] constexpr awaiter operator co_await() noexcept
   {
     return awaiter{ this };
+  }
+
+  // Run synchronously and return result
+  monostate_or<T>& sync_wait()
+  {
+    // Perform await operation manually and synchonously
+    auto manual_awaiter = awaiter{ this };
+
+    // Check if our awaiter is not ready and if so, run it until it finishes
+    if (not manual_awaiter.await_ready()) {
+      auto& context = handle().promise().context();
+      context.sync_wait();
+    }
+
+    // This thread of execution has completed now we can return the result
+    return manual_awaiter.await_resume();
   }
 
   async() noexcept
@@ -887,7 +901,9 @@ public:
   ~async()
   {
     if (std::holds_alternative<task_handle_type>(m_result)) {
-      handle().promise().self_destruct();
+      /// NOTE: This is handled by the return_value and return_void functions
+      ///       A coroutine destroys itself once it has found its result.
+      // handle().promise().self_destruct();
     }
   }
 
