@@ -18,8 +18,8 @@ public:
   mock_device() = default;
 
   // Simulate an I/O operation that completes after some time
-  hal::v5::async<bool> async_read(hal::v5::async_context& p_ctx,
-                                  std::span<hal::byte> buffer)
+  hal::v5::future<bool> async_read(hal::v5::async_context& p_ctx,
+                                   std::span<hal::byte> buffer)
   {
     std::println("🔌 Starting async I/O read...");
 
@@ -34,7 +34,7 @@ public:
   }
 
   // Simulate a sync operation that blocks on synchronization
-  hal::v5::async<int> wait_for_lock(hal::v5::async_context& p_ctx)
+  hal::v5::future<int> wait_for_lock(hal::v5::async_context& p_ctx)
   {
     std::println("🔒 Waiting for lock...");
     p_ctx.block_by_sync();
@@ -45,7 +45,7 @@ public:
   }
 
   // Simulate waiting for work
-  hal::v5::async<std::string> wait_for_message(hal::v5::async_context& p_ctx)
+  hal::v5::future<std::string> wait_for_message(hal::v5::async_context& p_ctx)
   {
     std::println("📪 Waiting for message...");
     p_ctx.block_by_inbox_empty();
@@ -56,7 +56,7 @@ public:
   }
 
   // Simulate backpressure
-  hal::v5::async<void> send_with_backpressure(hal::v5::async_context& p_ctx)
+  hal::v5::future<void> send_with_backpressure(hal::v5::async_context& p_ctx)
   {
     std::println("📤 Trying to send message...");
     p_ctx.block_by_outbox_full();
@@ -73,14 +73,14 @@ class exception_thrower
 public:
   exception_thrower() = default;
 
-  hal::v5::async<int> throw_immediately(hal::v5::async_context&)
+  hal::v5::future<int> throw_immediately(hal::v5::async_context&)
   {
     std::println("💥 About to throw immediately");
     throw std::runtime_error("Immediate exception");
     co_return 0;  // Never reached
   }
 
-  hal::v5::async<int> throw_after_suspend(hal::v5::async_context&)
+  hal::v5::future<int> throw_after_suspend(hal::v5::async_context&)
   {
     std::println("💥 Suspending before throw");
     co_await std::suspend_always{};
@@ -89,7 +89,7 @@ public:
     co_return 0;  // Never reached
   }
 
-  hal::v5::async<int> throw_after_time_wait(hal::v5::async_context&)
+  hal::v5::future<int> throw_after_time_wait(hal::v5::async_context&)
   {
     using namespace std::chrono_literals;
     std::println("💥 Waiting 1ms before throw");
@@ -99,7 +99,7 @@ public:
     co_return 0;  // Never reached
   }
 
-  hal::v5::async<int> nested_exception_call(hal::v5::async_context& p_ctx)
+  hal::v5::future<int> nested_exception_call(hal::v5::async_context& p_ctx)
   {
     std::println("💥 Making nested call that will throw");
     try {
@@ -117,7 +117,7 @@ class compositor
 public:
   compositor() = default;
 
-  hal::v5::async<int> complex_operation(hal::v5::async_context& p_ctx)
+  hal::v5::future<int> complex_operation(hal::v5::async_context& p_ctx)
   {
     using namespace std::chrono_literals;
 
@@ -144,7 +144,7 @@ public:
     co_return lock_value + (io_result ? 100 : 0);
   }
 
-  hal::v5::async<std::string> exception_recovery(hal::v5::async_context& p_ctx)
+  hal::v5::future<std::string> exception_recovery(hal::v5::async_context& p_ctx)
   {
     std::println("🎭 Attempting operation with exception recovery");
 
@@ -179,7 +179,7 @@ public:
   virtual ~interface() = default;
 
 private:
-  virtual hal::v5::async<hal::usize> driver_evaluate(
+  virtual hal::v5::future<hal::usize> driver_evaluate(
     hal::v5::async_context& p_context,
     std::span<hal::byte const> p_data) = 0;
 };
@@ -267,7 +267,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     hal::v5::async_context& test_ctx = context[0];
     expect(that % 0uz == test_ctx.memory_used());
 
-    auto test_coro = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+    auto test_coro = [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       // Test various blocking states
       co_await 5ms;  // time block
 
@@ -435,20 +435,20 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       test_resource, test_stack.size(), test_handler);
     hal::v5::async_context& test_ctx = manager[0];
 
-    auto chain_test = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
-      auto step1 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+    auto chain_test = [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
+      auto step1 = [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
         co_await 1ms;
         co_return 10;
       };
 
       auto step2 = [](hal::v5::async_context& ctx,
-                      int value) -> hal::v5::async<int> {
+                      int value) -> hal::v5::future<int> {
         co_await 2ms;
         co_return value * 2;
       };
 
       auto step3 = [](hal::v5::async_context& ctx,
-                      int value) -> hal::v5::async<int> {
+                      int value) -> hal::v5::future<int> {
         co_await 3ms;
         co_return value + 5;
       };
@@ -478,7 +478,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       test_resource, test_stack.size(), test_handler);
     hal::v5::async_context& test_ctx = manager[0];
 
-    auto void_test = [](hal::v5::async_context& ctx) -> hal::v5::async<void> {
+    auto void_test = [](hal::v5::async_context& ctx) -> hal::v5::future<void> {
       std::println("🎯 Void coroutine starting");
       co_await 1ms;
       std::println("🎯 Void coroutine middle");
@@ -508,7 +508,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       small_resource, small_stack.size(), test_handler);
     auto& small_ctx = small_manager[0];
 
-    auto memory_test = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+    auto memory_test = [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       std::println("📊 Testing with limited memory");
       co_await 1ms;
       co_return 999;
@@ -531,7 +531,7 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
     hal::v5::async_context& test_ctx = manager[0];
 
     auto inspection_test =
-      [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+      [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       expect(ctx.state() == hal::v5::blocked_by::nothing);
 
       co_await 1ms;
@@ -569,7 +569,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     class throwing_interface : public interface
     {
     private:
-      hal::v5::async<hal::usize> driver_evaluate(
+      hal::v5::future<hal::usize> driver_evaluate(
         hal::v5::async_context&,
         std::span<hal::byte const>) override
       {
@@ -582,7 +582,8 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     throwing_interface impl;
     std::array<hal::byte, 10> buffer{};
 
-    auto task = [&](hal::v5::async_context& ctx) -> hal::v5::async<hal::usize> {
+    auto task =
+      [&](hal::v5::async_context& ctx) -> hal::v5::future<hal::usize> {
       co_return co_await impl.evaluate(ctx, buffer);
     };
 
@@ -601,7 +602,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
       }
 
     private:
-      hal::v5::async<hal::usize> driver_evaluate(
+      hal::v5::future<hal::usize> driver_evaluate(
         hal::v5::async_context& ctx,
         std::span<hal::byte const> p_data) override
       {
@@ -619,7 +620,7 @@ boost::ut::suite<"interface_coroutine_tests"> interface_tests = []() {
     class throwing_impl : public interface
     {
     private:
-      hal::v5::async<hal::usize> driver_evaluate(
+      hal::v5::future<hal::usize> driver_evaluate(
         hal::v5::async_context&,
         std::span<hal::byte const>) override
       {
@@ -674,14 +675,14 @@ public:
   virtual ~sync_interface() = default;
 
 private:
-  virtual hal::v5::async<int>
+  virtual hal::v5::future<int>
   driver_calculate(hal::v5::async_context& p_context, int a, int b) = 0;
-  virtual hal::v5::async<std::string> driver_get_status(
+  virtual hal::v5::future<std::string> driver_get_status(
     hal::v5::async_context& p_context) = 0;
-  virtual hal::v5::async<bool> driver_validate_data(
+  virtual hal::v5::future<bool> driver_validate_data(
     hal::v5::async_context& p_context,
     std::span<hal::byte const> data) = 0;
-  virtual hal::v5::async<void> driver_process_conditionally(
+  virtual hal::v5::future<void> driver_process_conditionally(
     hal::v5::async_context& p_context,
     bool should_process) = 0;
 };
@@ -690,31 +691,31 @@ private:
 class immediate_impl : public sync_interface
 {
 private:
-  hal::v5::async<int> driver_calculate(hal::v5::async_context&,
-                                       int a,
-                                       int b) override
+  hal::v5::future<int> driver_calculate(hal::v5::async_context&,
+                                        int a,
+                                        int b) override
   {
     std::println("📊 Immediate calculation: {} + {} = {}", a, b, a + b);
-    return hal::v5::async<int>{ a + b };  // Synchronous return
+    return hal::v5::future<int>{ a + b };  // Synchronous return
   }
 
-  hal::v5::async<std::string> driver_get_status(
+  hal::v5::future<std::string> driver_get_status(
     hal::v5::async_context&) override
   {
     std::println("📊 Immediate status check");
-    return hal::v5::async<std::string>{ "Ready" };  // Synchronous return
+    return hal::v5::future<std::string>{ "Ready" };  // Synchronous return
   }
 
-  hal::v5::async<bool> driver_validate_data(
+  hal::v5::future<bool> driver_validate_data(
     hal::v5::async_context&,
     std::span<hal::byte const> data) override
   {
     std::println("📊 Immediate validation of {} bytes", data.size());
     bool valid = data.size() > 0 && data.size() < 1000;  // Simple validation
-    return hal::v5::async<bool>{ valid };                // Synchronous return
+    return hal::v5::future<bool>{ valid };               // Synchronous return
   }
 
-  hal::v5::async<void> driver_process_conditionally(
+  hal::v5::future<void> driver_process_conditionally(
     hal::v5::async_context&,
     bool should_process) override
   {
@@ -723,7 +724,7 @@ private:
     } else {
       std::println("📊 Skipping processing");
     }
-    return hal::v5::async<void>{};  // Synchronous void return
+    return hal::v5::future<void>{};  // Synchronous void return
   }
 };
 
@@ -731,9 +732,9 @@ private:
 class conditional_impl : public sync_interface
 {
 private:
-  hal::v5::async<int> driver_calculate(hal::v5::async_context& p_context,
-                                       int a,
-                                       int b) override
+  hal::v5::future<int> driver_calculate(hal::v5::async_context& p_context,
+                                        int a,
+                                        int b) override
   {
     // Return immediately for small values, async for large
     if (a < 10 && b < 10) {
@@ -747,35 +748,35 @@ private:
     co_return a + b;
   }
 
-  hal::v5::async<std::string> driver_get_status(
+  hal::v5::future<std::string> driver_get_status(
     hal::v5::async_context&) override
   {
     // Always immediate for this implementation
     std::println("📊 Conditional status: always immediate");
-    return hal::v5::async<std::string>{ "Conditional Ready" };
+    return hal::v5::future<std::string>{ "Conditional Ready" };
   }
 
-  hal::v5::async<bool> driver_validate_data(
+  hal::v5::future<bool> driver_validate_data(
     hal::v5::async_context&,
     std::span<hal::byte const> data) override
   {
     // Immediate for small data, async for large
     if (data.size() <= 10) {
       std::println("📊 Small data: immediate validation");
-      return hal::v5::async<bool>{ true };
+      return hal::v5::future<bool>{ true };
     }
 
     std::println("📊 Large data: async validation");
     return data.size() < 1000;
   }
 
-  hal::v5::async<void> driver_process_conditionally(
+  hal::v5::future<void> driver_process_conditionally(
     hal::v5::async_context&,
     bool should_process) override
   {
     if (!should_process) {
       std::println("📊 Not processing: immediate return");
-      return hal::v5::async<void>{};  // Immediate void return
+      return hal::v5::future<void>{};  // Immediate void return
     }
 
     std::println("📊 Processing complete");
@@ -784,41 +785,41 @@ private:
 };
 
 // Free functions that return synchronously
-hal::v5::async<int> sync_multiply(hal::v5::async_context&, int a, int b)
+hal::v5::future<int> sync_multiply(hal::v5::async_context&, int a, int b)
 {
   std::println("🔢 Synchronous multiply: {} * {} = {}", a, b, a * b);
-  return hal::v5::async<int>{ a * b };
+  return hal::v5::future<int>{ a * b };
 }
 
-hal::v5::async<std::string> sync_format_number(hal::v5::async_context&,
-                                               int number)
+hal::v5::future<std::string> sync_format_number(hal::v5::async_context&,
+                                                int number)
 {
   auto result = std::format("Number: {}", number);
   std::println("🔢 Synchronous format: {}", result);
-  return hal::v5::async<std::string>{ std::move(result) };
+  return hal::v5::future<std::string>{ std::move(result) };
 }
 
-hal::v5::async<bool> sync_is_even(hal::v5::async_context&, int number)
+hal::v5::future<bool> sync_is_even(hal::v5::async_context&, int number)
 {
   bool result = (number % 2) == 0;
   std::println(
     "🔢 Synchronous even check: {} is {}", number, result ? "even" : "odd");
-  return hal::v5::async<bool>{ result };
+  return hal::v5::future<bool>{ result };
 }
 
-hal::v5::async<void> sync_log_message(hal::v5::async_context&,
-                                      std::string_view message)
+hal::v5::future<void> sync_log_message(hal::v5::async_context&,
+                                       std::string_view message)
 {
   std::println("🔢 Synchronous log: {}", message);
-  return hal::v5::async<void>{};
+  return hal::v5::future<void>{};
 }
 
 // Free functions that conditionally return sync/async
-hal::v5::async<int> conditional_factorial(hal::v5::async_context&, int n)
+hal::v5::future<int> conditional_factorial(hal::v5::async_context&, int n)
 {
   if (n <= 1) {
     std::println("🔢 Base case factorial: immediate return");
-    return hal::v5::async<int>{ 1 };
+    return hal::v5::future<int>{ 1 };
   }
 
   if (n <= 5) {
@@ -827,7 +828,7 @@ hal::v5::async<int> conditional_factorial(hal::v5::async_context&, int n)
     for (int i = 2; i <= n; ++i) {
       result *= i;
     }
-    return hal::v5::async<int>{ result };
+    return hal::v5::future<int>{ result };
   }
 
   std::println("🔢 Large factorial: async calculation");
@@ -839,18 +840,18 @@ hal::v5::async<int> conditional_factorial(hal::v5::async_context&, int n)
   return result;
 }
 
-hal::v5::async<std::string> conditional_process_string(
+hal::v5::future<std::string> conditional_process_string(
   hal::v5::async_context&,
   std::string const& p_input)
 {
   if (p_input.empty()) {
     std::println("🔢 Empty string: immediate return");
-    return hal::v5::async<std::string>{ "Empty" };
+    return hal::v5::future<std::string>{ "Empty" };
   }
 
   if (p_input.length() <= 10) {
     std::println("🔢 Short string: sync processing");
-    return hal::v5::async<std::string>{ "Short: " + p_input };
+    return hal::v5::future<std::string>{ "Short: " + p_input };
   }
 
   std::println("🔢 Long string: async processing");
@@ -1087,7 +1088,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     reset_sync_test_state();
 
     auto mixed_task =
-      [](hal::v5::async_context& ctx) -> hal::v5::async<std::string> {
+      [](hal::v5::async_context& ctx) -> hal::v5::future<std::string> {
       // Start with immediate operations
       auto mult_result = co_await sync_multiply(ctx, 6, 7);
       auto even_check = co_await sync_is_even(ctx, mult_result);
@@ -1116,7 +1117,7 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     reset_sync_test_state();
 
     auto performance_test =
-      [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+      [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       int total = 0;
 
       // Many immediate operations should be fast
@@ -1143,33 +1144,34 @@ boost::ut::suite<"synchronous_return_tests"> sync_return_tests = []() {
     class error_prone_impl : public sync_interface
     {
     private:
-      hal::v5::async<int> driver_calculate(hal::v5::async_context&,
-                                           int a,
-                                           int b) override
+      hal::v5::future<int> driver_calculate(hal::v5::async_context&,
+                                            int a,
+                                            int b) override
       {
         if (a < 0 || b < 0) {
           throw std::invalid_argument("Negative numbers not allowed");
         }
-        return hal::v5::async<int>{ a + b };
+        return hal::v5::future<int>{ a + b };
       }
 
-      hal::v5::async<std::string> driver_get_status(
+      hal::v5::future<std::string> driver_get_status(
         hal::v5::async_context&) override
       {
-        return hal::v5::async<std::string>{ "Error-prone status" };
+        return hal::v5::future<std::string>{ "Error-prone status" };
       }
 
-      hal::v5::async<bool> driver_validate_data(
+      hal::v5::future<bool> driver_validate_data(
         hal::v5::async_context&,
         std::span<hal::byte const>) override
       {
-        return hal::v5::async<bool>{ false };
+        return hal::v5::future<bool>{ false };
       }
 
-      hal::v5::async<void> driver_process_conditionally(hal::v5::async_context&,
-                                                        bool) override
+      hal::v5::future<void> driver_process_conditionally(
+        hal::v5::async_context&,
+        bool) override
       {
-        return hal::v5::async<void>{};
+        return hal::v5::future<void>{};
       }
     };
 
@@ -1246,9 +1248,9 @@ void reset_split_test_state()
 }
 
 // Simple coroutine tasks for testing split contexts
-hal::v5::async<int> simple_task(hal::v5::async_context& ctx,
-                                int id,
-                                int delay_ms)
+hal::v5::future<int> simple_task(hal::v5::async_context& ctx,
+                                 int id,
+                                 int delay_ms)
 {
   using namespace std::chrono_literals;
 
@@ -1263,8 +1265,8 @@ hal::v5::async<int> simple_task(hal::v5::async_context& ctx,
   co_return id * 10;
 }
 
-hal::v5::async<std::string> io_task(hal::v5::async_context& ctx,
-                                    std::string name)
+hal::v5::future<std::string> io_task(hal::v5::async_context& ctx,
+                                     std::string name)
 {
   std::println("🔌 I/O Task {} starting", name);
 
@@ -1275,7 +1277,7 @@ hal::v5::async<std::string> io_task(hal::v5::async_context& ctx,
   co_return "Result from " + name;
 }
 
-hal::v5::async<void> void_task(hal::v5::async_context& ctx, int iterations)
+hal::v5::future<void> void_task(hal::v5::async_context& ctx, int iterations)
 {
   using namespace std::chrono_literals;
 
@@ -1293,7 +1295,7 @@ template<hal::usize N>
 struct concurrent_executor
 {
   hal::v5::async_runtime<N>* contexts;
-  std::vector<hal::v5::async<int>> tasks;
+  std::vector<hal::v5::future<int>> tasks;
 
   concurrent_executor(hal::v5::async_runtime<N>& manager)
     : contexts(&manager)
@@ -1453,7 +1455,8 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
                                                    split_test_handler);
 
     // Create tasks that use memory differently
-    auto memory_task1 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+    auto memory_task1 =
+      [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       // Allocate some memory via coroutine frame
       std::array<int, 50> large_array{};
       large_array.fill(1);
@@ -1467,7 +1470,8 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
       co_return sum;
     };
 
-    auto memory_task2 = [](hal::v5::async_context& ctx) -> hal::v5::async<int> {
+    auto memory_task2 =
+      [](hal::v5::async_context& ctx) -> hal::v5::future<int> {
       // Different memory usage pattern
       std::array<int, 30> smaller_array{};
       smaller_array.fill(2);
@@ -1507,7 +1511,7 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
                                                    split_test_handler);
 
     // Create a simple task for each context
-    std::vector<hal::v5::async<int>> tasks;
+    std::vector<hal::v5::future<int>> tasks;
     tasks.reserve(context_count);
     for (size_t i = 0; i < context_count; ++i) {
       tasks.push_back(simple_task(contexts[i], static_cast<int>(i), 1));
@@ -1537,7 +1541,7 @@ boost::ut::suite<"split_context_tests"> split_context_tests = []() {
                                                    split_test_handler);
 
     auto throwing_task = [](hal::v5::async_context& ctx,
-                            bool should_throw) -> hal::v5::async<int> {
+                            bool should_throw) -> hal::v5::future<int> {
       co_await 1ms;
 
       if (should_throw) {

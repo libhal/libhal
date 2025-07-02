@@ -223,7 +223,7 @@ private:
   friend class async_promise_type;
 
   template<typename>
-  friend class async;
+  friend class future;
 
   friend class async_runtime_base;
 
@@ -568,7 +568,7 @@ protected:
 };
 
 template<typename T>
-class async;
+class future;
 
 template<typename T>
 class async_promise_type : public async_promise_base
@@ -589,6 +589,7 @@ public:
 
   void unhandled_exception() noexcept
   {
+    pop_active_coroutine();
     // After this point accessing the state of the coroutine is UB.
     m_context->m_state = std::current_exception();
   }
@@ -626,7 +627,7 @@ public:
     return {};
   }
 
-  constexpr async<T> get_return_object() noexcept;
+  constexpr future<T> get_return_object() noexcept;
 
   template<typename U>
   void return_value(U&& p_value) noexcept
@@ -634,16 +635,6 @@ public:
   {
     m_value_address->template emplace<T>(std::forward<U>(p_value));
     self_destruct();
-  }
-
-  /**
-   * @brief We should only call this within await_resume
-   *
-   */
-  T& get_result_or_rethrow()
-  {
-    m_context->rethrow_if_exception_caught();
-    return std::get<T>(*m_value_address);
   }
 
   void set_object_address(
@@ -689,7 +680,7 @@ public:
     self_destruct();
   }
 
-  constexpr async<void> get_return_object() noexcept;
+  constexpr future<void> get_return_object() noexcept;
 
   // Delete operators are defined as no-ops to ensure that these calls get
   // removed from the binary if inlined.
@@ -737,15 +728,6 @@ public:
     m_context->m_state = std::current_exception();
   }
 
-  /**
-   * @brief We should only call this within await_resume
-   *
-   */
-  void get_result_or_rethrow()
-  {
-    m_context->rethrow_if_exception_caught();
-  }
-
   void self_destruct()
   {
     auto* const context = m_context;
@@ -760,7 +742,7 @@ private:
 };
 
 template<typename T>
-class async
+class future
 {
 public:
   using promise_type = async_promise_type<T>;
@@ -805,9 +787,9 @@ public:
   // Awaiter for when this task is awaited
   struct awaiter
   {
-    async<T>* m_async_operation;
+    future<T>* m_async_operation;
 
-    explicit awaiter(async<T>* p_async_operation) noexcept
+    explicit awaiter(future<T>* p_async_operation) noexcept
       : m_async_operation(p_async_operation)
     {
     }
@@ -831,8 +813,8 @@ public:
       // If the async object is being resumed and it has not destroyed itself
       // and been replaced with the result value, then there MUST be an
       // exception that needs to be propagated through the calling coroutine.
-      if (std::holds_alternative<task_handle_type>(
-            m_async_operation->m_result)) {
+      if (std::holds_alternative<task_handle_type>(m_async_operation->m_result))
+        [[unlikely]] {
         auto& context = m_async_operation->handle().promise().context();
         m_async_operation->handle().promise().self_destruct();
         // Rethrow exception caught by top level coroutine
@@ -863,23 +845,23 @@ public:
     return manual_awaiter.await_resume();
   }
 
-  async() noexcept
+  future() noexcept
     requires(std::is_void_v<T>)
     : m_result(monostate_or<T>{})
   {
   }
 
   template<typename U>
-  async(U&& p_value) noexcept
+  future(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
     m_result.template emplace<T>(std::forward<U>(p_value));
   };
 
-  async(async const& p_other) = delete;
-  async& operator=(async const& p_other) = delete;
+  future(future const& p_other) = delete;
+  future& operator=(future const& p_other) = delete;
 
-  async(async&& p_other) noexcept
+  future(future&& p_other) noexcept
     : m_result(std::exchange(p_other.m_result, {}))
   {
     if (std::holds_alternative<task_handle_type>(m_result)) {
@@ -887,7 +869,7 @@ public:
     }
   }
 
-  async& operator=(async&& p_other) noexcept
+  future& operator=(future&& p_other) noexcept
   {
     if (this != &p_other) {
       m_result = std::exchange(p_other.m_result, {});
@@ -898,7 +880,7 @@ public:
     return *this;
   }
 
-  ~async()
+  ~future()
   {
     if (std::holds_alternative<task_handle_type>(m_result)) {
       /// NOTE: This is handled by the return_value and return_void functions
@@ -920,7 +902,7 @@ public:
 private:
   friend promise_type;
 
-  explicit constexpr async(task_handle_type p_handle)
+  explicit constexpr future(task_handle_type p_handle)
     : m_result(p_handle)
   {
     auto& promise = p_handle.promise();
@@ -931,7 +913,7 @@ private:
 };
 
 template<typename T>
-constexpr async<T> async_promise_type<T>::get_return_object() noexcept
+constexpr future<T> async_promise_type<T>::get_return_object() noexcept
 {
   auto handle =
     std::coroutine_handle<async_promise_type<T>>::from_promise(*this);
@@ -941,10 +923,10 @@ constexpr async<T> async_promise_type<T>::get_return_object() noexcept
   m_frame_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
   m_context->m_state = blocked_by(blocked_by::nothing);
-  return async<T>{ handle };
+  return future<T>{ handle };
 }
 
-inline constexpr async<void>
+inline constexpr future<void>
 async_promise_type<void>::get_return_object() noexcept
 {
   auto handle =
@@ -955,6 +937,6 @@ async_promise_type<void>::get_return_object() noexcept
   m_frame_size = m_context->last_allocation_size();
   // Now stomp the union out and set it to the blocked_by::nothing state.
   m_context->m_state = blocked_by::nothing;
-  return async<void>{ handle };
+  return future<void>{ handle };
 }
 }  // namespace hal::v5
