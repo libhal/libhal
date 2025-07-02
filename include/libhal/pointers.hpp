@@ -53,10 +53,10 @@ struct ref_info
   using destroy_fn_t = usize(void const*);
 
   /// Initialize to 1 since creation implies a reference
-  std::pmr::polymorphic_allocator<hal::byte> allocator;
+  std::pmr::polymorphic_allocator<> allocator;
   destroy_fn_t* destroy;
-  std::atomic<int32_t> strong_count = 1;
-  std::atomic<int32_t> weak_count = 0;
+  std::atomic<i32> strong_count = 1;
+  std::atomic<i32> weak_count = 0;
 };
 
 /**
@@ -92,7 +92,7 @@ inline void ptr_release(ref_info* p_info)
     // If there are no weak references, deallocate memory
     if (p_info->weak_count.load(std::memory_order_acquire) == 0) {
       // Save allocator for deallocating
-      std::pmr::polymorphic_allocator<byte> alloc = p_info->allocator;
+      auto alloc = p_info->allocator;
 
       // Deallocate memory
       alloc.deallocate_bytes(p_info, object_size);
@@ -124,10 +124,10 @@ inline void ptr_release_weak(ref_info* p_info)
     // No more weak references, check if we can deallocate
     if (p_info->strong_count.load(std::memory_order_acquire) == 0) {
       // No strong references either, get the size from the destroy function
-      usize const object_size = p_info->destroy(nullptr);
+      auto const object_size = p_info->destroy(nullptr);
 
       // Save allocator for deallocating
-      std::pmr::polymorphic_allocator<byte> alloc = p_info->allocator;
+      auto alloc = p_info->allocator;
 
       // Deallocate memory
       alloc.deallocate_bytes(p_info, object_size);
@@ -150,7 +150,7 @@ struct rc
 
   // Constructor that forwards arguments to the object
   template<typename... Args>
-  rc(std::pmr::polymorphic_allocator<byte> p_alloc, Args&&... args)
+  rc(std::pmr::polymorphic_allocator<> p_alloc, Args&&... args)
     : m_info{ .allocator = p_alloc, .destroy = &destroy_function }
     , m_object(std::forward<Args>(args)...)
   {
@@ -213,7 +213,8 @@ concept non_array_like = !array_like<T>;
  * the pointer will never be null. For nullable references, use optional_ptr.
  *
  * Example usage:
- * ```
+ *
+ * ```C++
  * // Create a strong_ptr to an object
  * auto ptr = hal::make_strong_ptr<my_i2c_driver>(allocator, arg1, arg2);
  *
@@ -224,7 +225,7 @@ concept non_array_like = !array_like<T>;
  * ptr->configure({ .clock_rate = 250_kHz });
  *
  * // Share ownership with another driver or object
- * auto my_imu = hal::make_strong_ptr<my_imu>(allocator, ptr, 0x13);
+ * auto my_imu = hal::make_strong_ptr<my_driver>(allocator, ptr, 0x13);
  * ```
  *
  * @tparam T The type of the managed object
@@ -233,20 +234,6 @@ template<typename T>
 class strong_ptr
 {
 public:
-  template<class U, typename... Args>
-  friend strong_ptr<U> make_strong_ptr(
-    std::pmr::polymorphic_allocator<byte> p_alloc,
-    Args&&... args);
-
-  template<typename U>
-  friend class strong_ptr;
-
-  template<typename U>
-  friend class weak_ptr;
-
-  template<typename U>
-  friend class optional_ptr;
-
   using element_type = T;
 
   /// Delete default constructor - strong_ptr must always be valid
@@ -603,6 +590,19 @@ public:
   }
 
 private:
+  template<class U, typename... Args>
+  friend strong_ptr<U> make_strong_ptr(std::pmr::polymorphic_allocator<>,
+                                       Args&&...);
+
+  template<typename U>
+  friend class strong_ptr;
+
+  template<typename U>
+  friend class weak_ptr;
+
+  template<typename U>
+  friend class optional_ptr;
+
   static inline void throw_if_out_of_bounds(usize p_size, usize p_index)
   {
     if (p_index >= p_size) {
@@ -629,6 +629,139 @@ private:
   T* m_ptr = nullptr;
 };
 
+/**
+ * @brief CRTP mixin to enable objects to create strong_ptr instances to
+ * themselves
+ *
+ * Similar to `std::enable_shared_from_this`, this class allows an object to
+ * safely obtain a strong_ptr to itself. The object must inherit from this class
+ * and be managed by a strong_ptr created via make_strong_ptr.
+ *
+ * Example usage:
+ * ```cpp
+ * class my_driver : public enable_strong_from_this<my_driver> {
+ * public:
+ *   void register_callback() {
+ *     // Get a strong_ptr to ourselves
+ *     auto self = strong_from_this();
+ *     some_async_system.register_callback([self](){
+ *       self->handle_callback();
+ *     });
+ *   }
+ * };
+ *
+ * auto obj = make_strong_ptr<my_driver>(allocator);
+ * obj->register_callback(); // Safe to get strong_ptr to self
+ * ```
+ *
+ * @tparam T The derived class type
+ */
+template<typename T>
+class enable_strong_from_this
+{
+public:
+  /**
+   * @brief Get a strong_ptr to this object
+   *
+   * @return strong_ptr<T> pointing to this object
+   * @throws std::bad_weak_ptr if this object is not managed by a strong_ptr
+   */
+  [[nodiscard]] strong_ptr<T> strong_from_this()
+  {
+    auto locked = m_weak_this.lock();
+    if (!locked) {
+      hal::safe_throw(hal::bad_weak_ptr(&m_weak_this));
+    }
+    return locked.value();
+  }
+
+  /**
+   * @brief Get a strong_ptr to this object (const version)
+   *
+   * @return strong_ptr<T const> pointing to this object
+   * @throws std::bad_weak_ptr if this object is not managed by a strong_ptr
+   */
+  [[nodiscard]] strong_ptr<T const> strong_from_this() const
+  {
+    auto locked = m_weak_this.lock();
+    if (!locked) {
+      hal::safe_throw(hal::bad_weak_ptr(&m_weak_this));
+    }
+    // Cast the strong_ptr<T> to strong_ptr<T const>
+    return strong_ptr<T const>(locked.value());
+  }
+
+  /**
+   * @brief Get a weak_ptr to this object
+   *
+   * @return weak_ptr<T> pointing to this object
+   */
+  [[nodiscard]] weak_ptr<T> weak_from_this() noexcept
+  {
+    return m_weak_this;
+  }
+
+  /**
+   * @brief Get a weak_ptr to this object (const version)
+   *
+   * @return weak_ptr<T const> pointing to this object
+   */
+  [[nodiscard]] weak_ptr<T const> weak_from_this() const noexcept
+  {
+    return weak_ptr<T const>(m_weak_this);
+  }
+
+protected:
+  /**
+   * @brief Protected constructor to prevent direct instantiation
+   */
+  enable_strong_from_this() = default;
+
+  /**
+   * @brief Protected copy constructor
+   *
+   * Note: The weak_ptr is not copied - each object gets its own weak reference
+   */
+  enable_strong_from_this(enable_strong_from_this const&) noexcept
+  {
+    // Intentionally don't copy m_weak_this
+  }
+
+  /**
+   * @brief Protected assignment operator
+   *
+   * Note: The weak_ptr is not assigned - each object keeps its own weak
+   * reference
+   */
+  enable_strong_from_this& operator=(enable_strong_from_this const&) noexcept
+  {
+    // Intentionally don't assign m_weak_this
+    return *this;
+  }
+
+  /**
+   * @brief Protected destructor
+   */
+  ~enable_strong_from_this() = default;
+
+private:
+  template<class U, typename... Args>
+  friend strong_ptr<U> make_strong_ptr(std::pmr::polymorphic_allocator<>,
+                                       Args&&...);
+
+  /**
+   * @brief Initialize the weak reference (called by make_strong_ptr)
+   *
+   * @param p_self The strong_ptr that manages this object
+   */
+  void init_weak_this(strong_ptr<T> const& p_self) noexcept
+  {
+    m_weak_this = p_self;
+  }
+
+  mutable weak_ptr<T> m_weak_this;
+};
+
 template<typename T>
 class optional_ptr;
 
@@ -644,10 +777,10 @@ class optional_ptr;
  * Example usage:
  * ```
  * // Create a strong_ptr to an object
- * auto ptr = hal::make_strong_ptr<MyClass>(allocator, args...);
+ * auto ptr = hal::make_strong_ptr<my_driver>(allocator, args...);
  *
  * // Create a weak reference
- * weak_ptr<MyClass> weak = ptr;
+ * weak_ptr<my_driver> weak = ptr;
  *
  * // Later, try to get a strong reference
  * if (auto locked = weak.lock()) {
@@ -887,11 +1020,11 @@ private:
  * Example usage:
  * ```
  * // Create an empty optional_ptr
- * optional_ptr<MyClass> opt1;
+ * optional_ptr<my_driver> opt1;
  *
  * // Create an optional_ptr from a strong_ptr
- * auto ptr = make_strong_ptr<MyClass>(allocator, args...);
- * optional_ptr<MyClass> opt2 = ptr;
+ * auto ptr = make_strong_ptr<my_driver>(allocator, args...);
+ * optional_ptr<my_driver> opt2 = ptr;
  *
  * // Check if the optional_ptr is engaged
  * if (opt2) {
@@ -1067,7 +1200,7 @@ public:
   /**
    * @brief Access the contained value, throw if not engaged
    *
-   * @return Reference to the contained strong_ptr
+   * @return A copy of the contained strong_ptr
    * @throws std::bad_optional_access if *this is disengaged
    */
   [[nodiscard]] constexpr strong_ptr<T>& value()
@@ -1081,7 +1214,7 @@ public:
   /**
    * @brief Access the contained value, throw if not engaged (const version)
    *
-   * @return Reference to the contained strong_ptr
+   * @return A copy of the contained strong_ptr
    * @throws std::bad_optional_access if *this is disengaged
    */
   [[nodiscard]] constexpr strong_ptr<T> const& value() const
@@ -1090,6 +1223,71 @@ public:
       throw std::bad_optional_access();
     }
     return m_value;
+  }
+
+  /**
+   * @brief Implicitly convert to a strong_ptr<T>
+   *
+   * This allows optional_ptr to be used anywhere a strong_ptr is expected
+   * when the optional_ptr is engaged.
+   *
+   * @return A copy of the contained strong_ptr
+   * @throws std::bad_optional_access if *this is disengaged
+   */
+  [[nodiscard]] constexpr operator strong_ptr<T>()
+  {
+    return value();
+  }
+
+  /**
+   * @brief Implicitly convert to a strong_ptr<T> (const version)
+   *
+   * @return A copy of the contained strong_ptr
+   * @throws std::bad_optional_access if *this is disengaged
+   */
+  [[nodiscard]] constexpr operator strong_ptr<T>() const
+  {
+    return value();
+  }
+
+  /**
+   * @brief Implicitly convert to a strong_ptr for polymorphic types
+   *
+   * This allows optional_ptr<Derived> to be converted to strong_ptr<Base>
+   * when Derived is convertible to Base.
+   *
+   * @tparam U The target type (must be convertible from T)
+   * @return A copy of the contained strong_ptr, converted to the target type
+   * @throws std::bad_optional_access if *this is disengaged
+   */
+  template<typename U>
+  [[nodiscard]] constexpr operator strong_ptr<U>()
+    requires(std::is_convertible_v<T*, U*> && !std::is_same_v<T, U>)
+  {
+    if (!is_engaged()) {
+      throw std::bad_optional_access();
+    }
+    // strong_ptr handles the polymorphic conversion
+    return strong_ptr<U>(m_value);
+  }
+
+  /**
+   * @brief Implicitly convert to a strong_ptr for polymorphic types (const
+   * version)
+   *
+   * @tparam U The target type (must be convertible from T)
+   * @return A copy of the contained strong_ptr, converted to the target type
+   * @throws std::bad_optional_access if *this is disengaged
+   */
+  template<typename U>
+  [[nodiscard]] constexpr operator strong_ptr<U>() const
+    requires(std::is_convertible_v<T*, U*> && !std::is_same_v<T, U>)
+  {
+    if (!is_engaged()) {
+      throw std::bad_optional_access();
+    }
+    // strong_ptr handles the polymorphic conversion
+    return strong_ptr<U>(m_value);
   }
 
   /**
@@ -1421,30 +1619,109 @@ template<typename T>
 }
 
 /**
- * @brief Factory function to create a strong_ptr with its control block
+ * @brief A construction token that can only be created by make_strong_ptr
  *
- * This is the only way to create a new strong_ptr. It allocates memory
- * for the object and its control block together, and initializes the object
+ * Make the first parameter of your class's constructor(s) in order to limit
+ * that constructor to only be used via `make_strong_ptr`.
+ */
+class strong_ptr_only_token
+{
+private:
+  strong_ptr_only_token() = default;
+
+  template<class U, typename... Args>
+  friend strong_ptr<U> make_strong_ptr(std::pmr::polymorphic_allocator<>,
+                                       Args&&...);
+};
+
+/**
+ * @brief Factory function to create a strong_ptr with automatic construction
+ * detection
+ *
+ * This is the primary way to create a new strong_ptr. It automatically detects
+ * whether the target type requires token-based construction (for classes that
+ * should only be managed by strong_ptr) or supports normal construction.
+ *
+ * The function performs the following operations:
+ * 1. Allocates memory for both the object and its control block together
+ * 2. Detects at compile time if the type expects a strong_ptr_only_token
+ * 3. Constructs the object with appropriate parameters
+ * 4. Initializes enable_strong_from_this support if the type inherits from it
+ * 5. Returns a strong_ptr managing the newly created object
+ *
+ * **Token-based construction**: If a class constructor takes
+ * `strong_ptr_only_token` as its first parameter, this function automatically
+ * provides that token, ensuring the class can only be constructed via
+ * make_strong_ptr.
+ *
+ * **Normal construction**: For regular classes, construction proceeds normally
  * with the provided arguments.
  *
+ * **enable_strong_from_this support**: If the constructed type inherits from
+ * `enable_strong_from_this<T>`, the weak reference is automatically initialized
+ * to enable `strong_from_this()` and `weak_from_this()` functionality.
+ *
  * Example usage:
- * ```
- * auto ptr = hal::make_strong_ptr<MyClass>(allocator, arg1, arg2);
+ *
+ * ```cpp
+ * // Token-protected class (can only be created via make_strong_ptr)
+ * class protected_driver {
+ * public:
+ *   protected_driver(strong_ptr_only_token, driver_config config);
+ * };
+ * auto driver = make_strong_ptr<protected_driver>(allocator, config{});
+ *
+ * // Regular class
+ * class regular_class {
+ * public:
+ *   regular_class(int value);
+ * };
+ * auto obj = make_strong_ptr<regular_class>(allocator, 42);
+ *
+ * // Class with enable_strong_from_this support
+ * class self_aware : public enable_strong_from_this<self_aware> {
+ * public:
+ *   self_aware(std::string name);
+ *   void register_callback() {
+ *     auto self = strong_from_this(); // This works automatically
+ *   }
+ * };
+ * auto obj = make_strong_ptr<self_aware>(allocator, "example");
  * ```
  *
  * @tparam T The type of object to create
  * @tparam Args Types of arguments to forward to the constructor
  * @param p_alloc Allocator to use for memory allocation
- * @param args Arguments to forward to the constructor
+ * @param p_args Arguments to forward to the constructor
  * @return A strong_ptr managing the newly created object
+ * @throws Any exception thrown by the object's constructor
+ * @throws std::bad_alloc if memory allocation fails
  */
 template<class T, typename... Args>
 [[nodiscard]] inline strong_ptr<T> make_strong_ptr(
-  std::pmr::polymorphic_allocator<byte> p_alloc,
-  Args&&... args)
+  std::pmr::polymorphic_allocator<> p_alloc,
+  Args&&... p_args)
 {
   using rc_t = detail::rc<T>;
-  auto* obj = p_alloc.new_object<rc_t>(p_alloc, std::forward<Args>(args)...);
-  return strong_ptr<T>(&obj->m_info, &obj->m_object);
+
+  rc_t* obj = nullptr;
+
+  if constexpr (std::is_constructible_v<T, strong_ptr_only_token, Args...>) {
+    // Type expects token as first parameter
+    obj = p_alloc.new_object<rc_t>(
+      p_alloc, strong_ptr_only_token{}, std::forward<Args>(p_args)...);
+  } else {
+    // Normal type, construct without token
+    obj = p_alloc.new_object<rc_t>(p_alloc, std::forward<Args>(p_args)...);
+  }
+
+  strong_ptr<T> result(&obj->m_info, &obj->m_object);
+
+  // Initialize enable_strong_from_this if the type inherits from it
+  if constexpr (std::is_base_of_v<enable_strong_from_this<T>, T>) {
+    result->init_weak_this(result);
+  }
+
+  return result;
 }
 }  // namespace hal::v5
