@@ -607,6 +607,21 @@ struct unknown : public exception
 
 /**
  * @ingroup Error
+ * @brief Raised when a weak_ptr is accessed for an object that has been
+ * destroyed.
+ *
+ */
+class bad_weak_ptr : public hal::exception
+{
+public:
+  bad_weak_ptr(void* p_weak_ptr_instance)
+    : hal::exception(std::errc::bad_address, p_weak_ptr_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
  * @brief libhal function for throwing exceptions with static analysis
  *
  * The types that can be thrown must follow these rules:
