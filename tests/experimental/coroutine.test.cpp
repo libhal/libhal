@@ -334,11 +334,17 @@ boost::ut::suite<"advanced_coroutine_tests"> advanced_tests = []() {
       test_resource, test_stack.size(), test_handler);
     hal::v5::async_context& test_ctx = manager[0];
 
-    expect(that % 0uz == test_ctx.memory_used());
-    auto coro = thrower.throw_immediately(test_ctx);
-    expect(that % 0uz < test_ctx.memory_used());
+    {
+      expect(that % 0uz == test_ctx.memory_used());
+      auto coro = thrower.throw_immediately(test_ctx);
+      auto const memory_used_by_top_level_coro = test_ctx.memory_used();
+      expect(that % 0uz < memory_used_by_top_level_coro);
 
-    expect(throws<std::runtime_error>([&coro]() { coro.sync_wait(); }));
+      expect(throws<std::runtime_error>([&coro]() { coro.sync_wait(); }));
+      expect(that % memory_used_by_top_level_coro == test_ctx.memory_used());
+    }
+    // Context memory should be zero now that the top level coroutine future<T>
+    // is destroyed.
     expect(that % 0uz == test_ctx.memory_used());
   };
 

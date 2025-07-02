@@ -546,10 +546,12 @@ public:
   {
     return *m_context;
   }
+
   constexpr auto continuation()
   {
     return m_continuation;
   }
+
   constexpr void continuation(std::coroutine_handle<> p_continuation)
   {
     m_continuation = p_continuation;
@@ -749,7 +751,7 @@ public:
   friend promise_type;
   using task_handle_type = std::coroutine_handle<promise_type>;
 
-  void resume() const
+  constexpr void resume() const
   {
     auto active = handle().promise().context().active_handle();
     active.resume();
@@ -763,7 +765,7 @@ public:
    * `result()`
    * @return false - operation has yet to completed and does have a value.
    */
-  [[nodiscard]] bool done() const
+  [[nodiscard]] constexpr bool done() const
   {
     // True if the handle isn't valid
     // OR
@@ -779,7 +781,7 @@ public:
    *
    * @return Type - reference to the value from this async operation.
    */
-  [[nodiscard]] monostate_or<T>& result(hal::unsafe)
+  [[nodiscard]] constexpr monostate_or<T>& result()
   {
     return std::get<monostate_or<T>>(m_result);
   }
@@ -789,7 +791,7 @@ public:
   {
     future<T>* m_async_operation;
 
-    explicit awaiter(future<T>* p_async_operation) noexcept
+    constexpr explicit awaiter(future<T>* p_async_operation) noexcept
       : m_async_operation(p_async_operation)
     {
     }
@@ -808,7 +810,7 @@ public:
       return m_async_operation->handle();
     }
 
-    monostate_or<T>& await_resume() const
+    constexpr monostate_or<T>& await_resume() const
     {
       // If the async object is being resumed and it has not destroyed itself
       // and been replaced with the result value, then there MUST be an
@@ -816,11 +818,14 @@ public:
       if (std::holds_alternative<task_handle_type>(m_async_operation->m_result))
         [[unlikely]] {
         auto& context = m_async_operation->handle().promise().context();
-        m_async_operation->handle().promise().self_destruct();
-        // Rethrow exception caught by top level coroutine
+
         context.rethrow_if_exception_caught();
+
+        /// NOTE: If this await_resume() is called via `co_await`, then the
+        /// resources of the call will be cleaned up when then hal::future is
+        /// destroyed.
       }
-      return m_async_operation->result(hal::unsafe{});
+      return m_async_operation->result();
     }
   };
 
@@ -845,14 +850,14 @@ public:
     return manual_awaiter.await_resume();
   }
 
-  future() noexcept
+  constexpr future() noexcept
     requires(std::is_void_v<T>)
     : m_result(monostate_or<T>{})
   {
   }
 
   template<typename U>
-  future(U&& p_value) noexcept
+  constexpr future(U&& p_value) noexcept
     requires(not std::is_void_v<T>)
   {
     m_result.template emplace<T>(std::forward<U>(p_value));
@@ -861,7 +866,7 @@ public:
   future(future const& p_other) = delete;
   future& operator=(future const& p_other) = delete;
 
-  future(future&& p_other) noexcept
+  constexpr future(future&& p_other) noexcept
     : m_result(std::exchange(p_other.m_result, {}))
   {
     if (std::holds_alternative<task_handle_type>(m_result)) {
@@ -869,7 +874,7 @@ public:
     }
   }
 
-  future& operator=(future&& p_other) noexcept
+  constexpr future& operator=(future&& p_other) noexcept
   {
     if (this != &p_other) {
       m_result = std::exchange(p_other.m_result, {});
@@ -880,12 +885,12 @@ public:
     return *this;
   }
 
-  ~future()
+  constexpr ~future()
   {
     if (std::holds_alternative<task_handle_type>(m_result)) {
-      /// NOTE: This is handled by the return_value and return_void functions
-      ///       A coroutine destroys itself once it has found its result.
-      // handle().promise().self_destruct();
+      /// NOTE: This only occurs if the future was not completed before its
+      /// future object was destroyed.
+      handle().promise().self_destruct();
     }
   }
 
