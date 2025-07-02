@@ -622,6 +622,28 @@ public:
 
 /**
  * @ingroup Error
+ * @brief Raised when the error does not match any known or expected error from
+ * a device or system.
+ *
+ * This error should ONLY be used when a system returns an error code that is
+ * not apart of a defined list of expected errors. For example, lets consider a
+ * C api that returns an int from 0 to 5 and each is mapped to a specific error.
+ * Now lets consider that the API is called and the number 18375 is returned. In
+ * this case, this is an unknown error value and thus this exception can be
+ * thrown.
+ *
+ * If this is not the case, use any other hal::exception that fits.
+ */
+struct bad_coroutine_alloc : public exception
+{
+  bad_coroutine_alloc(void const* p_instance)
+    : exception(std::errc::not_enough_memory, p_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
  * @brief Raised when an API attempts to access elements outside of a container
  * or resource.
  *
