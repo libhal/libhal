@@ -422,7 +422,7 @@ public:
    * @param p_other The strong_ptr to the parent object
    * @param p_array_ptr Pointer-to-member identifying the array member
    * @param p_index Index of the element to reference
-   * @throws std::out_of_range if index is out of bounds
+   * @throws hal::out_of_range if index is out of bounds
    */
   template<typename U, typename E, std::size_t N>
   strong_ptr(strong_ptr<U> const& p_other,
@@ -469,7 +469,7 @@ public:
    * @param p_other The strong_ptr to the parent object
    * @param p_array_ptr Pointer-to-member identifying the array member
    * @param p_index Index of the element to reference
-   * @throws std::out_of_range if index is out of bounds
+   * @throws hal::out_of_range if index is out of bounds
    */
   template<typename U, typename E, std::size_t N>
   strong_ptr(strong_ptr<U> const& p_other,
@@ -603,10 +603,11 @@ private:
   template<typename U>
   friend class optional_ptr;
 
-  static inline void throw_if_out_of_bounds(usize p_size, usize p_index)
+  inline void throw_if_out_of_bounds(usize p_size, usize p_index)
   {
     if (p_index >= p_size) {
-      throw std::out_of_range("strong_ptr: array alias index");
+      hal::safe_throw(
+        hal::out_of_range(this, { .m_index = p_index, .m_capacity = p_size }));
     }
   }
 
@@ -664,7 +665,7 @@ public:
    * @brief Get a strong_ptr to this object
    *
    * @return strong_ptr<T> pointing to this object
-   * @throws std::bad_weak_ptr if this object is not managed by a strong_ptr
+   * @throws hal::bad_weak_ptr if this object is not managed by a strong_ptr
    */
   [[nodiscard]] strong_ptr<T> strong_from_this()
   {
@@ -679,7 +680,7 @@ public:
    * @brief Get a strong_ptr to this object (const version)
    *
    * @return strong_ptr<T const> pointing to this object
-   * @throws std::bad_weak_ptr if this object is not managed by a strong_ptr
+   * @throws hal::bad_weak_ptr if this object is not managed by a strong_ptr
    */
   [[nodiscard]] strong_ptr<T const> strong_from_this() const
   {
@@ -1201,12 +1202,12 @@ public:
    * @brief Access the contained value, throw if not engaged
    *
    * @return A copy of the contained strong_ptr
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   [[nodiscard]] constexpr strong_ptr<T>& value()
   {
     if (!is_engaged()) {
-      throw std::bad_optional_access();
+      hal::safe_throw(hal::bad_optional_ptr_access(this));
     }
     return m_value;
   }
@@ -1215,12 +1216,12 @@ public:
    * @brief Access the contained value, throw if not engaged (const version)
    *
    * @return A copy of the contained strong_ptr
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   [[nodiscard]] constexpr strong_ptr<T> const& value() const
   {
     if (!is_engaged()) {
-      throw std::bad_optional_access();
+      hal::safe_throw(hal::bad_optional_ptr_access(this));
     }
     return m_value;
   }
@@ -1232,7 +1233,7 @@ public:
    * when the optional_ptr is engaged.
    *
    * @return A copy of the contained strong_ptr
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   [[nodiscard]] constexpr operator strong_ptr<T>()
   {
@@ -1243,7 +1244,7 @@ public:
    * @brief Implicitly convert to a strong_ptr<T> (const version)
    *
    * @return A copy of the contained strong_ptr
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   [[nodiscard]] constexpr operator strong_ptr<T>() const
   {
@@ -1258,14 +1259,14 @@ public:
    *
    * @tparam U The target type (must be convertible from T)
    * @return A copy of the contained strong_ptr, converted to the target type
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   template<typename U>
   [[nodiscard]] constexpr operator strong_ptr<U>()
     requires(std::is_convertible_v<T*, U*> && !std::is_same_v<T, U>)
   {
     if (!is_engaged()) {
-      throw std::bad_optional_access();
+      hal::safe_throw(hal::bad_optional_ptr_access(this));
     }
     // strong_ptr handles the polymorphic conversion
     return strong_ptr<U>(m_value);
@@ -1277,14 +1278,14 @@ public:
    *
    * @tparam U The target type (must be convertible from T)
    * @return A copy of the contained strong_ptr, converted to the target type
-   * @throws std::bad_optional_access if *this is disengaged
+   * @throws hal::bad_optional_ptr_access if *this is disengaged
    */
   template<typename U>
   [[nodiscard]] constexpr operator strong_ptr<U>() const
     requires(std::is_convertible_v<T*, U*> && !std::is_same_v<T, U>)
   {
     if (!is_engaged()) {
-      throw std::bad_optional_access();
+      hal::safe_throw(hal::bad_optional_ptr_access(this));
     }
     // strong_ptr handles the polymorphic conversion
     return strong_ptr<U>(m_value);

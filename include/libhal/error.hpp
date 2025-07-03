@@ -645,6 +645,21 @@ struct out_of_range : public exception
 
 /**
  * @ingroup Error
+ * @brief Raised when an API attempts to access the contents of an empty
+ * optional_ptr.
+ *
+ */
+struct bad_optional_ptr_access : public exception
+{
+
+  bad_optional_ptr_access(void const* p_instance)
+    : exception(std::errc::invalid_argument, p_instance)
+  {
+  }
+};
+
+/**
+ * @ingroup Error
  * @brief libhal function for throwing exceptions with static analysis
  *
  * The types that can be thrown must follow these rules:
