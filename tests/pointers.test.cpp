@@ -413,10 +413,10 @@ boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
 
       // Test exception on accessing null optional
       optional_ptr<test_class> empty;
-      expect(throws<std::bad_optional_access>(
+      expect(throws<hal::bad_optional_ptr_access>(
         [&] { [[maybe_unused]] auto _ = empty->value(); }))
         << "Accessing null optional with arrow operator should throw\n";
-      expect(throws<std::bad_optional_access>(
+      expect(throws<hal::bad_optional_ptr_access>(
         [&] { [[maybe_unused]] auto _ = (*empty).value(); }))
         << "Accessing null optional with dereference operator should throw\n";
     };
@@ -830,7 +830,7 @@ boost::ut::suite<"optional_ptr_conversion_test"> optional_ptr_conversion_test =
     "conversion_with_empty_optional"_test = [&] {
       optional_ptr<test_class> empty;
 
-      expect(throws<std::bad_optional_access>([&] {
+      expect(throws<hal::bad_optional_ptr_access>([&] {
         strong_ptr<test_class> converted = empty;  // Should throw
       }));
     };
