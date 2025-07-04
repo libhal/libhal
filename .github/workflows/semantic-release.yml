@@ -32,12 +32,13 @@ jobs:
         uses: paulhatch/semantic-version@v5.4.0
         with:
           bump_each_commit: true
-          major_pattern: "[major]"
-          minor_pattern: "[minor]"
-          bump_each_commit_patch_pattern: "[patch]"
+          major_pattern: "(major)"
+          minor_pattern: "(minor)"
+          bump_each_commit_patch_pattern: "(patch)"
           tag_prefix: ""
+          debug: true
       - name: Release
-        if: steps.version.outputs.changed == 'true'
+        if: steps.version.outputs.version_type != 'none'
         run: |
           gh release create ${{ steps.version.outputs.version_tag }} \
             --generate-notes
