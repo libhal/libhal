@@ -43,4 +43,4 @@ jobs:
           gh release create ${{ steps.version.outputs.version_tag }} \
             --generate-notes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE }}
