@@ -12,33 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 📚 Deploy APIs
-
+name: 🏷️ Semantic Release
 on:
-  release:
-    types:
-      - published
   push:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  deploy_api_docs:
+  release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
         with:
-          python-version: 3.x
-      - run: sudo apt update
-      - run: sudo apt install -y doxygen
-      - run: pip install -r docs/requirements.txt gitpython requests
-      - run: wget https://raw.githubusercontent.com/libhal/ci/5.x.y/scripts/api.py
-      - run: python api.py build --version ${{ github.ref_name }}
-      - run: python api.py deploy --version ${{ github.ref_name }} --repo-name ${{ github.event.repository.name }}
+          fetch-depth: 0
+      - name: Version
+        id: version
+        uses: paulhatch/semantic-version@v5.4.0
+        with:
+          bump_each_commit: true
+          major_pattern: "[major]"
+          minor_pattern: "[minor]"
+          bump_each_commit_patch_pattern: "[patch]"
+          tag_prefix: ""
+      - name: Release
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          gh release create ${{ steps.version.outputs.version_tag }} \
+            --generate-notes
         env:
-          GITHUB_TOKEN: ${{ secrets.API_PUSH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,6 +1,6 @@
 #!/usr/bin/python
 #
-# Copyright 2024 Khalil Estell
+# Copyright 2024 - 2025 Khalil Estell and the libhal contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ class libhal_conan(ConanFile):
 
     def layout(self):
         cmake_layout(self)
-    
+
     def generate(self):
         cmake = CMake(self)
         cmake.configure()
