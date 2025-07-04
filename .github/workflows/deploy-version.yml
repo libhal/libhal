@@ -1,9 +1,11 @@
 # Breaking change was removing the bit timing sections from hal::can::settings,
 # now it is just baud_rate.
-name: 🚀 Deploy Version
+name: 🚀 Deploy
 
 on:
   workflow_dispatch:
+  release:
+    types: [published]
 
 jobs:
   deploy:
