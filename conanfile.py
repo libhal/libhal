@@ -21,7 +21,7 @@ from conan.tools.build import check_min_cppstd
 import os
 
 
-required_conan_version = ">=2.0.14"
+required_conan_version = ">=2.2.0"
 
 
 class libhal_conan(ConanFile):
