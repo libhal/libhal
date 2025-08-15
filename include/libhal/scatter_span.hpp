@@ -15,7 +15,9 @@
 #pragma once
 
 #include <array>
+#include <concepts>
 #include <span>
+#include <type_traits>
 
 #include "units.hpp"
 
@@ -169,4 +171,19 @@ constexpr auto make_writable_scatter_bytes(Args&&... args)
 {
   return make_scatter_array<hal::byte>(std::forward<Args>(args)...);
 }
+
+template<typename T>
+concept spanable = requires(T const& t) {
+  { std::span(t) };
+};
+
+template<typename T>
+concept spanable_bytes = requires(T& t) {
+  { std::span<hal::byte const>(t) };
+};
+
+template<typename T>
+concept spanable_writable_bytes = requires(T& t) {
+  { std::span<hal::byte>(t) };
+};
 }  // namespace hal::v5
