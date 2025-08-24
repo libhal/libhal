@@ -110,9 +110,40 @@ public:
     return driver_stall(p_should_stall);
   }
 
+  /**
+   * @brief Reset the USB endpoint
+   *
+   * This method resets the USB endpoint to its default state. A reset operation
+   * clears any pending transactions, resets the endpoint's data toggle bit to
+   * zero, and terminates any ongoing transfers on the endpoint. This is
+   * typically used during USB enumeration when transitioning between different
+   * device states, or when recovering from error conditions.
+   *
+   * The reset operation affects the following aspects of the endpoint:
+   * - Clears the data toggle bit (used for USB protocol handshaking)
+   * - Terminates any pending or active transfers
+   * - Resets the endpoint's internal state machine
+   * - Clears any error conditions that may be present
+   *
+   * This method is typically called during:
+   * - USB device enumeration when transitioning from Default to Addressed state
+   * - Recovery from USB protocol errors
+   * - When a new configuration is being set
+   * - During USB bus reset operations
+   *
+   * After a reset, the endpoint will be in a clean state ready to accept new
+   * transactions. The host controller will typically re-initialize the endpoint
+   * when the next data transfer occurs.
+   */
+  void reset()
+  {
+    return driver_reset();
+  }
+
 private:
   [[nodiscard]] virtual usb_endpoint_info driver_info() const = 0;
   virtual void driver_stall(bool p_should_stall) = 0;
+  virtual void driver_reset() = 0;
 };
 
 /**

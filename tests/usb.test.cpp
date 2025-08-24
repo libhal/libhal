@@ -30,6 +30,7 @@ public:
   usb_endpoint_info m_info{};
   bool m_stall_called{ false };
   bool m_should_stall{ false };
+  bool m_reset_called{ false };
 
 protected:
   [[nodiscard]] usb_endpoint_info driver_info() const override
@@ -41,6 +42,11 @@ protected:
   {
     m_stall_called = true;
     m_should_stall = p_should_stall;
+  }
+
+  void driver_reset() override
+  {
+    m_reset_called = true;
   }
 };
 
@@ -95,6 +101,11 @@ private:
     m_receive_callback = p_callback;
     m_on_receive_called = true;
   }
+
+  void driver_reset() override
+  {
+    m_endpoint.reset();
+  }
 };
 
 // Mock implementation for usb_in_endpoint
@@ -117,6 +128,11 @@ private:
   void driver_write(scatter_span<byte const> p_data) override
   {
     m_write_data = p_data;
+  }
+
+  void driver_reset() override
+  {
+    m_endpoint.reset();
   }
 };
 
@@ -152,6 +168,11 @@ private:
   {
     m_read_buffer = p_buffer;
     return m_read_result;
+  }
+
+  void driver_reset() override
+  {
+    m_endpoint.reset();
   }
 };
 
@@ -226,6 +247,14 @@ boost::ut::suite<"usb_endpoint_test"> endpoint_test = []() {
     endpoint.stall(false);
     expect(that % true == endpoint.m_stall_called);
     expect(that % false == endpoint.m_should_stall);
+  };
+
+  "usb_endpoint reset test"_test = []() {
+    mock_usb_endpoint endpoint;
+
+    expect(that % not endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_reset_called);
   };
 };
 
@@ -329,6 +358,14 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     expect(that % true == endpoint.m_endpoint.m_stall_called);
     expect(that % false == endpoint.m_endpoint.m_should_stall);
   };
+
+  "mock_usb_control_endpoint reset test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
+  };
 };
 
 // Test for usb_in_endpoint interface
@@ -351,6 +388,14 @@ boost::ut::suite<"usb_in_endpoint_test"> in_endpoint_test = []() {
 
     expect(that % data1.data() == endpoint.m_write_data[1].data());
     expect(that % data1.size() == endpoint.m_write_data[1].size());
+  };
+
+  "mock_usb_in_endpoint reset test"_test = []() {
+    mock_usb_in_endpoint endpoint;
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
   };
 };
 
@@ -394,6 +439,14 @@ boost::ut::suite<"usb_out_endpoint_test"> out_endpoint_test = []() {
     expect(that % buffer2.data() == endpoint.m_read_buffer[1].data());
     expect(that % buffer2.size() == endpoint.m_read_buffer[1].size());
   };
+
+  "usb_out_endpoint reset test"_test = []() {
+    mock_usb_out_endpoint endpoint;
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
+  };
 };
 
 // Test for specific endpoint types
@@ -424,6 +477,10 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     endpoint.stall(false);
     expect(that % true == endpoint.m_endpoint.m_stall_called);
     expect(that % false == endpoint.m_endpoint.m_should_stall);
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
 
     std::array<byte, 3> data0 = { 1, 2, 3 };
     std::array<byte, 2> data1 = { 4, 5 };
@@ -466,6 +523,10 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     endpoint.stall(false);
     expect(that % true == endpoint.m_endpoint.m_stall_called);
     expect(that % false == endpoint.m_endpoint.m_should_stall);
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
 
     bool callback_called = false;
 
@@ -524,6 +585,10 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     expect(that % true == endpoint.m_endpoint.m_stall_called);
     expect(that % false == endpoint.m_endpoint.m_should_stall);
 
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
+
     std::array<byte, 3> data0 = { 1, 2, 3 };
     std::array<byte, 2> data1 = { 4, 5 };
 
@@ -564,6 +629,10 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     endpoint.stall(false);
     expect(that % true == endpoint.m_endpoint.m_stall_called);
     expect(that % false == endpoint.m_endpoint.m_should_stall);
+
+    expect(that % not endpoint.m_endpoint.m_reset_called);
+    endpoint.reset();
+    expect(that % endpoint.m_endpoint.m_reset_called);
 
     bool callback_called = false;
 
