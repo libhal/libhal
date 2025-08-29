@@ -15,9 +15,7 @@
 #pragma once
 
 #include <array>
-#include <concepts>
 #include <span>
-#include <type_traits>
 
 #include "units.hpp"
 
@@ -103,6 +101,97 @@ constexpr auto make_scatter_array(Args&&... args)
 {
   return std::array<std::span<T>, sizeof...(Args)>{ std::span<T>(
     std::forward<Args>(args))... };
+}
+
+/**
+ * @brief Compare two scatter spans of type T are equal regardless of their
+ * underlying topologies and sizes.
+ *
+ * @tparam T - The element type of the sub‑spans.
+ * @param lhs - The scatter_span on the left hand side of the expression to be
+ * compared against the right hand side's scatter_span.
+ *
+ * @param rhs - The scatter_span on the right hand side of the expression to be
+ * compared against the left hand side's scatter_span.
+ *
+ * @returns true if the two scatter_spans are equal false if not.
+ */
+template<typename T>
+constexpr bool operator==(scatter_span<T> const& lhs,
+                          scatter_span<T> const& rhs)
+{
+  if (lhs.size() < 1 || rhs.size() < 1) {
+    return false;
+  }
+
+  std::pair<size_t, size_t> lhs_pos = { 0, 0 };
+  std::pair<size_t, size_t> rhs_pos = { 0, 0 };
+
+  std::span<T const> l = lhs[lhs_pos.first];
+  std::span<T const> r = rhs[rhs_pos.first];
+
+  bool lhs_finished = false;
+  bool rhs_finished = false;
+
+  while (true) {
+
+    if (l[lhs_pos.second] != r[rhs_pos.second]) {
+      return false;
+    }
+
+    if (lhs_pos.second >= l.size() - 1) {
+      lhs_pos.first++;
+      lhs_pos.second = 0;
+      if (lhs_pos.first > lhs.size() - 1) {
+        lhs_finished = true;
+      } else {
+        l = lhs[lhs_pos.first];
+      }
+
+    } else {
+      lhs_pos.second++;
+    }
+
+    if (rhs_pos.second >= r.size() - 1) {
+      rhs_pos.first++;
+      rhs_pos.second = 0;
+      if (rhs_pos.first > rhs.size() - 1) {
+        rhs_finished = true;
+      } else {
+        r = rhs[rhs_pos.first];
+      }
+    } else {
+      rhs_pos.second++;
+    }
+
+    if (lhs_finished || rhs_finished) {
+      if (lhs_finished && rhs_finished) {
+        return true;
+      } else {
+        return false;
+      }
+    }
+  }
+}
+
+/**
+ * @brief Compare two scatter spans of type T are not equal regardless of their
+ * underlying topologies and sizes.
+ *
+ * @tparam T - The element type of the sub‑spans.
+ * @param lhs - The scatter_span on the left hand side of the expression to be
+ * compared against the right hand side's scatter_span.
+ *
+ * @param rhs - The scatter_span on the right hand side of the expression to be
+ * compared against the left hand side's scatter_span.
+ *
+ * @returns true if the two scatter_spans are not equal false if they are.
+ */
+template<typename T>
+constexpr bool operator!=(scatter_span<T> const& lhs,
+                          scatter_span<T> const& rhs)
+{
+  return !(lhs == rhs);
 }
 
 /**

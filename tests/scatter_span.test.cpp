@@ -31,7 +31,7 @@ struct multi_buffer
 };
 }  // namespace
 
-boost::ut::suite scatter_api_test = []() {
+boost::ut::suite<"scatter_api_test"> scatter_api_test = []() {
   using namespace boost::ut;
 
   "make_scatter_array - generic"_test = [] {
@@ -144,6 +144,49 @@ boost::ut::suite scatter_api_test = []() {
     static_assert(not spanable_writable_bytes<int>);
     static_assert(not spanable_writable_bytes<float>);
     static_assert(not spanable_writable_bytes<test_struct>);
+  };
+
+  "scatter_span operator=="_test = []() {
+    std::array<byte, 4> a{ 1, 2, 3, 4 };
+    std::array<byte, 4> b{ 1, 2, 3, 4 };
+    std::span<byte const> a_span(a.data(), a.size());
+    std::span<byte const> b_span(b.data(), b.size());
+
+    auto scatter_array_a = make_scatter_bytes(a_span);
+    auto scatter_array_b = make_scatter_bytes(b_span);
+
+    scatter_span<byte const> sa(scatter_array_a);
+    scatter_span<byte const> sb(scatter_array_b);
+    // Test equal spans with the same size
+    expect(that % (sa == sb));
+
+    // Test different spans with the same size
+    a[3] = 0;
+    expect(that % (sa != sb));
+
+    auto c_span = make_scatter_bytes(std::span{ b.begin(), 3 });
+    scatter_span<byte const> sc(c_span);
+
+    // Test different sized scatter spans to make sure they're not equal
+    expect(that % (sa != sc));
+
+    // // Test empty scatter spans
+    auto empty = make_scatter_bytes();
+    expect(that % (sa != static_cast<scatter_span<byte const>>(empty)));
+
+    // // Advanced tests
+    std::array<u8, 4> e{ 1, 2, 3, 4 };
+    std::array<u8, 3> f{ 1, 2, 3 };
+
+    std::array<u8, 5> g{ 1, 2, 3, 4, 1 };
+    std::array<u8, 2> h{ 2, 3 };
+
+    auto ef_scatter_span = make_scatter_array<u8>(e, f);
+    scatter_span<u8> se(ef_scatter_span);
+    auto gh_scatter_span = make_scatter_array<u8>(g, h);
+    scatter_span<u8> sg(gh_scatter_span);
+
+    expect(that % (se == sg));
   };
 };
 }  // namespace hal::v5
