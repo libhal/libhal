@@ -13,8 +13,6 @@
 // limitations under the License.
 
 #pragma once
-#include <libhal/usb.hpp>
-
 #include <libhal/error.hpp>
 #include <libhal/usb.hpp>
 
@@ -106,83 +104,4 @@ private:
   }
 };
 
-// Mock implementation for usb_in_endpoint
-class mock_usb_in_endpoint : public usb_in_endpoint
-{
-public:
-  mock_usb_endpoint m_endpoint;
-  scatter_span<byte const> m_write_data{};
-
-private:
-  [[nodiscard]] usb_endpoint_info driver_info() const override
-  {
-    return m_endpoint.info();
-  }
-
-  void driver_stall(bool p_should_stall) override
-  {
-    m_endpoint.stall(p_should_stall);
-  }
-  void driver_write(scatter_span<byte const> p_data) override
-  {
-    m_write_data = p_data;
-  }
-
-  void driver_reset() override
-  {
-    m_endpoint.reset();
-  }
-};
-
-// Mock implementation for usb_out_endpoint
-class mock_usb_out_endpoint : public usb_out_endpoint
-{
-public:
-  mock_usb_endpoint m_endpoint;
-  callback<void(on_receive_tag)> m_receive_callback{};
-  bool m_on_receive_called{ false };
-  scatter_span<byte> m_read_buffer{};
-  usize m_read_result{ 0 };
-
-private:
-  [[nodiscard]] usb_endpoint_info driver_info() const override
-  {
-    return m_endpoint.info();
-  }
-
-  void driver_stall(bool p_should_stall) override
-  {
-    m_endpoint.stall(p_should_stall);
-  }
-
-  void driver_on_receive(
-    callback<void(on_receive_tag)> const& p_callback) override
-  {
-    m_receive_callback = p_callback;
-    m_on_receive_called = true;
-  }
-
-  usize driver_read(scatter_span<byte> p_buffer) override
-  {
-    m_read_buffer = p_buffer;
-    return m_read_result;
-  }
-
-  void driver_reset() override
-  {
-    m_endpoint.reset();
-  }
-};
-
-struct mock_usb_interrupt_in_endpoint : public mock_usb_in_endpoint
-{};
-
-struct mock_usb_bulk_in_endpoint : public mock_usb_in_endpoint
-{};
-
-struct mock_usb_interrupt_out_endpoint : public mock_usb_out_endpoint
-{};
-
-struct mock_usb_bulk_out_endpoint : public mock_usb_out_endpoint
-{};
 }  // namespace hal::v5

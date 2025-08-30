@@ -51,6 +51,7 @@ libhal_unit_test(SOURCES
   tests/stream_dac.test.cpp
   tests/lock.test.cpp
   tests/usb.test.cpp
+  tests/usb_interfaces.test.cpp
   tests/zero_copy_serial.test.cpp
   tests/buffered_can.test.cpp
   tests/pointers.test.cpp

@@ -100,7 +100,7 @@ public:
     byte iface_idxes;
     byte str_idxes;
 
-    bool operator<=>(descriptor_delta const& rhs) const = default;
+    constexpr bool operator<=>(descriptor_delta const& rhs) const = default;
   };
 
   /**
@@ -194,7 +194,7 @@ public:
    * @param p_wIndex - The index of the interface being requested.
    * @return Two bytes of data to send to the host.
    */
-  u8 get_interface(u16 p_wIndex)
+  u16 get_interface(u16 p_wIndex)
   {
     return driver_get_interface(p_wIndex);
   }
@@ -261,7 +261,7 @@ private:
                                       u16 p_selector,
                                       u16 p_wIndex) = 0;
 
-  virtual u8 driver_get_interface(u16 p_wIndex) = 0;
+  virtual u16 driver_get_interface(u16 p_wIndex) = 0;
   virtual void driver_set_interface(u16 p_alt_setting, u16 p_wIndex) = 0;
   // NOLINTEND
 };
