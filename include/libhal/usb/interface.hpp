@@ -207,7 +207,7 @@ public:
    * @param p_wIndex - The index of the interface being set.
    * @param p_alt_setting - The alternative setting number.
    */
-  void set_interface(u16 p_alt_setting, u16 p_wIndex)
+  void set_interface(u8 p_alt_setting, u16 p_wIndex)
   {
     driver_set_interface(p_alt_setting, p_wIndex);
   }
@@ -262,7 +262,7 @@ private:
                                       u16 p_wIndex) = 0;
 
   virtual u16 driver_get_interface(u16 p_wIndex) = 0;
-  virtual void driver_set_interface(u16 p_alt_setting, u16 p_wIndex) = 0;
+  virtual void driver_set_interface(u8 p_alt_setting, u16 p_wIndex) = 0;
   // NOLINTEND
 };
 }  // namespace hal::v5
