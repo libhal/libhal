@@ -174,10 +174,14 @@ public:
 
   /**
    * @brief Set or clear an interface (or below) feature
+   * For more information on the general way interface and endpoint features are
+   * set see the following: https://www.beyondlogic.org/usbnutshell/usb6.shtml
    *
    * @param p_bmRequestType - BitMap giving type and recipient information
    * @param p_set - If we are setting or clearing a feature, true is setting.
-   * @param p_feature_selector - The feature selector to be set or cleared.
+   * @param p_selector - The feature selector to be set or cleared
+   * @param p_wIndex - The index of the reception target for the feature to be
+   * set.
    */
   void manage_features(req_bitmap p_bmRequestType,
                        bool p_set,
@@ -194,7 +198,7 @@ public:
    * @param p_wIndex - The index of the interface being requested.
    * @return Two bytes of data to send to the host.
    */
-  u16 get_interface(u16 p_wIndex)
+  u8 get_interface(u16 p_wIndex)
   {
     return driver_get_interface(p_wIndex);
   }
@@ -261,7 +265,7 @@ private:
                                       u16 p_selector,
                                       u16 p_wIndex) = 0;
 
-  virtual u16 driver_get_interface(u16 p_wIndex) = 0;
+  virtual u8 driver_get_interface(u16 p_wIndex) = 0;
   virtual void driver_set_interface(u8 p_alt_setting, u16 p_wIndex) = 0;
   // NOLINTEND
 };
