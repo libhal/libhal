@@ -437,7 +437,7 @@ concept in_endpoint_type =
  */
 struct setup
 {
-  enum class type : hal::byte const
+  enum class type : hal::byte
   {
     standard = 0,
     class_t = 1,
@@ -445,7 +445,7 @@ struct setup
     invalid
   };
 
-  enum class recipient : hal::byte const
+  enum class recipient : hal::byte
   {
     device = 0,
     interface = 1,
@@ -473,7 +473,7 @@ struct setup
     return static_cast<recipient>(r);
   }
 
-  [[nodiscard]] constexpr bool is_device_to_host()
+  [[nodiscard]] constexpr bool is_device_to_host() const
   {
     return request_type & 1 << 7;
   }
