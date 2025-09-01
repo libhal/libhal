@@ -716,7 +716,7 @@ struct mock : public interface
     return true;
   }
 
-  bool driver_handle_request(setup const& p_setup,
+  bool driver_handle_request(setup_packet const& p_setup,
                              endpoint_writer const& p_callback) override
   {
     handle_request_setup = p_setup;
@@ -726,7 +726,7 @@ struct mock : public interface
   }
 
   descriptor_start write_descriptors_start{};
-  setup handle_request_setup{};
+  setup_packet handle_request_setup{};
   u8 write_string_descriptor_string_index{};
 };
 }  // namespace
@@ -737,14 +737,14 @@ boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
 
   "req bitmap construction from byte test"_test = []() {
     u8 raw_byte = 0b10000001;
-    setup bm;
+    setup_packet bm;
     bm.request_type = raw_byte;
 
     // Test recipient
-    expect(setup::recipient::interface == bm.get_recipient());
+    expect(setup_packet::recipient::interface == bm.get_recipient());
 
     // Test type
-    expect(setup::type::standard == bm.get_type());
+    expect(setup_packet::type::standard == bm.get_type());
 
     // Test direction
     expect(that % true == bm.is_device_to_host());
@@ -787,7 +787,7 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
 
   "interface::handle_request"_test = []() mutable {
     mock iface;
-    setup command{
+    setup_packet command{
       .request_type = 0x80,
       .request = 0x01,
       .value = 0x0203,

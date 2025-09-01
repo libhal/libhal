@@ -435,7 +435,7 @@ concept in_endpoint_type =
  * @brief USB Setup Request packet definition
  *
  */
-struct setup
+struct setup_packet
 {
   enum class type : hal::byte
   {
@@ -478,7 +478,7 @@ struct setup
     return request_type & 1 << 7;
   }
 
-  constexpr bool operator<=>(setup const& rhs) const = default;
+  constexpr bool operator<=>(setup_packet const& rhs) const = default;
 
   u8 request_type;
   u8 request;
@@ -580,7 +580,8 @@ public:
    * @return true - if the request was handled by the interface.
    * @return false - if the request could not be handled by interface.
    */
-  bool handle_request(setup const& p_setup, endpoint_writer const& p_callback)
+  bool handle_request(setup_packet const& p_setup,
+                      endpoint_writer const& p_callback)
   {
     return driver_handle_request(p_setup, p_callback);
   }
@@ -594,7 +595,7 @@ private:
   virtual bool driver_write_string_descriptor(
     u8 p_index,
     endpoint_writer const& p_callback) = 0;
-  virtual bool driver_handle_request(setup const& p_setup,
+  virtual bool driver_handle_request(setup_packet const& p_setup,
                                      endpoint_writer const& p_callback) = 0;
 };
 }  // namespace hal::v5::usb
