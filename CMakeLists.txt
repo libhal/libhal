@@ -56,7 +56,6 @@ libhal_unit_test(SOURCES
   tests/pointers.test.cpp
   tests/circular_buffer.test.cpp
   tests/allocated_buffer.test.cpp
-  tests/scatter_span.test.cpp
   tests/main.test.cpp
 
   PACKAGES

@@ -18,12 +18,12 @@
 #include "scatter_span.hpp"
 #include "units.hpp"
 
-namespace hal::v5 {
+namespace hal::v5::usb {
 /**
  * @brief Basic information about an usb endpoint
  *
  */
-struct usb_endpoint_info
+struct endpoint_info
 {
   /**
    * @brief The max number of bytes the endpoint can work with
@@ -77,24 +77,24 @@ struct usb_endpoint_info
  * a specific feature can be used.
  *
  * The `stall(bool)` can also be used by implementations of the
- * `hal::usb_interface` interface to indicate to the HOST usb controller an
+ * `hal::interface` interface to indicate to the HOST usb controller an
  * error on that endpoint or to signal to the HOST that the endpoint is no
  * longer available.
  *
  * The `info()` API can also be used by users in order to log information about
  * endpoints if that is useful to their application and testing.
  */
-class usb_endpoint
+class endpoint
 {
 public:
-  virtual ~usb_endpoint() = default;
+  virtual ~endpoint() = default;
 
   /**
    * @brief Get info about this endpoint
    *
-   * @return usb_endpoint_info - endpoint information
+   * @return endpoint_info - endpoint information
    */
-  [[nodiscard]] usb_endpoint_info info() const
+  [[nodiscard]] endpoint_info info() const
   {
     return driver_info();
   }
@@ -141,7 +141,7 @@ public:
   }
 
 private:
-  [[nodiscard]] virtual usb_endpoint_info driver_info() const = 0;
+  [[nodiscard]] virtual endpoint_info driver_info() const = 0;
   virtual void driver_stall(bool p_should_stall) = 0;
   virtual void driver_reset() = 0;
 };
@@ -162,7 +162,7 @@ private:
  * - Sending and receiving control data
  *
  */
-class usb_control_endpoint : public usb_endpoint
+class control_endpoint : public endpoint
 {
 public:
   struct on_receive_tag
@@ -271,7 +271,7 @@ private:
  * common APIs. It is not meant to be used directly by drivers. Use the
  * interfaces that inherit from this interface.
  */
-class usb_in_endpoint : public usb_endpoint
+class in_endpoint : public endpoint
 {
 public:
   /**
@@ -307,7 +307,7 @@ private:
  * common APIs. It is not meant to be used directly by drivers. Use the
  * interfaces that inherit from this interface.
  */
-class usb_out_endpoint : public usb_endpoint
+class out_endpoint : public endpoint
 {
 public:
   struct on_receive_tag
@@ -371,7 +371,7 @@ private:
  * - Transmitting small amounts of data with guaranteed latency
  * - Ideal for devices like keyboards, mice, or game controllers
  */
-struct usb_interrupt_in_endpoint : public usb_in_endpoint
+struct interrupt_in_endpoint : public in_endpoint
 {};
 
 /**
@@ -386,7 +386,7 @@ struct usb_interrupt_in_endpoint : public usb_in_endpoint
  * - Handling small amounts of data with guaranteed latency
  * - Ideal for devices that need quick responses to host commands
  */
-struct usb_interrupt_out_endpoint : public usb_out_endpoint
+struct interrupt_out_endpoint : public out_endpoint
 {};
 
 /**
@@ -401,7 +401,7 @@ struct usb_interrupt_out_endpoint : public usb_out_endpoint
  * - Sending data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-struct usb_bulk_in_endpoint : public usb_in_endpoint
+struct bulk_in_endpoint : public in_endpoint
 {};
 
 /**
@@ -416,20 +416,186 @@ struct usb_bulk_in_endpoint : public usb_in_endpoint
  * - Handling data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-struct usb_bulk_out_endpoint : public usb_out_endpoint
+struct bulk_out_endpoint : public out_endpoint
 {};
 
 template<class T>
-concept out_endpoint_type =
-  std::is_base_of_v<hal::v5::usb_out_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_control_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_bulk_out_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_interrupt_out_endpoint, T>;
+concept out_endpoint_type = std::is_base_of_v<out_endpoint, T> ||
+                            std::is_base_of_v<control_endpoint, T> ||
+                            std::is_base_of_v<bulk_out_endpoint, T> ||
+                            std::is_base_of_v<interrupt_out_endpoint, T>;
 
 template<class T>
 concept in_endpoint_type =
-  std::is_base_of_v<hal::v5::usb_in_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_control_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_bulk_in_endpoint, T> ||
-  std::is_base_of_v<hal::v5::usb_interrupt_in_endpoint, T>;
-}  // namespace hal::v5
+  std::is_base_of_v<in_endpoint, T> || std::is_base_of_v<control_endpoint, T> ||
+  std::is_base_of_v<bulk_in_endpoint, T> ||
+  std::is_base_of_v<interrupt_in_endpoint, T>;
+
+/**
+ * @brief USB Setup Request packet definition
+ *
+ */
+struct setup_packet
+{
+  enum class type : hal::byte
+  {
+    standard = 0,
+    class_t = 1,
+    vendor = 2,
+    invalid
+  };
+
+  enum class recipient : hal::byte
+  {
+    device = 0,
+    interface = 1,
+    endpoint = 2,
+    invalid
+  };
+
+  [[nodiscard]] constexpr type get_type() const
+  {
+    u8 const t = request_type & (0b11 << 5);
+    if (t > 2) {
+      return type::invalid;
+    }
+
+    return static_cast<type>(t);
+  }
+
+  [[nodiscard]] constexpr recipient get_recipient() const
+  {
+    u8 const r = request_type & 0b1111;
+    if (r > 2) {
+      return recipient::invalid;
+    }
+
+    return static_cast<recipient>(r);
+  }
+
+  [[nodiscard]] constexpr bool is_device_to_host() const
+  {
+    return request_type & 1 << 7;
+  }
+
+  constexpr bool operator<=>(setup_packet const& rhs) const = default;
+
+  u8 request_type;
+  u8 request;
+  u16 value;
+  u16 index;
+  u16 length;
+};
+
+/**
+ * @brief A class representing a usb interface
+ *
+ * Examples of this could be a HID device, a microphone, a storage device, etc
+ * Is to be paired with a given USB peripheral device and a configuration during
+ * enumeration.
+ *
+ * TODO(#164): tech debt, clean up API descriptions
+ */
+class interface
+{
+public:
+  using endpoint_writer = hal::callback<void(scatter_span<hal::byte const>)>;
+
+  /**
+   * @brief Encapsulates the number of interfaces and strings this usb interface
+   * contains.
+   */
+  struct descriptor_count
+  {
+    u8 interface;
+    u8 string;
+    constexpr bool operator<=>(descriptor_count const& rhs) const = default;
+  };
+
+  /**
+   * @brief Encapsulates the starting indexes for which this interface must use
+   * for its interface descriptor.
+   */
+  struct descriptor_start
+  {
+    /// Defines the starting index value for this interface. For example, if
+    /// this usb interface contains two sub interfaces, then the interface
+    /// number should be `interface` and the second should be `interface + 1`.
+    u8 interface;
+
+    /// Defines the starting index value for this interface's strings. For
+    /// example, if this usb interface has 3 strings, then the starting ID for
+    /// those strings would be this value. String 1 would be this value, then
+    /// string 2 would be `value + 1` and string 3 would be `value + 2`.
+    u8 string;
+
+    constexpr bool operator<=>(descriptor_start const& rhs) const = default;
+  };
+
+  /**
+   * @brief Writes descriptors that this interface is responsible for via a
+   * callback. This function may be called multiple times during
+   * (re)enumeration.
+   *
+   * @param p_callback - A hal::callback that returns void and takes a span of
+   * const bytes as a parameter, that span is where the descriptor stream will
+   * be written to.
+   * @param p_start - the starting values for interface numbers and string
+   * indexes. The `string` field should be cached by the interface in order to
+   * allow `write_string_descriptor` to work correctly.
+   */
+  [[nodiscard]] descriptor_count write_descriptors(
+    descriptor_start p_start,
+    endpoint_writer const& p_callback)
+  {
+    return driver_write_descriptors(p_start, p_callback);
+  }
+
+  /**
+   * @brief Write string descriptor
+   *
+   * All usb interfaces MUST default initialize their starting string descriptor
+   * index to 1 and update it based on the `write_descriptors()` function.
+   *
+   * @param p_index - Which string index's descriptor should be written.
+   * @param p_callback - A callback used to write the string descriptor.
+   *
+   * @returns true - if the string was located and written over the
+   * endpoint_writer.
+   * @returns false - if the string requested does not belong to this interface.
+   */
+  [[nodiscard]] bool write_string_descriptor(u8 p_index,
+                                             endpoint_writer const& p_callback)
+  {
+    return driver_write_string_descriptor(p_index, p_callback);
+  }
+
+  /**
+   * @brief Generic handler for requests targeting the interface or below level
+   * of a USB device. These could be standard requests or custom requests.
+   *
+   * @param p_setup - Setup request from the host.
+   * @param p_callback - The callback to write out the response to the request
+   * to the host if the setup has a data phase.
+   * @return true - if the request was handled by the interface.
+   * @return false - if the request could not be handled by interface.
+   */
+  bool handle_request(setup_packet const& p_setup,
+                      endpoint_writer const& p_callback)
+  {
+    return driver_handle_request(p_setup, p_callback);
+  }
+
+  virtual ~interface() = default;
+
+private:
+  virtual descriptor_count driver_write_descriptors(
+    descriptor_start p_start,
+    endpoint_writer const& p_callback) = 0;
+  virtual bool driver_write_string_descriptor(
+    u8 p_index,
+    endpoint_writer const& p_callback) = 0;
+  virtual bool driver_handle_request(setup_packet const& p_setup,
+                                     endpoint_writer const& p_callback) = 0;
+};
+}  // namespace hal::v5::usb
