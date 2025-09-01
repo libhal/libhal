@@ -1,18 +1,20 @@
-#include "libhal/error.hpp"
-#include "libhal/scatter_span.hpp"
-#include "libhal/units.hpp"
-#include "libhal/usb/endpoints.hpp"
-#include "libhal/usb/interface.hpp"
-#include "mock_usb_endpoints.hpp"
 #include <array>
-#include <boost/ut.hpp>
 #include <cstddef>
 #include <span>
 #include <string_view>
 #include <tuple>
 #include <utility>
 
-namespace hal::v5 {
+#include <libhal/error.hpp>
+#include <libhal/scatter_span.hpp>
+#include <libhal/units.hpp>
+#include <libhal/usb.hpp>
+
+#include "mock_usb_endpoints.hpp"
+
+#include <boost/ut.hpp>
+
+namespace hal::v5::usb {
 
 namespace {
 
@@ -39,7 +41,7 @@ std::array<hal::byte, 2> to_le_bytes(u16 n)
            static_cast<hal::byte>(n & 0xFF << 8) };
 }
 
-class mock_interface : public usb_interface
+class mock_interface : public interface
 {
 public:
   ~mock_interface() override = default;
@@ -734,4 +736,4 @@ boost::ut::suite<"usb_interfacem multi interface test"> usb_multi_iface_test =
       expect(that % expected_alt_two == alt_two);
     };
   };
-}  // namespace hal::v5
+}  // namespace hal::v5::usb

@@ -13,15 +13,44 @@
 // limitations under the License.
 
 #include "libhal/scatter_span.hpp"
-#include "mock_usb_endpoints.hpp"
+#include <libhal/usb.hpp>
+
+#include <libhal/error.hpp>
 
 #include <boost/ut.hpp>
 
-namespace hal::v5 {
+namespace hal::v5::usb {
 
 namespace {
+
+class mock_usb_endpoint : public usb::endpoint
+{
+public:
+  usb::endpoint_info m_info{};
+  bool m_stall_called{ false };
+  bool m_should_stall{ false };
+  bool m_reset_called{ false };
+
+protected:
+  [[nodiscard]] usb::endpoint_info driver_info() const override
+  {
+    return m_info;
+  }
+
+  void driver_stall(bool p_should_stall) override
+  {
+    m_stall_called = true;
+    m_should_stall = p_should_stall;
+  }
+
+  void driver_reset() override
+  {
+    m_reset_called = true;
+  }
+};
+
 // Mock implementation for usb_control_endpoint
-class mock_usb_control_endpoint : public usb_control_endpoint
+class mock_usb_control_endpoint : public control_endpoint
 {
 public:
   mock_usb_endpoint m_endpoint;
@@ -34,7 +63,7 @@ public:
   bool m_on_receive_called{ false };
 
 private:
-  [[nodiscard]] usb_endpoint_info driver_info() const override
+  [[nodiscard]] endpoint_info driver_info() const override
   {
     return m_endpoint.info();
   }
@@ -79,14 +108,14 @@ private:
 };
 
 // Mock implementation for usb_in_endpoint
-class mock_usb_in_endpoint : public usb_in_endpoint
+class mock_usb_in_endpoint : public in_endpoint
 {
 public:
   mock_usb_endpoint m_endpoint;
   scatter_span<byte const> m_write_data{};
 
 private:
-  [[nodiscard]] usb_endpoint_info driver_info() const override
+  [[nodiscard]] endpoint_info driver_info() const override
   {
     return m_endpoint.info();
   }
@@ -107,7 +136,7 @@ private:
 };
 
 // Mock implementation for usb_out_endpoint
-class mock_usb_out_endpoint : public usb_out_endpoint
+class mock_usb_out_endpoint : public out_endpoint
 {
 public:
   mock_usb_endpoint m_endpoint;
@@ -117,7 +146,7 @@ public:
   usize m_read_result{ 0 };
 
 private:
-  [[nodiscard]] usb_endpoint_info driver_info() const override
+  [[nodiscard]] endpoint_info driver_info() const override
   {
     return m_endpoint.info();
   }
@@ -163,7 +192,7 @@ boost::ut::suite<"usb_endpoint_info_test"> endpoint_info_test = []() {
   using namespace boost::ut;
 
   "endpoint info in_direction test"_test = []() {
-    usb_endpoint_info info{};
+    endpoint_info info{};
 
     // Test IN endpoint (bit 7 set)
     info.number = 0x81;  // Endpoint 1, IN
@@ -175,7 +204,7 @@ boost::ut::suite<"usb_endpoint_info_test"> endpoint_info_test = []() {
   };
 
   "endpoint info logical_number test"_test = []() {
-    usb_endpoint_info info{};
+    endpoint_info info{};
 
     // Test with various endpoint numbers
     info.number = 0x81;  // Endpoint 1, IN
@@ -189,11 +218,11 @@ boost::ut::suite<"usb_endpoint_info_test"> endpoint_info_test = []() {
   };
 };
 
-// Test for usb_endpoint interface
-boost::ut::suite<"usb_endpoint_test"> endpoint_test = []() {
+// Test for endpoint interface
+boost::ut::suite<"endpoint_test"> endpoint_test = []() {
   using namespace boost::ut;
 
-  "usb_endpoint info test"_test = []() {
+  "endpoint info test"_test = []() {
     mock_usb_endpoint endpoint;
     endpoint.m_info.size = 64;
     endpoint.m_info.number = 0x81;
@@ -291,7 +320,7 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     mock_usb_control_endpoint endpoint;
     bool callback_called = false;
 
-    auto callback = [&callback_called](usb_control_endpoint::on_receive_tag) {
+    auto callback = [&callback_called](control_endpoint::on_receive_tag) {
       callback_called = true;
     };
 
@@ -299,7 +328,7 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     expect(that % true == endpoint.m_on_receive_called);
 
     // Manually call the stored callback to verify it works
-    endpoint.m_receive_callback(usb_control_endpoint::on_receive_tag{});
+    endpoint.m_receive_callback(control_endpoint::on_receive_tag{});
     expect(that % true == callback_called);
   };
 
@@ -377,7 +406,7 @@ boost::ut::suite<"usb_out_endpoint_test"> out_endpoint_test = []() {
     mock_usb_out_endpoint endpoint;
     bool callback_called = false;
 
-    auto callback = [&callback_called](usb_out_endpoint::on_receive_tag) {
+    auto callback = [&callback_called](out_endpoint::on_receive_tag) {
       callback_called = true;
     };
 
@@ -385,7 +414,7 @@ boost::ut::suite<"usb_out_endpoint_test"> out_endpoint_test = []() {
     expect(that % true == endpoint.m_on_receive_called);
 
     // Manually call the stored callback to verify it works
-    endpoint.m_receive_callback(usb_out_endpoint::on_receive_tag{});
+    endpoint.m_receive_callback(out_endpoint::on_receive_tag{});
     expect(that % true == callback_called);
   };
 
@@ -425,8 +454,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
   "usb_interrupt_in_endpoint test"_test = []() {
     // Test that it inherits from usb_in_endpoint
-    static_assert(
-      std::is_base_of_v<usb_in_endpoint, usb_interrupt_in_endpoint>);
+    static_assert(std::is_base_of_v<in_endpoint, interrupt_in_endpoint>);
     mock_usb_interrupt_in_endpoint endpoint;
 
     endpoint.m_endpoint.m_info.size = 64;
@@ -470,8 +498,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
   "usb_interrupt_out_endpoint test"_test = []() {
     // Test that it inherits from usb_out_endpoint
-    static_assert(
-      std::is_base_of_v<usb_out_endpoint, usb_interrupt_out_endpoint>);
+    static_assert(std::is_base_of_v<out_endpoint, interrupt_out_endpoint>);
 
     mock_usb_interrupt_out_endpoint endpoint;
 
@@ -500,7 +527,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
     bool callback_called = false;
 
-    auto callback = [&callback_called](usb_out_endpoint::on_receive_tag) {
+    auto callback = [&callback_called](out_endpoint::on_receive_tag) {
       callback_called = true;
     };
 
@@ -508,7 +535,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     expect(that % true == endpoint.m_on_receive_called);
 
     // Manually call the stored callback to verify it works
-    endpoint.m_receive_callback(usb_out_endpoint::on_receive_tag{});
+    endpoint.m_receive_callback(out_endpoint::on_receive_tag{});
     expect(that % true == callback_called);
 
     std::array<byte, 3> buffer1 = { 0 };
@@ -532,7 +559,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
   "usb_bulk_in_endpoint test"_test = []() {
     // Test that it inherits from usb_in_endpoint
-    static_assert(std::is_base_of_v<usb_in_endpoint, usb_bulk_in_endpoint>);
+    static_assert(std::is_base_of_v<in_endpoint, bulk_in_endpoint>);
 
     mock_usb_bulk_in_endpoint endpoint;
 
@@ -577,7 +604,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
   "usb_bulk_out_endpoint test"_test = []() {
     // Test that it inherits from usb_out_endpoint
-    static_assert(std::is_base_of_v<usb_out_endpoint, usb_bulk_out_endpoint>);
+    static_assert(std::is_base_of_v<out_endpoint, bulk_out_endpoint>);
 
     mock_usb_bulk_out_endpoint endpoint;
 
@@ -606,7 +633,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
     bool callback_called = false;
 
-    auto callback = [&callback_called](usb_out_endpoint::on_receive_tag) {
+    auto callback = [&callback_called](out_endpoint::on_receive_tag) {
       callback_called = true;
     };
 
@@ -614,7 +641,7 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     expect(that % true == endpoint.m_on_receive_called);
 
     // Manually call the stored callback to verify it works
-    endpoint.m_receive_callback(usb_out_endpoint::on_receive_tag{});
+    endpoint.m_receive_callback(out_endpoint::on_receive_tag{});
     expect(that % true == callback_called);
 
     std::array<byte, 3> buffer1 = { 0 };
@@ -636,4 +663,146 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     expect(that % buffer2.size() == endpoint.m_read_buffer[1].size());
   };
 };
-}  // namespace hal::v5
+}  // namespace hal::v5::usb
+
+namespace hal::v5::usb {
+
+namespace {
+
+template<typename T>
+size_t scatter_span_size(scatter_span<T> ss)
+{
+  size_t res = 0;
+  for (auto const& s : ss) {
+    res += s.size();
+  }
+
+  return res;
+}
+
+constexpr u8 iface_desc_length = 9;
+constexpr u8 iface_desc_type = 0x4;
+
+struct mock : public interface
+{
+  constexpr static std::array<u8, 9> expected_descriptor = {
+    iface_desc_length,
+    iface_desc_type,
+    0,  // interface_number
+    0,  // alternate_setting
+    1,  //  num_endpoints
+    2,  //  interface_class
+    3,  // interface_sub_class
+    4,  // interface_protocol
+    1   // i_interface
+  };
+
+  [[nodiscard]] descriptor_count driver_write_descriptors(
+    descriptor_start p_start,
+    endpoint_writer const& p_callback) override
+  {
+    write_descriptors_start = p_start;
+    p_callback(make_scatter_bytes(expected_descriptor));
+
+    return { .interface = 1, .string = 1 };
+  }
+
+  [[nodiscard]] bool driver_write_string_descriptor(
+    u8 p_index,
+    endpoint_writer const& p_callback) override
+  {
+    write_string_descriptor_string_index = p_index;
+    p_callback(make_scatter_bytes(std::to_array<u8>({ 0, 0x01 })));
+    return true;
+  }
+
+  bool driver_handle_request(setup const& p_setup,
+                             endpoint_writer const& p_callback) override
+  {
+    handle_request_setup = p_setup;
+    p_callback(make_scatter_bytes(std::to_array<u8>({ 0xAA, 0xBB })));
+
+    return true;
+  }
+
+  descriptor_start write_descriptors_start{};
+  setup handle_request_setup{};
+  u8 write_string_descriptor_string_index{};
+};
+}  // namespace
+
+// Test the usb highlevel interface (interface descriptor level)
+boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
+  using namespace boost::ut;
+
+  "req bitmap construction from byte test"_test = []() {
+    u8 raw_byte = 0b10000001;
+    setup bm;
+    bm.request_type = raw_byte;
+
+    // Test recipient
+    expect(setup::recipient::interface == bm.get_recipient());
+
+    // Test type
+    expect(setup::type::standard == bm.get_type());
+
+    // Test direction
+    expect(that % true == bm.is_device_to_host());
+  };
+};
+
+// Test the usb highlevel interface (interface descriptor level)
+boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
+  using namespace boost::ut;
+  using descriptor_count = interface::descriptor_count;
+
+  "interface::write_descriptor"_test = []() {
+    mock iface;
+
+    bool callback_called = false;
+    auto callback = [&callback_called](scatter_span<hal::byte const> p_data) {
+      expect(that % mock::expected_descriptor.size() ==
+             scatter_span_size(p_data));
+      expect(that % mock::expected_descriptor.data() == p_data[0].data());
+      callback_called = true;
+    };
+
+    auto delta =
+      iface.write_descriptors({ .interface = 0, .string = 1 }, callback);
+
+    expect(descriptor_count{ 1, 1 } == delta);
+    expect(that % callback_called);
+  };
+
+  "interface::write_string_descriptor"_test = []() mutable {
+    mock iface;
+    bool called = false;
+    auto success = iface.write_string_descriptor(
+      1, [&called](scatter_span<hal::byte const>) { called = true; });
+
+    expect(that % 1 == iface.write_string_descriptor_string_index);
+    expect(that % called);
+    expect(that % success);
+  };
+
+  "interface::handle_request"_test = []() mutable {
+    mock iface;
+    setup command{
+      .request_type = 0x80,
+      .request = 0x01,
+      .value = 0x0203,
+      .index = 0x0405,
+      .length = 0x0607,
+    };
+
+    bool called = false;
+
+    auto actual_res = iface.handle_request(
+      command, [&called](scatter_span<hal::byte const>) { called = true; });
+
+    expect(that % actual_res);
+    expect(that % called);
+    expect(command == iface.handle_request_setup);
+  };
+};
+}  // namespace hal::v5::usb
