@@ -788,11 +788,7 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
   "interface::handle_request"_test = []() mutable {
     mock iface;
     setup_packet command{
-      .request_type = 0x80,
-      .request = 0x01,
-      .value = 0x0203,
-      .index = 0x0405,
-      .length = 0x0607,
+      0x80, 0x01, 0x0203, 0x0405, 0x0607,
     };
 
     bool called = false;
