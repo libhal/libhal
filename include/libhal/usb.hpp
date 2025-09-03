@@ -480,12 +480,89 @@ struct setup_packet
 
   constexpr bool operator<=>(setup_packet const& rhs) const = default;
 
+  constexpr setup_packet() = default;
+
+  constexpr setup_packet(u8 p_request_type,  // NOLINT
+                         u8 p_request,
+                         u16 p_value,
+                         u16 p_index,
+                         u16 p_length)
+    : request_type(p_request_type)
+    , request(p_request)
+    , value(p_value)
+    , index(p_index)
+    , length(p_length) {};
+
+  constexpr setup_packet(bool p_device_to_host,
+                         type p_type,
+                         recipient p_recipient,  // NOLINT
+                         u8 p_request,           // NOLINT
+                         u16 p_value,
+                         u16 p_index,
+                         u16 p_length)
+    : request_type((p_device_to_host << 7) | (static_cast<byte>(p_type) << 5) |
+                   static_cast<byte>(p_recipient))
+    , request(p_request)
+    , value(p_value)
+    , index(p_index)
+    , length(p_length) {};
+
+  constexpr setup_packet(std::span<byte> raw_req)
+    : request_type(raw_req[0])
+    , request(raw_req[1])
+    , value(from_le_bytes(raw_req[2], raw_req[3]))
+    , index(from_le_bytes(raw_req[4], raw_req[5]))
+    , length(from_le_bytes(raw_req[6], raw_req[7]))
+
+  {
+  }
+
+  constexpr static u16 from_le_bytes(hal::byte& first, hal::byte& second)
+  {
+    return static_cast<u16>(second) << 8 | first;
+  }
+
+  constexpr static std::array<hal::byte, 2> to_le_bytes(u16 n)
+  {
+    return { static_cast<hal::byte>(n & 0xFF),
+             static_cast<hal::byte>((n & 0xFF << 8) >> 8) };
+  }
+
   u8 request_type;
   u8 request;
   u16 value;
   u16 index;
   u16 length;
 };
+
+// TODO: Document
+enum class standard_request_types : hal::byte
+{
+  get_status = 0x00,
+  clear_feature = 0x01,
+  set_feature = 0x03,
+  set_address = 0x05,
+  get_descriptor = 0x06,
+  set_descriptor = 0x07,
+  get_configuration = 0x08,
+  set_configuration = 0x09,
+  get_interface = 0x0A,
+  set_interface = 0x11,
+  synch_frame = 0x12,
+  invalid
+};
+
+// TODO: Document
+[[nodiscard]] constexpr standard_request_types determine_standard_request(
+  setup_packet pkt)
+{
+  if (pkt.get_type() != setup_packet::type::standard || pkt.request == 0x04 ||
+      pkt.request > 0x12) {
+    return standard_request_types::invalid;
+  }
+
+  return static_cast<standard_request_types>(pkt.request);
+}
 
 /**
  * @brief A class representing a usb interface
