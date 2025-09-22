@@ -76,18 +76,6 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     endif()
 endif()
 
-# For Conan packaging - install the target with its module file set
-install(TARGETS libhal
-    EXPORT libhal-targets
-    FILE_SET cxx_modules DESTINATION .
-)
-
-install(EXPORT libhal-targets
-    DESTINATION .
-    NAMESPACE libhal::
-    FILE libhal-targets.cmake
-)
-
 # ==============================================================================
 # Unit testing
 # ==============================================================================

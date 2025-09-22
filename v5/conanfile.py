@@ -18,6 +18,7 @@ from conan import ConanFile
 from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
+from pathlib import Path
 import os
 
 
@@ -33,7 +34,7 @@ class libhal_conan(ConanFile):
                    "peripherals and devices using modern C++")
     topics = ("peripherals", "hardware", "abstraction", "devices", "hal")
     settings = "compiler", "build_type", "os", "arch"
-    exports_sources = "modules/*", "src/*", "tests/*", "CMakeLists.txt", "LICENSE"
+    exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
     package_type = "static-library"
     shared = False
 
@@ -53,16 +54,6 @@ class libhal_conan(ConanFile):
     def validate(self):
         if self.settings.get_safe("compiler.cppstd"):
             check_min_cppstd(self, self._min_cppstd)
-
-        # # Validate compiler versions for modules support
-        # compiler = self.settings.compiler
-        # version = self.settings.compiler.version
-        # min_version = self._compilers_minimum_version.get(str(compiler))
-
-        # if min_version and version < min_version:
-        #     raise ConanInvalidConfiguration(
-        #         f"{compiler} {min_version}+ required for C++20 modules"
-        #     )
 
     def build_requirements(self):
         self.tool_requires("cmake/4.1.1")  # Updated version
@@ -90,33 +81,59 @@ class libhal_conan(ConanFile):
         cmake.configure()
         cmake.build()
 
+    @property
+    def cmake_files(self):
+        return Path("CMakeFiles") / "libhal.dir"
+
     def package(self):
         copy(self, "LICENSE",
              dst=os.path.join(self.package_folder, "licenses"),
              src=self.source_folder)
 
-        copy(self, "*.pcm",
-             dst=os.path.join(self.package_folder, "modules"),
-             src=os.path.join(self.build_folder, "CMakeFiles", "libhal.dir"))
+        # Copy modmap file to package directory
+        copy(self, "hal.cppm.o.modmap",
+             dst=Path(self.package_folder),
+             src=Path(self.build_folder) / self.cmake_files / "modules")
 
         # Package any compiled libraries
         copy(self, "*.a",
              dst=os.path.join(self.package_folder, "lib"),
              src=self.build_folder)
 
-        cmake = CMake(self)
-        cmake.install()
+        copy(self, "*.pcm",
+             dst=Path(self.package_folder) / "modules",
+             src=Path(self.build_folder) / self.cmake_files)
+
+        copy(self, "*.cppm",
+             dst=Path(self.package_folder) / "modules",
+             src=Path(self.source_folder) / "modules")
 
     def package_info(self):
         self.cpp_info.libs = ["libhal"]
         self.cpp_info.bindirs = []
-        self.cpp_info.builddirs = ["."]
         self.cpp_info.frameworkdirs = []
         self.cpp_info.resdirs = []
         self.cpp_info.includedirs = []
 
-        modules_path = os.path.join(self.package_folder, "modules")
-        self.cpp_info.cxxflags.append(f"-fprebuilt-module-path={modules_path}")
+        # Fix modmap paths in-place
+        package_cmake_dir = Path(self.package_folder) / "modules"
+
+        mod_map_file = Path(self.package_folder) / "hal.cppm.o.modmap"
+        content = mod_map_file.read_text()
+        updated_content = content.replace(
+            "CMakeFiles/libhal.dir", str(package_cmake_dir))
+        updated_content = updated_content.replace(
+            "-fmodule-output", "-fmodule-file=hal")
+        updated_content = updated_content.replace(
+            "-x c++-module\n", "")
+
+        if content != updated_content:
+            mod_map_file.write_text(updated_content)
+
+        self.cpp_info.cxxflags.append(f"@{mod_map_file}")
+
+        hal_pcm = package_cmake_dir / "hal.pcm"
+        self.cpp_info.cxxflags.append(f"-fmodule-file=hal={hal_pcm}")
 
     def package_id(self):
         pass  # Use default package_id that includes compiler info

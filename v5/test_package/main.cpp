@@ -27,7 +27,7 @@ private:
   }
   void driver_duty_cycle(hal::u16 p_duty_cycle) final
   {
-    std::println("duty cycle = {}%\n", p_duty_cycle);
+    std::println("duty cycle = {}%", p_duty_cycle);
   }
 };
 
@@ -37,16 +37,16 @@ int main()
   test_pwm pwm;
 
   try {
-    std::println("PWM frequency = {} %%\n", pwm.frequency());
+    std::println("PWM frequency = {} %%", pwm.frequency());
     pwm.duty_cycle(1 << 15);
     pwm.duty_cycle(1 << 14);
     pwm.duty_cycle(1 << 13);
     pwm.duty_cycle(1 << 12);
   } catch (hal::argument_out_of_domain const& p_errc) {
-    std::printf("Caught argument_out_of_domain error successfully!\n");
-    std::printf("    Object address: %p\n", p_errc.instance());
+    std::println("Caught argument_out_of_domain error successfully!");
+    std::println("    Object address: {}", p_errc.instance());
   } catch (...) {
-    std::printf("Unknown error!\n");
+    std::println("Unknown error!");
     status = -1;
   }
 
