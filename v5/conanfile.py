@@ -17,6 +17,7 @@
 from conan import ConanFile
 from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
+from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
 from pathlib import Path
 import os
@@ -55,6 +56,25 @@ class libhal_conan(ConanFile):
         if self.settings.get_safe("compiler.cppstd"):
             check_min_cppstd(self, self._min_cppstd)
 
+        # Validate compiler versions for modules support
+        compiler = str(self.settings.compiler)
+        version = str(self.settings.compiler.version)
+
+        if compiler == "gcc":
+            if version < "14.0":
+                raise ConanInvalidConfiguration("GCC 14+ required for modules")
+        elif compiler in ["clang", "apple-clang"]:
+            if version < "16.0":
+                raise ConanInvalidConfiguration(
+                    "Clang 16+ required for modules")
+        elif compiler == "Visual Studio":
+            if version < "19.34":
+                raise ConanInvalidConfiguration(
+                    "MSVC 14.34+ required for modules")
+        else:
+            raise ConanInvalidConfiguration(
+                f"Compiler {compiler} not supported for modules")
+
     def build_requirements(self):
         self.tool_requires("cmake/4.1.1")  # Updated version
         self.tool_requires("ninja/1.13.1")
@@ -83,7 +103,7 @@ class libhal_conan(ConanFile):
 
     @property
     def cmake_files(self):
-        return Path("CMakeFiles") / "libhal.dir"
+        return Path("CMakeFiles") / "hal.dir"
 
     def package(self):
         copy(self, "LICENSE",
@@ -108,20 +128,11 @@ class libhal_conan(ConanFile):
              dst=Path(self.package_folder) / "modules",
              src=Path(self.source_folder) / "modules")
 
-    def package_info(self):
-        self.cpp_info.libs = ["libhal"]
-        self.cpp_info.bindirs = []
-        self.cpp_info.frameworkdirs = []
-        self.cpp_info.resdirs = []
-        self.cpp_info.includedirs = []
-
-        # Fix modmap paths in-place
-        package_cmake_dir = Path(self.package_folder) / "modules"
-
-        mod_map_file = Path(self.package_folder) / "hal.cppm.o.modmap"
+    def correct_mod_map_file(self, mod_map_file: Path):
+        PACKAGE_CMAKE_DIR = Path(self.package_folder) / "modules"
         content = mod_map_file.read_text()
         updated_content = content.replace(
-            "CMakeFiles/libhal.dir", str(package_cmake_dir))
+            "CMakeFiles/hal.dir", str(PACKAGE_CMAKE_DIR))
         updated_content = updated_content.replace(
             "-fmodule-output", "-fmodule-file=hal")
         updated_content = updated_content.replace(
@@ -130,10 +141,17 @@ class libhal_conan(ConanFile):
         if content != updated_content:
             mod_map_file.write_text(updated_content)
 
+    def package_info(self):
+        self.cpp_info.libs = ["hal"]
+        self.cpp_info.bindirs = []
+        self.cpp_info.frameworkdirs = []
+        self.cpp_info.resdirs = []
+        self.cpp_info.includedirs = []
+
+        mod_map_file = Path(self.package_folder) / "hal.cppm.o.modmap"
+
+        self.correct_mod_map_file(mod_map_file)
         self.cpp_info.cxxflags.append(f"@{mod_map_file}")
 
-        hal_pcm = package_cmake_dir / "hal.pcm"
-        self.cpp_info.cxxflags.append(f"-fmodule-file=hal={hal_pcm}")
-
     def package_id(self):
-        pass  # Use default package_id that includes compiler info
+        pass  # Use default package_id that includes compiler

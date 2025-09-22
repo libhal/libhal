@@ -14,7 +14,7 @@
 
 cmake_minimum_required(VERSION 3.28)
 
-project(libhal LANGUAGES CXX)
+project(hal LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,10 +26,10 @@ if(NOT CMAKE_GENERATOR MATCHES "Ninja|Visual Studio")
 endif()
 
 # Create the library target
-add_library(libhal)
+add_library(hal)
 
 # Add module files
-target_sources(libhal PUBLIC
+target_sources(hal PUBLIC
     FILE_SET "cxx_modules"
     TYPE "CXX_MODULES"
     FILES
@@ -54,27 +54,7 @@ target_sources(libhal PUBLIC
     modules/steady_clock.cppm
 )
 
-target_compile_features(libhal PUBLIC cxx_std_23)
-
-# Compiler-specific validation and flags
-if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "14.0")
-        message(FATAL_ERROR "GCC 14+ required for modules")
-    endif()
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "16.0")
-        message(FATAL_ERROR "Clang 16+ required for modules")
-    endif()
-    # May need libc++ on some systems
-    target_compile_options(libhal PUBLIC
-        $<$<PLATFORM_ID:Linux>:-stdlib=libc++>)
-    target_link_options(libhal PUBLIC
-        $<$<PLATFORM_ID:Linux>:-stdlib=libc++>)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS "19.34")
-        message(FATAL_ERROR "MSVC 14.34+ required for modules")
-    endif()
-endif()
+target_compile_features(hal PUBLIC cxx_std_23)
 
 # ==============================================================================
 # Unit testing
@@ -92,7 +72,7 @@ target_sources(unit_test
 )
 
 target_compile_features(unit_test PUBLIC cxx_std_23)
-target_link_libraries(unit_test PRIVATE libhal boost-ext-ut::ut)
+target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
 
 # Run unit tests
 add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)

@@ -27,7 +27,7 @@ private:
   }
   void driver_duty_cycle(hal::u16 p_duty_cycle) final
   {
-    std::println("duty cycle = {}%", p_duty_cycle);
+    std::println("duty cycle = {}/{}", p_duty_cycle, (1 << 16) - 1);
   }
 };
 
@@ -37,7 +37,7 @@ int main()
   test_pwm pwm;
 
   try {
-    std::println("PWM frequency = {} %%", pwm.frequency());
+    std::println("PWM frequency = {}", pwm.frequency());
     pwm.duty_cycle(1 << 15);
     pwm.duty_cycle(1 << 14);
     pwm.duty_cycle(1 << 13);
