@@ -16,12 +16,6 @@ cmake_minimum_required(VERSION 3.28)
 
 project(test_package LANGUAGES CXX)
 
-set(CMAKE_CXX_SCAN_FOR_MODULES OFF CACHE BOOL "" FORCE)
-
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Require Ninja or Visual Studio for modules
 if(NOT CMAKE_GENERATOR MATCHES "Ninja|Visual Studio")
     message(FATAL_ERROR "C++20 modules require Ninja or Visual Studio generator")

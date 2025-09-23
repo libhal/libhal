@@ -16,11 +16,10 @@
 
 from conan import ConanFile
 from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
-from conan.tools.files import copy
+from conan.tools.files import copy, save
 from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
 from pathlib import Path
-import os
 
 
 required_conan_version = ">=2.2.0"
@@ -36,7 +35,7 @@ class libhal_conan(ConanFile):
     topics = ("peripherals", "hardware", "abstraction", "devices", "hal")
     settings = "compiler", "build_type", "os", "arch"
     exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
-    python_requires = "conan-module-support/1.0.0"
+    python_requires = "conan_module_support/1.0.0"
     package_type = "static-library"
     shared = False
 
@@ -47,34 +46,43 @@ class libhal_conan(ConanFile):
     @property
     def _compilers_minimum_version(self):
         return {
-            "gcc": "14",        # GCC 14+ for modules
-            "clang": "16",      # Clang 16+ for modules
-            "apple-clang": "16.0.0",
-            "msvc": "193.4"     # MSVC 14.34+ for modules
+            "gcc": ("14", "GCC 14+ required for C++20 modules"),
+            "clang": (
+                "19",
+                "Clang 19+ required for C++20 modules (response file fixes)"
+            ),
+            "apple-clang": (
+                "19.0.0",
+                "Apple Clang 19+ required for C++20 modules"
+            ),
+            "msvc": (
+                "193.4",
+                "MSVC 14.34+ (Visual Studio 17.4+) required for C++20 modules"
+            )
         }
+
+    def _validate_compiler_version(self):
+        """Validate compiler version against minimum requirements"""
+        compiler = str(self.settings.compiler)
+        version = str(self.settings.compiler.version)
+
+        # Map Visual Studio to msvc for consistency
+        compiler_key = "msvc" if compiler == "Visual Studio" else compiler
+
+        min_versions = self._compilers_minimum_version
+        if compiler_key not in min_versions:
+            raise ConanInvalidConfiguration(
+                f"Compiler {compiler} is not supported for C++20 modules")
+
+        min_version, error_msg = min_versions[compiler_key]
+        if version < min_version:
+            raise ConanInvalidConfiguration(error_msg)
 
     def validate(self):
         if self.settings.get_safe("compiler.cppstd"):
             check_min_cppstd(self, self._min_cppstd)
 
-        # Validate compiler versions for modules support
-        compiler = str(self.settings.compiler)
-        version = str(self.settings.compiler.version)
-
-        if compiler == "gcc":
-            if version < "14.0":
-                raise ConanInvalidConfiguration("GCC 14+ required for modules")
-        elif compiler in ["clang", "apple-clang"]:
-            if version < "16.0":
-                raise ConanInvalidConfiguration(
-                    "Clang 16+ required for modules")
-        elif compiler == "Visual Studio":
-            if version < "19.34":
-                raise ConanInvalidConfiguration(
-                    "MSVC 14.34+ required for modules")
-        else:
-            raise ConanInvalidConfiguration(
-                f"Compiler {compiler} not supported for modules")
+        self._validate_compiler_version()
 
     def build_requirements(self):
         self.tool_requires("cmake/4.1.1")
@@ -103,7 +111,7 @@ class libhal_conan(ConanFile):
 
     def package(self):
         copy(self, "LICENSE",
-             dst=os.path.join(self.package_folder, "licenses"),
+             dst=Path(self.package_folder) / "licenses",
              src=self.source_folder)
 
         cmake = CMake(self)
@@ -116,5 +124,5 @@ class libhal_conan(ConanFile):
         self.cpp_info.resdirs = []
         self.cpp_info.includedirs = []
 
-        MOD_SUPPORT = self.python_requires["conan-module-support"]
+        MOD_SUPPORT = self.python_requires["conan_module_support"]
         MOD_SUPPORT.module.generate_mod_map_file(self, "hal")
