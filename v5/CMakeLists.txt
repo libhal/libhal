@@ -16,10 +16,6 @@ cmake_minimum_required(VERSION 3.28)
 
 project(hal LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
 # Require Ninja or Visual Studio for modules
 if(NOT CMAKE_GENERATOR MATCHES "Ninja|Visual Studio")
     message(FATAL_ERROR "C++20 modules require Ninja or Visual Studio generator")
@@ -30,8 +26,8 @@ add_library(hal)
 
 # Add module files
 target_sources(hal PUBLIC
-    FILE_SET "cxx_modules"
-    TYPE "CXX_MODULES"
+    FILE_SET CXX_MODULES
+    TYPE CXX_MODULES
     FILES
     modules/hal.cppm
     modules/adc.cppm
@@ -55,6 +51,20 @@ target_sources(hal PUBLIC
 )
 
 target_compile_features(hal PUBLIC cxx_std_23)
+
+install(
+    TARGETS hal
+    EXPORT hal_targets
+    FILE_SET CXX_MODULES DESTINATION .
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/hal.dir/
+    DESTINATION modules
+    FILES_MATCHING PATTERN "*.pcm"
+)
 
 # ==============================================================================
 # Unit testing
