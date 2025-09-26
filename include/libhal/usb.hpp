@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "functional.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
@@ -514,20 +516,26 @@ public:
 
   /**
    * @brief Encapsulates the starting indexes for which this interface must use
-   * for its interface descriptor.
+   * for its interface descriptor. Fields are nullopt_t if write_descriptor() is
+   * ran but it isn't needed to update any interface numbers or string indexes.
    */
   struct descriptor_start
   {
-    /// Defines the starting index value for this interface. For example, if
-    /// this usb interface contains two sub interfaces, then the interface
-    /// number should be `interface` and the second should be `interface + 1`.
-    u8 interface;
+    /// Defines the starting index value for this interface. If interface
+    /// numbers need to be set or updated, if they do not, this param will be
+    /// nullopt_t.
+    /// For example, if this usb interface contains two sub interfaces, then the
+    /// interface number should be `interface` and the second should be
+    /// `interface + 1`.
+    std::optional<u8> interface;
 
-    /// Defines the starting index value for this interface's strings. For
-    /// example, if this usb interface has 3 strings, then the starting ID for
-    /// those strings would be this value. String 1 would be this value, then
-    /// string 2 would be `value + 1` and string 3 would be `value + 2`.
-    u8 string;
+    /// Defines the starting index value for this interface's strings.
+    /// If indexes need to be set or updated, if they do not need to be
+    //  updated, then this param will be nullopt_t
+    //  For example, if this usb interface has 3 strings, then the starting ID
+    /// for those strings would be this value. String 1 would be this value,
+    /// then string 2 would be `value + 1` and string 3 would be `value + 2`.
+    std::optional<u8> string;
 
     constexpr bool operator<=>(descriptor_start const& rhs) const = default;
   };
