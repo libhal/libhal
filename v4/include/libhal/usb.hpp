@@ -17,6 +17,7 @@
 #include "functional.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
+#include <optional>
 
 namespace hal::v5::usb {
 /**
@@ -763,13 +764,13 @@ public:
     /// Defines the starting index value for this interface. For example, if
     /// this usb interface contains two sub interfaces, then the interface
     /// number should be `interface` and the second should be `interface + 1`.
-    u8 interface;
+    std::optional<u8> interface;
 
     /// Defines the starting index value for this interface's strings. For
     /// example, if this usb interface has 3 strings, then the starting ID for
     /// those strings would be this value. String 1 would be this value, then
     /// string 2 would be `value + 1` and string 3 would be `value + 2`.
-    u8 string;
+    std::optional<u8> string;
 
     constexpr bool operator<=>(descriptor_start const& rhs) const = default;
   };
