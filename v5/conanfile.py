@@ -16,7 +16,7 @@
 
 from conan import ConanFile
 from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
-from conan.tools.files import copy, save
+from conan.tools.files import copy
 from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
 from pathlib import Path
@@ -110,12 +110,15 @@ class libhal_conan(ConanFile):
         cmake.build()
 
     def package(self):
-        copy(self, "LICENSE",
-             dst=Path(self.package_folder) / "licenses",
-             src=self.source_folder)
-
         cmake = CMake(self)
         cmake.install()
+
+        copy(self, "LICENSE",
+             dst=str(Path(self.package_folder) / "licenses"),
+             src=self.source_folder)
+
+        MOD_SUPPORT = self.python_requires["conan_module_support"]
+        MOD_SUPPORT.module.install_cxx_modules_json(self, "hal")
 
     def package_info(self):
         self.cpp_info.libs = ["hal"]
@@ -123,6 +126,3 @@ class libhal_conan(ConanFile):
         self.cpp_info.frameworkdirs = []
         self.cpp_info.resdirs = []
         self.cpp_info.includedirs = []
-
-        MOD_SUPPORT = self.python_requires["conan_module_support"]
-        MOD_SUPPORT.module.generate_mod_map_file(self, "hal")
