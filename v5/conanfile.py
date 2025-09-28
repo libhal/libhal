@@ -113,24 +113,11 @@ class libhal_conan(ConanFile):
         cmake.install()
 
         copy(self, "LICENSE",
-             dst=str(Path(self.package_folder) / "licenses"),
+             dst=Path(self.package_folder) / "licenses",
              src=self.source_folder)
 
     def package_info(self):
-        self.cpp_info.libs = ["hal"]
-        self.cpp_info.bindirs = []
-        self.cpp_info.frameworkdirs = []
-        self.cpp_info.resdirs = []
-        self.cpp_info.includedirs = []
-
         # DISABLE Conan's config file generation
-        # Only use installed CMake files.
         self.cpp_info.set_property("cmake_find_mode", "none")
-
-        # Add the module directory to CMake's search path
-        module_dir = Path("lib") / "cmake" / "libhal"
-        module_path = Path(self.package_folder) / module_dir
-
-        if module_path.exists():
-            # Tell CMake to include this directory in its search path
-            self.cpp_info.builddirs.append(str(module_dir))
+        # Tell CMake to include this directory in its search path
+        self.cpp_info.builddirs.append("lib/cmake")
