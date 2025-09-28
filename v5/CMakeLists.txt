@@ -67,6 +67,14 @@ install(
     CXX_MODULES_BMI DESTINATION "bmi"
 )
 
+install(
+    EXPORT hal_targets
+    FILE "libhal-config.cmake"
+    NAMESPACE libhal::
+    DESTINATION lib/cmake/libhal
+    CXX_MODULES_DIRECTORY cxx-modules  # This exports module info!
+)
+
 # ==============================================================================
 # Unit testing
 # ==============================================================================

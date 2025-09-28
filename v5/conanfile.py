@@ -35,7 +35,6 @@ class libhal_conan(ConanFile):
     topics = ("peripherals", "hardware", "abstraction", "devices", "hal")
     settings = "compiler", "build_type", "os", "arch"
     exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
-    python_requires = "conan_module_support/1.0.0"
     package_type = "static-library"
     shared = False
 
@@ -117,12 +116,21 @@ class libhal_conan(ConanFile):
              dst=str(Path(self.package_folder) / "licenses"),
              src=self.source_folder)
 
-        MOD_SUPPORT = self.python_requires["conan_module_support"]
-        MOD_SUPPORT.module.install_cxx_modules_json(self, "hal")
-
     def package_info(self):
         self.cpp_info.libs = ["hal"]
         self.cpp_info.bindirs = []
         self.cpp_info.frameworkdirs = []
         self.cpp_info.resdirs = []
         self.cpp_info.includedirs = []
+
+        # DISABLE Conan's config file generation
+        # Only use installed CMake files.
+        self.cpp_info.set_property("cmake_find_mode", "none")
+
+        # Add the module directory to CMake's search path
+        module_dir = Path("lib") / "cmake" / "libhal"
+        module_path = Path(self.package_folder) / module_dir
+
+        if module_path.exists():
+            # Tell CMake to include this directory in its search path
+            self.cpp_info.builddirs.append(str(module_dir))
