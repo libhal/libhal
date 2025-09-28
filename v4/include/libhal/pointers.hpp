@@ -1052,7 +1052,9 @@ public:
   /**
    * @brief Constructor for nullptr (creates a disengaged optional)
    */
-  constexpr optional_ptr(std::nullptr_t) noexcept = default;
+  constexpr optional_ptr(std::nullptr_t) noexcept
+  {
+  }
 
   /**
    * @brief Move constructor is deleted
