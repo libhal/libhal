@@ -32,16 +32,3 @@ jobs:
       compiler_package: ""
       os: Linux
     secrets: inherit
-
-  deploy_v5:
-    if: startsWith(github.ref, 'refs/tags/')
-    uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
-    with:
-      dir: "v5/"
-      compiler: gcc
-      version: ${{ github.ref_name }}
-      arch: x86_64
-      compiler_version: 12.3
-      compiler_package: ""
-      os: Linux
-    secrets: inherit

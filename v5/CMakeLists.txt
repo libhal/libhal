@@ -14,22 +14,14 @@
 
 cmake_minimum_required(VERSION 3.28)
 
-set(CMAKE_EXPERIMENTAL_EXPORT_PACKAGE_DEPENDENCIES ON)
-
 project(hal LANGUAGES CXX)
 
-# Require Ninja or Visual Studio for modules
-if(NOT CMAKE_GENERATOR MATCHES "Ninja|Visual Studio")
-    message(FATAL_ERROR
-            "C++20 modules require Ninja or Visual Studio generator")
-endif()
+# ==============================================================================
+# Library
+# ==============================================================================
 
-# Create the library target
 add_library(hal STATIC)
-
 target_compile_features(hal PUBLIC cxx_std_23)
-
-# Add module files
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
@@ -55,8 +47,6 @@ target_sources(hal PUBLIC
     modules/magnetometer.cppm
     modules/steady_clock.cppm
 )
-
-target_compile_features(hal PUBLIC cxx_std_23)
 
 install(
     TARGETS hal
@@ -93,5 +83,9 @@ target_sources(unit_test
 target_compile_features(unit_test PUBLIC cxx_std_23)
 target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
 
-# Run unit tests
-add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
+if(CMAKE_CROSSCOMPILING)
+    message(STATUS "Cross compiling, skipping unit test execution")
+else()
+    message(STATUS "Executing unit tests!")
+    add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
+endif()

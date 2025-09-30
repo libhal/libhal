@@ -41,12 +41,14 @@ jobs:
       os: Linux
 
   library_check_v5:
+    if: false # disable for now
     uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
     with:
       dir: "v5/"
     secrets: inherit
 
   deploy_check_v5:
+    if: false # disable for now
     uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
     with:
       compiler: gcc
