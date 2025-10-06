@@ -27,7 +27,7 @@ jobs:
   library_check_v4:
     uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
     with:
-      dir: "v4/"
+      source_dir: "v4/"
     secrets: inherit
 
   deploy_check_v4:
