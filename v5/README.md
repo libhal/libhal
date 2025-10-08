@@ -31,6 +31,11 @@ libhal v5 addresses major design concerns from v4, focusing on non-blocking oper
 - Interface adjustments to accommodate coroutines
 - `hal::zero_copy_serial` becomes default serial implementation
 
+### Open Questions
+
+1. Where should container libraries like `circular_buffer` and
+   `allocated_buffer` go?
+
 ## Changes to v4 After Split
 
 - Move v5 motor & servo interfaces into v4
@@ -39,6 +44,7 @@ libhal v5 addresses major design concerns from v4, focusing on non-blocking oper
 - Deprecate the following interfaces:
   - `hal::can`: too much responsibility
   - `hal::pwm`: too much responsibility
+  - `hal::interrupt_pin`: Replaced by `hal::edge_triggered_interrupt`
   - (more to be determined)
 - Move the following v5 interfaces into v4:
   - `hal::spi_channel`
@@ -48,3 +54,5 @@ libhal v5 addresses major design concerns from v4, focusing on non-blocking oper
   - `pwm_duty_cycle16`
   - Extended CAN interfaces (not `hal::can`)
   - USB interfaces
+- `hal::v5::strong_ptr` will be brought into the `hal` namespace, eliminating the need to type `v5::` everywhere.
+-
