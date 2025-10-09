@@ -23,6 +23,7 @@ on:
   schedule:
     - cron: "0 12 * * 0"
 
+# Jog CI
 jobs:
   library_check_v4:
     uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
