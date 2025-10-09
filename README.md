@@ -8,6 +8,10 @@
 The foundation of the libhal ecosystem, containing the core hardware interfaces
 used to make the whole ecosystem work.
 
+> [!NOTE]
+> The current active version is libhal 4.x.y. libhal 5.0.0 is in construction
+> and should not be used for anything.
+
 ## 📚 Software APIs & Usage
 
 To learn about the available drivers and APIs see the
@@ -41,7 +45,8 @@ application. If you don't know what version to use, consider using the
 
 ## 📥 Adding `libhal` to your library
 
-To add libhal to your library package, do the following in the `requirements` method of your `ConanFile` object:
+To add libhal to your library package, do the following in the `requirements`
+method of your `ConanFile` object:
 
 ```python
     def requirements(self):

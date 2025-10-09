@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,23 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: 🚀 Deploy
+cmake_minimum_required(VERSION 3.28)
 
-on:
-  workflow_dispatch:
-  release:
-    types: [published]
+project(test_package LANGUAGES CXX)
 
-jobs:
-  deploy_v4:
-    if: startsWith(github.ref, 'refs/tags/')
-    uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
-    with:
-      dir: "v4/"
-      compiler: gcc
-      version: ${{ github.ref_name }}
-      arch: x86_64
-      compiler_version: 12.3
-      compiler_package: ""
-      os: Linux
-    secrets: inherit
+# Require Ninja or Visual Studio for modules
+if(NOT CMAKE_GENERATOR MATCHES "Ninja|Visual Studio")
+    message(FATAL_ERROR "C++20 modules require Ninja or Visual Studio generator")
+endif()
+
+find_package(libhal REQUIRED CONFIG)
+
+add_executable(${PROJECT_NAME} main.cpp)
+
+target_include_directories(${PROJECT_NAME} PUBLIC .)
+target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
+target_link_libraries(${PROJECT_NAME} PRIVATE libhal::hal)
