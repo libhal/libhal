@@ -409,3 +409,10 @@ private:
   virtual bool driver_is_moving() = 0;
 };
 }  // namespace hal::v5
+
+namespace hal {
+using v5::open_loop_motor;
+using v5::torque_motor;
+using v5::velocity_motor;
+using v5::veltor_motor;
+}  // namespace hal

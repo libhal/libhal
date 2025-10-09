@@ -1726,3 +1726,13 @@ template<class T, typename... Args>
   return result;
 }
 }  // namespace hal::v5
+
+namespace hal {
+using v5::enable_strong_from_this;
+using v5::make_strong_ptr;
+using v5::optional_ptr;
+using v5::strong_ptr;
+using v5::strong_ptr_only_token;
+using v5::swap;
+using v5::weak_ptr;
+}  // namespace hal
