@@ -46,6 +46,8 @@ target_sources(hal PUBLIC
     modules/gyroscope.cppm
     modules/magnetometer.cppm
     modules/steady_clock.cppm
+    modules/inplace_function.cppm
+    modules/callback.cppm
 )
 
 install(
@@ -78,6 +80,7 @@ target_sources(unit_test
   PRIVATE
       tests/adc.test.cpp
       tests/main.test.cpp
+      tests/callback.test.cpp
 )
 
 target_compile_features(unit_test PUBLIC cxx_std_23)

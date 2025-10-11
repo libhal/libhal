@@ -12,33 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
+export module hal:callback;
 
-#include <functional>
-
-export module hal:functional;
+import :inplace_function;
 
 /**
  * @defgroup Functional List of functional and function capturing APIs
  *
  */
 export namespace hal::inline v5 {
-/**
- * @ingroup Functional
- * @brief Definition of a non-owning callable object
- *
- * Use this for passing a callable object to a function that the function does
- * not store for later. This class has zero overhead compared to function
- * pointers but is safer and more flexible.
- *
- * This is a drop in replacement for std::function_ref when it becomes available
- * in C++26.
- *
- * @tparam signature - function signature
- */
-template<class signature>
-using function_ref = std::function<signature>;
-
+constexpr auto max_storage = sizeof(void*) * 2;
 /**
  * @ingroup Functional
  * @brief Definition of a callable object that stores its callable in a local
@@ -60,6 +43,6 @@ using function_ref = std::function<signature>;
  * @tparam capacity - the amount of bytes to reserve for the callable object.
  * Defaults to 32 bytes which is suitable for most use cases.
  */
-template<class signature, std::size_t capacity = 32>
-using inplace_function = std::function<signature>;
-}
+template<class signature, auto capacity = 32>
+using callback = hal::sg14::inplace_function<signature, capacity>;
+}  // namespace hal::inline v5
