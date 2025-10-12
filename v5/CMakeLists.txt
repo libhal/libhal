@@ -26,10 +26,10 @@ project(hal LANGUAGES CXX)
 
 find_package(strong_ptr REQUIRED)
 find_package(async_context REQUIRED)
+find_package(mp-units REQUIRED)
 
 add_library(hal STATIC)
 target_compile_features(hal PUBLIC cxx_std_23)
-target_link_libraries(hal PUBLIC strong_ptr async_context)
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
@@ -56,6 +56,8 @@ target_sources(hal PUBLIC
     modules/steady_clock.cppm
     modules/timed_interrupt.cppm
 )
+
+target_link_libraries(hal PRIVATE strong_ptr async_context mp-units::mp-units)
 
 install(
     TARGETS hal
