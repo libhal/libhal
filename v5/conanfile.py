@@ -89,7 +89,7 @@ class libhal_conan(ConanFile):
         self.test_requires("boost-ext-ut/2.3.1")
 
     def requirements(self):
-        self.requires("tl-function-ref/1.0.0")
+        pass
 
     def layout(self):
         cmake_layout(self)

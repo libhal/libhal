@@ -19,6 +19,7 @@ export import :units;
 export import :pwm;
 export import :input_pin;
 export import :error;
+export import :callback;
 
 export namespace hal::inline v5 {
 inline constexpr auto version = "5.0.0";
