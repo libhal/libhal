@@ -19,7 +19,7 @@
 
 #include <boost/ut.hpp>
 
-namespace hal::v5::usb {
+namespace hal::usb {
 
 namespace {
 
@@ -663,9 +663,9 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
     expect(that % buffer2.size() == endpoint.m_read_buffer[1].size());
   };
 };
-}  // namespace hal::v5::usb
+}  // namespace hal::usb
 
-namespace hal::v5::usb {
+namespace hal::usb {
 
 namespace {
 
@@ -805,4 +805,4 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
     expect(command == iface.handle_request_setup);
   };
 };
-}  // namespace hal::v5::usb
+}  // namespace hal::usb

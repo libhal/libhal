@@ -21,7 +21,7 @@
 #include <boost/ut.hpp>
 
 // NOLINTBEGIN(performance-unnecessary-copy-initialization)
-namespace hal::v5 {
+namespace hal {
 namespace {
 // Base class for testing polymorphism
 class base_class
@@ -510,12 +510,12 @@ boost::ut::suite<"optional_ptr_test"> optional_ptr_test =
       };
   };
 // NOLINTEND(performance-unnecessary-copy-initialization)
-}  // namespace hal::v5
+}  // namespace hal
 
 // Additional unit tests for new features: enable_strong_from_this,
 // strong_ptr_only, and optional_ptr improvements
 
-namespace hal::v5 {
+namespace hal {
 namespace {
 
 // Test class that uses enable_strong_from_this
@@ -578,7 +578,7 @@ public:
   }
 
   // Private constructor - only make_strong_ptr can access
-  explicit restricted_class(hal::v5::strong_ptr_only_token, int p_value = 0)
+  explicit restricted_class(hal::strong_ptr_only_token, int p_value = 0)
     : m_value(p_value)
   {
   }
@@ -610,7 +610,7 @@ public:
     return strong_from_this();
   }
 
-  explicit fully_managed_class(hal::v5::strong_ptr_only_token, int p_value = 0)
+  explicit fully_managed_class(hal::strong_ptr_only_token, int p_value = 0)
     : m_value(p_value)
   {
   }
@@ -920,4 +920,4 @@ boost::ut::suite<"bad_weak_ptr_test"> bad_weak_ptr_test = []() {
   };
 };
 
-}  // namespace hal::v5
+}  // namespace hal

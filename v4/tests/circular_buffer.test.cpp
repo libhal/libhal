@@ -21,7 +21,7 @@
 
 #include <boost/ut.hpp>
 
-namespace hal::v5 {
+namespace hal {
 namespace {
 // Default test allocator
 std::pmr::monotonic_buffer_resource test_buffer{ 4096 };
@@ -260,4 +260,4 @@ boost::ut::suite<"circular_buffer_test"> circular_buffer_test = []() {
       << "All instances should be destroyed when buffer goes out of scope";
   };
 };
-}  // namespace hal::v5
+}  // namespace hal
