@@ -21,7 +21,7 @@
 
 #include <boost/ut.hpp>
 
-namespace hal::v5 {
+namespace hal {
 namespace {
 // Default test allocator
 std::pmr::monotonic_buffer_resource test_buffer{ 4096 };
@@ -291,4 +291,4 @@ boost::ut::suite<"allocated_buffer_test"> allocated_buffer_test = []() {
     }
   };
 };
-}  // namespace hal::v5
+}  // namespace hal

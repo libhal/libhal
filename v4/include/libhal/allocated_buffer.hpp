@@ -589,5 +589,6 @@ template<typename T>
 }  // namespace hal::v5
 
 namespace hal {
-using hal::v5::allocated_buffer;
-}
+using v5::allocated_buffer;
+using v5::make_allocated_buffer;
+}  // namespace hal

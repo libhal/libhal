@@ -22,7 +22,7 @@
 
 #include <boost/ut.hpp>
 
-namespace hal::v5 {
+namespace hal {
 namespace {
 struct multi_buffer
 {
@@ -189,4 +189,4 @@ boost::ut::suite<"scatter_api_test"> scatter_api_test = []() {
     expect(that % (se == sg));
   };
 };
-}  // namespace hal::v5
+}  // namespace hal
