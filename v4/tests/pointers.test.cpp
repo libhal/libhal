@@ -578,7 +578,7 @@ public:
   }
 
   // Private constructor - only make_strong_ptr can access
-  explicit restricted_class(hal::v5::strong_ptr_only_token, int p_value = 0)
+  explicit restricted_class(hal::strong_ptr_only_token, int p_value = 0)
     : m_value(p_value)
   {
   }
@@ -610,7 +610,7 @@ public:
     return strong_from_this();
   }
 
-  explicit fully_managed_class(hal::v5::strong_ptr_only_token, int p_value = 0)
+  explicit fully_managed_class(hal::strong_ptr_only_token, int p_value = 0)
     : m_value(p_value)
   {
   }
