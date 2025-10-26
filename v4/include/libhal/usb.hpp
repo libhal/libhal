@@ -599,3 +599,19 @@ private:
                                      endpoint_writer const& p_callback) = 0;
 };
 }  // namespace hal::v5::usb
+
+namespace hal::usb {
+using v5::usb::bulk_in_endpoint;
+using v5::usb::bulk_out_endpoint;
+using v5::usb::control_endpoint;
+using v5::usb::endpoint;
+using v5::usb::endpoint_info;
+using v5::usb::in_endpoint;
+using v5::usb::in_endpoint_type;
+using v5::usb::interface;
+using v5::usb::interrupt_in_endpoint;
+using v5::usb::interrupt_out_endpoint;
+using v5::usb::out_endpoint;
+using v5::usb::out_endpoint_type;
+using v5::usb::setup_packet;
+}  // namespace hal::usb

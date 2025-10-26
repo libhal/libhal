@@ -126,6 +126,3 @@ private:
   virtual void driver_on_trigger(hal::callback<handler> p_callback) = 0;
 };
 }  // namespace hal
-
-namespace hal::v5 {
-}  // namespace hal::v5

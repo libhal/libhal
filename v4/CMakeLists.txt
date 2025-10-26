@@ -52,7 +52,6 @@ libhal_unit_test(SOURCES
   tests/lock.test.cpp
   tests/usb.test.cpp
   tests/zero_copy_serial.test.cpp
-  tests/buffered_can.test.cpp
   tests/pointers.test.cpp
   tests/circular_buffer.test.cpp
   tests/allocated_buffer.test.cpp

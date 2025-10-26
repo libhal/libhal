@@ -386,3 +386,9 @@ template<typename T>
   return circular_buffer<T>(p_allocator, p_capacity, p_value);
 }
 }  // namespace hal::v5
+
+// Bring hal::v5 symbols into hal namespace
+namespace hal {
+using hal::v5::circular_buffer;
+using hal::v5::make_circular_buffer;
+}  // namespace hal

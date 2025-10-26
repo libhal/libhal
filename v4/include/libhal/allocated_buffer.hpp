@@ -587,3 +587,7 @@ template<typename T>
   return allocated_buffer<T>(p_allocator, p_size, p_value);
 }
 }  // namespace hal::v5
+
+namespace hal {
+using hal::v5::allocated_buffer;
+}

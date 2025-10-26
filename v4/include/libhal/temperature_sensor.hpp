@@ -41,28 +41,3 @@ private:
   virtual celsius driver_read() = 0;
 };
 }  // namespace hal
-
-namespace hal::v5 {
-/**
- * @brief Interface for acquiring temperature samples from a device.
- *
- */
-class temperature_sensor
-{
-public:
-  /**
-   * @brief Read the current temperature measured by the device
-   *
-   * @return celsius - Measured temperature
-   */
-  [[nodiscard]] celsius read()
-  {
-    return driver_read();
-  }
-
-  virtual ~temperature_sensor() = default;
-
-private:
-  virtual celsius driver_read() = 0;
-};
-}  // namespace hal::v5

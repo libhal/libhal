@@ -399,3 +399,11 @@ private:
   virtual range_t driver_range() = 0;
 };
 }  // namespace hal::v5
+
+namespace hal {
+using v5::basic_servo;
+using v5::feedback_servo;
+using v5::torque_servo;
+using v5::velocity_servo;
+using v5::veltor_servo;
+}  // namespace hal

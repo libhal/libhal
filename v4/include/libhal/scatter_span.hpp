@@ -276,3 +276,13 @@ concept spanable_writable_bytes = requires(T& t) {
   { std::span<hal::byte>(t) };
 };
 }  // namespace hal::v5
+
+namespace hal {
+using v5::make_scatter_array;
+using v5::make_scatter_bytes;
+using v5::make_writable_scatter_bytes;
+using v5::scatter_span;
+using v5::spanable;
+using v5::spanable_bytes;
+using v5::spanable_writable_bytes;
+}  // namespace hal

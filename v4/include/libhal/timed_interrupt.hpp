@@ -90,3 +90,7 @@ private:
                                hal::time_duration p_delay) = 0;
 };
 }  // namespace hal::v5
+
+namespace hal {
+using v5::timed_interrupt;
+}
