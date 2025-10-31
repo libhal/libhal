@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <array>
 #include <atomic>
 #include <memory_resource>
 #include <type_traits>
