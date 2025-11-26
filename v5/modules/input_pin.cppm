@@ -124,4 +124,4 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual bool driver_level() = 0;
 };
-}  // namespace hal::v5
+}  // namespace hal::inline v5

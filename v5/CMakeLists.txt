@@ -14,6 +14,9 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+# Generate compile commands for anyone using our libraries.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(hal LANGUAGES CXX)
 
 # ==============================================================================
@@ -71,24 +74,30 @@ install(
 # Unit testing
 # ==============================================================================
 
-find_package(ut REQUIRED)
-
-add_executable(unit_test)
-
-# Add module files
-target_sources(unit_test
-  PRIVATE
-      tests/adc.test.cpp
-      tests/main.test.cpp
-      tests/callback.test.cpp
-)
-
-target_compile_features(unit_test PUBLIC cxx_std_23)
-target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
-
 if(CMAKE_CROSSCOMPILING)
     message(STATUS "Cross compiling, skipping unit test execution")
 else()
-    message(STATUS "Executing unit tests!")
+    find_package(ut REQUIRED)
+
+    add_executable(unit_test)
+
+    # Add module files
+    target_sources(unit_test
+    PRIVATE
+        tests/adc.test.cpp
+        tests/main.test.cpp
+        tests/callback.test.cpp
+    )
+
+    target_compile_features(unit_test PUBLIC cxx_std_23)
+    target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
+
     add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
 endif()
+
+# Always run this custom target by making it depend on ALL
+add_custom_target(copy_compile_commands ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    ${CMAKE_SOURCE_DIR}/compile_commands.json
+    DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json)
