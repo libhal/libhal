@@ -23,8 +23,12 @@ project(hal LANGUAGES CXX)
 # Library
 # ==============================================================================
 
+find_package(strong_ptr REQUIRED)
+find_package(async_context REQUIRED)
+
 add_library(hal STATIC)
 target_compile_features(hal PUBLIC cxx_std_23)
+target_link_libraries(hal PUBLIC strong_ptr async_context)
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
@@ -90,7 +94,7 @@ else()
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)
-    target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
+    target_link_libraries(unit_test PRIVATE hal Boost::ut)
 
     add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
 endif()
