@@ -89,8 +89,8 @@ class libhal_conan(ConanFile):
         self.test_requires("boost-ext-ut/2.3.1")
 
     def requirements(self):
-        self.requires("strong_ptr/0.0.0")
-        self.requires("async_context/0.0.0")
+        self.requires("strong_ptr/[^0.0.2]")
+        self.requires("async_context/[^0.0.1]")
 
     def layout(self):
         cmake_layout(self)

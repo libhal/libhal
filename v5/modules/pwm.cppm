@@ -19,6 +19,7 @@ module;
 export module hal:pwm;
 
 export import :units;
+export import async_context;
 
 export namespace hal::inline v5 {
 /**
@@ -59,9 +60,9 @@ public:
    *
    * @returns hertz - frequency in hertz as an unsigned integer
    */
-  hertz frequency()
+  async::future<hertz> frequency(async::context& p_context)
   {
-    return driver_frequency();
+    return driver_frequency(p_context);
   }
 
   /**
@@ -80,16 +81,17 @@ public:
    * @param p_duty_cycle - a value from 0 to 65535 representing the duty
    * cycle percentage.
    */
-  void duty_cycle(u16 p_duty_cycle)
+  async::future<void> duty_cycle(async::context& p_context, u16 p_duty_cycle)
   {
-    driver_duty_cycle(p_duty_cycle);
+    return driver_duty_cycle(p_context, p_duty_cycle);
   }
 
   virtual ~pwm16_channel() = default;
 
 private:
-  virtual hertz driver_frequency() = 0;
-  virtual void driver_duty_cycle(u16 p_duty_cycle) = 0;
+  virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;
+  virtual async::future<void> driver_duty_cycle(async::context& p_context,
+                                                u16 p_duty_cycle) = 0;
 };
 
 /**
@@ -134,12 +136,13 @@ public:
    *
    * @param p_frequency - the frequency to apply to the pwm hardware.
    */
-  void frequency(hertz p_frequency)
+  async::future<void> frequency(async::context& p_context, hertz p_frequency)
   {
-    driver_frequency(p_frequency);
+    return driver_frequency(p_context, p_frequency);
   }
 
 private:
-  virtual void driver_frequency(hertz p_frequency) = 0;
+  virtual async::future<void> driver_frequency(async::context& p_context,
+                                               hertz p_frequency) = 0;
 };
 }  // namespace hal::inline v5

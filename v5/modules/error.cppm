@@ -658,29 +658,4 @@ struct bad_optional_ptr_access : public exception
   {
   }
 };
-
-/**
- * @ingroup Error
- * @brief libhal function for throwing exceptions with static analysis
- *
- * The types that can be thrown must follow these rules:
- *
- * 1. Must be trivially destructible
- * 2. Must have hal::exception as a base class for the type.
- *
- * @tparam thrown_t - type of the object to be thrown.
- * @param p_thrown_object - object to throw.
- * @throw thrown_t - the passed p_thrown_object.
- */
-template<class thrown_t>
-[[noreturn]] void safe_throw(thrown_t&& p_thrown_object)
-{
-  static_assert(
-    std::is_trivially_destructible_v<thrown_t>,
-    "safe_throw() only works with trivially destructible thrown types.");
-  static_assert(std::is_base_of_v<hal::exception, thrown_t>,
-                "Only hal::exception and its derived classes can be safely "
-                "thrown by a libhal library.");
-  throw p_thrown_object;
-}
 }  // namespace hal::inline v5

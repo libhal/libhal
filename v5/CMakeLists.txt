@@ -16,6 +16,7 @@ cmake_minimum_required(VERSION 3.28)
 
 # Generate compile commands for anyone using our libraries.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 project(hal LANGUAGES CXX)
 
@@ -53,8 +54,7 @@ target_sources(hal PUBLIC
     modules/gyroscope.cppm
     modules/magnetometer.cppm
     modules/steady_clock.cppm
-    modules/inplace_function.cppm
-    modules/callback.cppm
+    modules/timed_interrupt.cppm
 )
 
 install(
@@ -72,6 +72,7 @@ install(
     NAMESPACE libhal::
     DESTINATION "lib/cmake"
     CXX_MODULES_DIRECTORY "cxx-modules"
+    EXPORT_PACKAGE_DEPENDENCIES
 )
 
 # ==============================================================================
@@ -90,7 +91,7 @@ else()
     PRIVATE
         tests/adc.test.cpp
         tests/main.test.cpp
-        tests/callback.test.cpp
+        tests/timed_interrupt.test.cpp
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)
