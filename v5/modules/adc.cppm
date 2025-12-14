@@ -15,6 +15,7 @@
 export module hal:adc;
 
 export import :units;
+export import async_context;
 
 export namespace hal::inline v5 {
 /**
@@ -66,17 +67,18 @@ public:
    * sample of all 1s, the maximum adc sample value, will return as 0xFFFF (the
    * maximum value for a u16 integer).
    *
-   * @return u16 - the sampled adc value upscaled to u16
+   * @param p_context - async context for the operation
+   * @return async::future<u16> - the sampled adc value upscaled to u16
    */
-  [[nodiscard]] u16 read()
+  async::future<u16> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~adc16() = default;
 
 private:
-  virtual u16 driver_read() = 0;
+  virtual async::future<u16> driver_read(async::context& p_context) = 0;
 };
 
 /**
@@ -110,16 +112,17 @@ public:
    * See `hal::adc16` for details about how ADCs with precision below 24 are
    * upscaled to match the necessary precision.
    *
-   * @return u32 - the sampled adc value upscaled to 24-bits
+   * @param p_context - async context for the operation
+   * @return async::future<u32> - the sampled adc value upscaled to 24-bits
    */
-  [[nodiscard]] u32 read()
+  async::future<u32> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~adc24() = default;
 
 private:
-  virtual u32 driver_read() = 0;
+  virtual async::future<u32> driver_read(async::context& p_context) = 0;
 };
 }  // namespace hal::inline v5

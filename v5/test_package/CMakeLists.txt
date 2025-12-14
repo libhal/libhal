@@ -14,6 +14,8 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 project(test_package LANGUAGES CXX)
 
 # Require Ninja or Visual Studio for modules
@@ -28,3 +30,10 @@ add_executable(${PROJECT_NAME} main.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC .)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_link_libraries(${PROJECT_NAME} PRIVATE libhal::hal)
+
+# Always run this custom target by making it depend on ALL
+add_custom_target(copy_compile_commands ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    ${CMAKE_SOURCE_DIR}/compile_commands.json
+    DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json)

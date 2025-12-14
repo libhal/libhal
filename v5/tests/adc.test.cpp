@@ -12,11 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <array>
+#include <chrono>
+#include <coroutine>
+#include <memory_resource>
+
 #include <boost/ut.hpp>
 
 import hal;
+import async_context;
 
 namespace {
+
+class test_scheduler : public async::scheduler
+{
+private:
+  void do_schedule(
+    async::context&,
+    async::blocked_by,
+    std::variant<std::chrono::nanoseconds, async::context*>) override
+  {
+  }
+};
 
 class test_adc16 : public hal::adc16
 {
@@ -25,20 +42,29 @@ public:
   ~test_adc16() override = default;
 
 private:
-  hal::u16 driver_read() override
+  async::future<hal::u16> driver_read(async::context&) override
   {
+    // WARNING co_return seems to loop forever!!
     return returned_position;
   }
 };
 
 boost::ut::suite<"hal::adc16"> adc16_test = []() {
   using namespace boost::ut;
-  "::read()"_test = []() {
+  std::array<async::byte, 512> stack_memory{};
+  auto stack_span = std::span{ stack_memory };
+  auto scheduler =
+    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
+  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
+    std::pmr::new_delete_resource(), stack_span);
+  async::context context(scheduler, stack);
+
+  "::read()"_test = [&]() {
     // Setup
     test_adc16 test;
 
     // Exercise
-    auto sample = test.read();
+    auto sample = test.read(context).sync_wait();
 
     // Verify
     expect(that % test_adc16::returned_position == sample);
@@ -52,7 +78,7 @@ public:
   ~test_adc24() override = default;
 
 private:
-  hal::u32 driver_read() override
+  async::future<hal::u32> driver_read(async::context&) override
   {
     return returned_position;
   }
@@ -60,12 +86,21 @@ private:
 
 boost::ut::suite<"hal::adc24"> adc24_test = []() {
   using namespace boost::ut;
-  "::read()"_test = []() {
+
+  std::array<async::byte, 512> stack_memory{};
+  auto stack_span = std::span{ stack_memory };
+  auto scheduler =
+    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
+  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
+    std::pmr::new_delete_resource(), stack_span);
+  async::context context(scheduler, stack);
+
+  "::read()"_test = [&]() {
     // Setup
     test_adc24 test;
 
     // Exercise
-    auto sample = test.read();
+    auto sample = test.read(context).sync_wait();
 
     // Verify
     expect(that % test_adc24::returned_position == sample);

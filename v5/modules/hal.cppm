@@ -19,7 +19,10 @@ export import :units;
 export import :pwm;
 export import :input_pin;
 export import :error;
-export import :callback;
+export import :timed_interrupt;
+
+export import strong_ptr;
+export import async_context;
 
 export namespace hal::inline v5 {
 inline constexpr auto version = "5.0.0";

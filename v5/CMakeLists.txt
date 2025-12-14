@@ -16,6 +16,7 @@ cmake_minimum_required(VERSION 3.28)
 
 # Generate compile commands for anyone using our libraries.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_COLOR_DIAGNOSTICS ON)
 
 project(hal LANGUAGES CXX)
 
@@ -23,8 +24,12 @@ project(hal LANGUAGES CXX)
 # Library
 # ==============================================================================
 
+find_package(strong_ptr REQUIRED)
+find_package(async_context REQUIRED)
+
 add_library(hal STATIC)
 target_compile_features(hal PUBLIC cxx_std_23)
+target_link_libraries(hal PUBLIC strong_ptr async_context)
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
@@ -49,8 +54,7 @@ target_sources(hal PUBLIC
     modules/gyroscope.cppm
     modules/magnetometer.cppm
     modules/steady_clock.cppm
-    modules/inplace_function.cppm
-    modules/callback.cppm
+    modules/timed_interrupt.cppm
 )
 
 install(
@@ -68,6 +72,7 @@ install(
     NAMESPACE libhal::
     DESTINATION "lib/cmake"
     CXX_MODULES_DIRECTORY "cxx-modules"
+    EXPORT_PACKAGE_DEPENDENCIES
 )
 
 # ==============================================================================
@@ -86,11 +91,11 @@ else()
     PRIVATE
         tests/adc.test.cpp
         tests/main.test.cpp
-        tests/callback.test.cpp
+        tests/timed_interrupt.test.cpp
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)
-    target_link_libraries(unit_test PRIVATE hal boost-ext-ut::ut)
+    target_link_libraries(unit_test PRIVATE hal Boost::ut)
 
     add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
 endif()

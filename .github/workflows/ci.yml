@@ -48,13 +48,10 @@ jobs:
       dir: "v5/"
     secrets: inherit
 
-  deploy_check_v5:
-    if: false # disable for now
-    uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
+  deploy_v5_check:
+    uses: libhal/ci/.github/workflows/package_and_upload_all.yml@5.x.y
     with:
-      compiler: gcc
-      arch: x86_64
-      compiler_version: 14.2
-      compiler_package: ""
-      dir: "v5/"
-      os: Linux
+      modules_support_needed: true
+      coroutine_support_needed: true
+      dir: v5
+    secrets: inherit
