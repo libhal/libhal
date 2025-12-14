@@ -16,8 +16,9 @@ module;
 
 export module hal:timed_interrupt;
 
-export import :units;
 export import strong_ptr;
+
+export import :units;
 
 export namespace hal::inline v5 {
 /**

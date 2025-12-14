@@ -12,36 +12,60 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
 #include <print>
+#include <span>
+#include <variant>
 
 import hal;
 
 using namespace hal::literals;
 
+class test_scheduler : public async::scheduler
+{
+private:
+  void do_schedule(
+    async::context&,
+    async::blocked_by,
+    std::variant<std::chrono::nanoseconds, async::context*>) override
+  {
+  }
+};
+
 class test_pwm : public hal::pwm16_channel
 {
 private:
-  hal::hertz driver_frequency() final
+  async::future<hal::hertz> driver_frequency(async::context&) final
   {
     return 10.0_kHz;
   }
-  void driver_duty_cycle(hal::u16 p_duty_cycle) final
+  async::future<void> driver_duty_cycle(async::context&,
+                                        hal::u16 p_duty_cycle) final
   {
     std::println("duty cycle = {}/{}", p_duty_cycle, (1 << 16) - 1);
+    return {};
   }
 };
 
 int main()
 {
   int status = 0;
+  std::array<async::byte, 512> stack_memory{};
+  auto stack_span = std::span{ stack_memory };
+  auto scheduler =
+    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
+  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
+    std::pmr::new_delete_resource(), stack_span);
+  async::context context(scheduler, stack);
+
   test_pwm pwm;
 
   try {
-    std::println("PWM frequency = {}", pwm.frequency());
-    pwm.duty_cycle(1 << 15);
-    pwm.duty_cycle(1 << 14);
-    pwm.duty_cycle(1 << 13);
-    pwm.duty_cycle(1 << 12);
+    std::println("PWM frequency = {}", pwm.frequency(context).sync_wait());
+    pwm.duty_cycle(context, 1 << 15).sync_wait();
+    pwm.duty_cycle(context, 1 << 14).sync_wait();
+    pwm.duty_cycle(context, 1 << 13).sync_wait();
+    pwm.duty_cycle(context, 1 << 12).sync_wait();
   } catch (hal::argument_out_of_domain const& p_errc) {
     std::println("Caught argument_out_of_domain error successfully!");
     std::println("    Object address: {}", p_errc.instance());
