@@ -1,7 +1,6 @@
 # libhal
 
-[![✅ Demos Build](https://github.com/libhal/libhal-arm-mcu/actions/workflows/demos_test.yml/badge.svg)](https://github.com/libhal/libhal-arm-mcu/actions/workflows/demos_test.yml)
-[![✅ Library Builds](https://github.com/libhal/libhal-arm-mcu/actions/workflows/library_test.yml/badge.svg)](https://github.com/libhal/libhal-arm-mcu/actions/workflows/library_test.yml)
+[![✅ CI](https://github.com/libhal/libhal/actions/workflows/ci.yml/badge.svg)](https://github.com/libhal/libhal/actions/workflows/ci.yml)
 [![GitHub stars](https://img.shields.io/github/stars/libhal/libhal.svg)](https://github.com/libhal/libhal/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/libhal/libhal.svg)](https://github.com/libhal/libhal/network)
 [![GitHub issues](https://img.shields.io/github/issues/libhal/libhal.svg)](https://github.com/libhal/libhal/issues)
