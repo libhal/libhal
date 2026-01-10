@@ -10,39 +10,12 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
-
-module;
 
 export module hal:temperature_sensor;
 
-export import :units;
+export import mp_units;
 
-export namespace hal {
-/**
- * @brief Temperature sensing hardware abstraction interface
- *
- *
- */
-class temperature_sensor
-{
-public:
-  /**
-   * @brief Read the current temperature measured by the device
-   *
-   * @return celsius - Measured temperature
-   */
-  [[nodiscard]] celsius read()
-  {
-    return driver_read();
-  }
-
-  virtual ~temperature_sensor() = default;
-
-private:
-  virtual celsius driver_read() = 0;
-};
-}  // namespace hal
+using namespace mp_units;
 
 export namespace hal::inline v5 {
 /**
@@ -57,7 +30,7 @@ public:
    *
    * @return celsius - Measured temperature
    */
-  [[nodiscard]] celsius read()
+  [[nodiscard]] quantity<si::kelvin, float> read()
   {
     return driver_read();
   }
@@ -65,6 +38,6 @@ public:
   virtual ~temperature_sensor() = default;
 
 private:
-  virtual celsius driver_read() = 0;
+  virtual quantity<si::kelvin, float> driver_read() = 0;
 };
 }  // namespace hal::inline v5

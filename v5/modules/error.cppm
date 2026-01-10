@@ -25,8 +25,8 @@ export import :units;
  * @defgroup Error Error
  *
  */
-export namespace hal::inline v5 {
-[[noreturn]] inline void halt()
+namespace hal::inline v5 {
+export [[noreturn]] inline void halt()
 {
   while (true) {
     continue;
@@ -46,7 +46,7 @@ namespace error {
  * @tparam options ignored by the application but needed to create a non-trivial
  * specialization of this class which allows its usage in static_assert.
  */
-template<auto... options>
+export template<auto... options>
 struct invalid_option_t : std::false_type
 {};
 /**
@@ -55,7 +55,7 @@ struct invalid_option_t : std::false_type
  * @tparam options ignored by the application but needed to create a non-trivial
  * specialization of this class which allows its usage in static_assert.
  */
-template<auto... options>
+export template<auto... options>
 inline constexpr bool invalid_option = invalid_option_t<options...>::value;
 }  // namespace error
 
@@ -66,7 +66,7 @@ inline constexpr bool invalid_option = invalid_option_t<options...>::value;
  * at any point in the code.
  *
  */
-class exception_abi_origin_v0
+export class exception_abi_origin_v0
 {
 private:
   exception_abi_origin_v0()
@@ -92,7 +92,7 @@ private:
  * @brief Base exception class for all hal related exceptions
  *
  */
-class exception
+export class exception
 {
 public:
   constexpr exception(std::errc p_error_code, void const* p_instance)
@@ -256,7 +256,7 @@ static_assert(std::is_layout_compatible<exception_abi_origin_v0, exception>,
  * an unexpected bug due to hardware misconfiguration or some runtime hardware
  * fault.
  */
-struct no_such_device : public exception
+export struct no_such_device : public exception
 {
   /**
    * @brief Construct a new timed_out exception
@@ -295,7 +295,7 @@ struct no_such_device : public exception
  * begins to occur.
  *
  */
-struct io_error : public exception
+export struct io_error : public exception
 {
   /**
    * @brief Construct a new timed_out exception
@@ -323,7 +323,7 @@ struct io_error : public exception
  * notice will be removed, and this type can be used in those situations.
  *
  */
-struct resource_unavailable_try_again : public exception
+export struct resource_unavailable_try_again : public exception
 {
   /**
    * @brief Construct a new timed_out exception
@@ -366,7 +366,7 @@ struct resource_unavailable_try_again : public exception
  * considered a bug in the application. The application should handle this error
  * as it would any other bugs in the application.
  */
-struct device_or_resource_busy : public exception
+export struct device_or_resource_busy : public exception
 {
   device_or_resource_busy(void const* p_instance)
     : exception(std::errc::device_or_resource_busy, p_instance)
@@ -400,7 +400,7 @@ struct device_or_resource_busy : public exception
  * hal::timed_out exception and what it means.
  *
  */
-struct timed_out : public exception
+export struct timed_out : public exception
 {
   /**
    * @brief Construct a new timed_out exception
@@ -449,7 +449,7 @@ struct timed_out : public exception
  * inform a user of the application what went wrong and for what driver.
  *
  */
-struct operation_not_supported : public exception
+export struct operation_not_supported : public exception
 {
   /**
    * @brief Construct a new operation_not_supported exception
@@ -483,7 +483,7 @@ struct operation_not_supported : public exception
  * become permitted.
  *
  */
-struct operation_not_permitted : public exception
+export struct operation_not_permitted : public exception
 {
   operation_not_permitted(void const* p_instance)
     : exception(std::errc::operation_not_permitted, p_instance)
@@ -509,7 +509,7 @@ struct operation_not_permitted : public exception
  * In general, this is only recoverable if an application is trying to determine
  * the bounds of a servo.
  */
-struct argument_out_of_domain : public exception
+export struct argument_out_of_domain : public exception
 {
   argument_out_of_domain(void const* p_instance)
     : exception(std::errc::argument_out_of_domain, p_instance)
@@ -537,7 +537,7 @@ struct argument_out_of_domain : public exception
  * packet size to send.
  *
  */
-struct message_size : public exception
+export struct message_size : public exception
 {
   message_size(u32 p_max_size, void const* p_instance)
     : exception(std::errc::message_size, p_instance)
@@ -576,7 +576,7 @@ struct message_size : public exception
  * a reasonable amount of attempts.
  *
  */
-struct not_connected : public exception
+export struct not_connected : public exception
 {
   not_connected(void const* p_instance)
     : exception(std::errc::not_connected, p_instance)
@@ -598,25 +598,10 @@ struct not_connected : public exception
  *
  * If this is not the case, use any other hal::exception that fits.
  */
-struct unknown : public exception
+export struct unknown : public exception
 {
   unknown(void const* p_instance)
     : exception(std::errc{}, p_instance)
-  {
-  }
-};
-
-/**
- * @ingroup Error
- * @brief Raised when a weak_ptr is accessed for an object that has been
- * destroyed.
- *
- */
-class bad_weak_ptr : public hal::exception
-{
-public:
-  bad_weak_ptr(void* p_weak_ptr_instance)
-    : hal::exception(std::errc::bad_address, p_weak_ptr_instance)
   {
   }
 };
@@ -627,7 +612,7 @@ public:
  * or resource.
  *
  */
-struct out_of_range : public exception
+export struct out_of_range : public exception
 {
   struct info
   {
@@ -642,20 +627,5 @@ struct out_of_range : public exception
   }
 
   info m_info;
-};
-
-/**
- * @ingroup Error
- * @brief Raised when an API attempts to access the contents of an empty
- * optional_ptr.
- *
- */
-struct bad_optional_ptr_access : public exception
-{
-
-  bad_optional_ptr_access(void const* p_instance)
-    : exception(std::errc::invalid_argument, p_instance)
-  {
-  }
 };
 }  // namespace hal::inline v5

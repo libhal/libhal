@@ -10,9 +10,6 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
-
-module;
 
 export module hal:servo;
 
@@ -400,4 +397,4 @@ private:
   virtual status_t driver_status() = 0;
   virtual range_t driver_range() = 0;
 };
-}  // namespace hal::v5
+}  // namespace hal::inline v5

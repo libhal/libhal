@@ -12,27 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-export module hal:current_sensor;
+export module hal:power_sensors;
 
 export import :units;
 
-export namespace hal {
+namespace hal::inline v5 {
 /**
  * @brief current sensor hardware abstraction interface
  *
  */
-class current_sensor
+export class current_sensor
 {
 public:
   /**
    * @brief Reads the most up to date current from the sensor
    *
-   * @return hal::ampere - amount of current, in ampere's, read from the current
-   * sensor.
+   * @return ampere - amount of current, in ampere's, read
+   * from the current sensor.
    */
-  [[nodiscard]] hal::ampere read()
+  [[nodiscard]] amperes read()
   {
     return driver_read();
   }
@@ -40,6 +38,30 @@ public:
   virtual ~current_sensor() = default;
 
 private:
-  virtual hal::ampere driver_read() = 0;
+  virtual amperes driver_read() = 0;
 };
-}  // namespace hal
+
+/**
+ * @brief A voltage sensor hardware abstraction interface
+ *
+ */
+export class volt_sensor
+{
+public:
+  /**
+   * @brief Reads the most up to date voltage measured from the sensor
+   *
+   * @return volts - amount of volts read from the voltage sensor.
+   */
+  [[nodiscard]] volts read()
+  {
+    return driver_read();
+  }
+
+  virtual ~volt_sensor() = default;
+
+private:
+  virtual volts driver_read() = 0;
+};
+
+}  // namespace hal::inline v5

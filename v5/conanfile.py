@@ -90,16 +90,15 @@ class libhal_conan(ConanFile):
 
     def requirements(self):
         self.requires("strong_ptr/[^0.0.2]")
-        self.requires("async_context/[^0.0.1]")
-        self.requires(
-            "mp-units/2.4.0",
-            options={
-                # "freestanding": True,
-                # "std_format": False,
-                "cxx_modules": True,
-                "import_std": False,
-            },
-        )
+        self.requires("async_context/[^0.0.2]")
+        self.requires("mp-units/2.5.0",
+                      options={
+                          "freestanding": True,
+                          "cxx_modules": True,
+                          "std_format": False,
+                          "import_std": False,
+                          "contracts": "none",
+                      })
 
     def layout(self):
         cmake_layout(self)
