@@ -21,14 +21,15 @@ export module hal:units;
 
 import mp_units;
 
+using namespace mp_units;
+using namespace mp_units::si::unit_symbols;
+
 /**
  * @brief The foundation of libhal containing, interfaces, utilities and soft
  * drivers.
  *
  */
 export namespace hal::inline v5 {
-
-using namespace mp_units;
 
 /// The standard time durations in libhal std::chrono::nanoseconds
 using time_duration = std::chrono::nanoseconds;

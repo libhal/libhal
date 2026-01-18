@@ -30,8 +30,6 @@ find_package(async_context REQUIRED)
 
 add_library(hal STATIC)
 target_compile_features(hal PUBLIC cxx_std_23)
-# Needed for mp-units
-# target_compile_definitions(hal PUBLIC _LIBCPP_HAS_WIDE_CHARACTERS)
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
@@ -50,6 +48,16 @@ target_sources(hal PUBLIC
     modules/steady_clock.cppm
     modules/timed_interrupt.cppm
 )
+
+target_compile_options(hal PRIVATE
+    -g
+    -Werror
+    -Wno-unused-command-line-argument
+    -Wall
+    -Wextra
+    -Wshadow
+    -fexceptions
+    -fno-rtti)
 
 target_link_libraries(hal PRIVATE strong_ptr async_context mp-units::mp-units)
 
@@ -91,21 +99,23 @@ else()
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)
+    target_compile_options(unit_test PRIVATE
+        -g
+        -Werror
+        -Wno-unused-command-line-argument
+        -Wall
+        -Wextra
+        -Wshadow
+        -fexceptions
+        -fno-rtti
+        -fsanitize=address)
+
     target_link_libraries(unit_test PRIVATE hal Boost::ut)
+    target_link_options(unit_test PRIVATE -g -fsanitize=address)
 
     add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
 endif()
 
-# # Copy during configure time (runs during conan install)
-# if(EXISTS ${CMAKE_BINARY_DIR}/compile_commands.json)
-#     execute_process(
-#         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-#             ${CMAKE_BINARY_DIR}/compile_commands.json
-#             ${CMAKE_SOURCE_DIR}/compile_commands.json
-#     )
-# endif()
-
-# Run this at the end of configure
 cmake_language(DEFER CALL execute_process
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_BINARY_DIR}/compile_commands.json
