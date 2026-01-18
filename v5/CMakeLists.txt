@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 4.0)
 
 # Generate compile commands for anyone using our libraries.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -25,37 +25,41 @@ project(hal LANGUAGES CXX)
 # ==============================================================================
 
 find_package(strong_ptr REQUIRED)
+find_package(mp-units REQUIRED)
 find_package(async_context REQUIRED)
 
 add_library(hal STATIC)
 target_compile_features(hal PUBLIC cxx_std_23)
-target_link_libraries(hal PUBLIC strong_ptr async_context)
 target_sources(hal PUBLIC
     FILE_SET CXX_MODULES
     TYPE CXX_MODULES
 
     FILES
     modules/hal.cppm
-    modules/adc.cppm
+    modules/analog.cppm
     modules/units.cppm
-    modules/input_pin.cppm
-    modules/accelerometer.cppm
-    modules/distance_sensor.cppm
-    modules/temperature_sensor.cppm
-    modules/current_sensor.cppm
-    modules/rotation_sensor.cppm
-    modules/angular_velocity_sensor.cppm
-    modules/output_pin.cppm
-    modules/dac.cppm
+    modules/gpio.cppm
+    modules/power_sensors.cppm
+    modules/motion_sensors.cppm
     modules/motor.cppm
     modules/error.cppm
     modules/pwm.cppm
     modules/servo.cppm
-    modules/gyroscope.cppm
-    modules/magnetometer.cppm
     modules/steady_clock.cppm
     modules/timed_interrupt.cppm
 )
+
+target_compile_options(hal PRIVATE
+    -g
+    -Werror
+    -Wno-unused-command-line-argument
+    -Wall
+    -Wextra
+    -Wshadow
+    -fexceptions
+    -fno-rtti)
+
+target_link_libraries(hal PRIVATE strong_ptr async_context mp-units::mp-units)
 
 install(
     TARGETS hal
@@ -95,14 +99,25 @@ else()
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)
+    target_compile_options(unit_test PRIVATE
+        -g
+        -Werror
+        -Wno-unused-command-line-argument
+        -Wall
+        -Wextra
+        -Wshadow
+        -fexceptions
+        -fno-rtti
+        -fsanitize=address)
+
     target_link_libraries(unit_test PRIVATE hal Boost::ut)
+    target_link_options(unit_test PRIVATE -g -fsanitize=address)
 
     add_custom_target(run_tests ALL DEPENDS unit_test COMMAND unit_test)
 endif()
 
-# Always run this custom target by making it depend on ALL
-add_custom_target(copy_compile_commands ALL
+cmake_language(DEFER CALL execute_process
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${CMAKE_BINARY_DIR}/compile_commands.json
-    ${CMAKE_SOURCE_DIR}/compile_commands.json
-    DEPENDS ${CMAKE_BINARY_DIR}/compile_commands.json)
+        ${CMAKE_BINARY_DIR}/compile_commands.json
+        ${CMAKE_SOURCE_DIR}/compile_commands.json
+)

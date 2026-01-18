@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
 export module hal:timed_interrupt;
 
 export import strong_ptr;
-
 export import :units;
 
 export namespace hal::inline v5 {

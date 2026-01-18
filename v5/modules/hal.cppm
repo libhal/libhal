@@ -14,10 +14,12 @@
 
 export module hal;
 
-export import :adc;
+export import :analog;
 export import :units;
 export import :pwm;
-export import :input_pin;
+export import :gpio;
+export import :motion_sensors;
+export import :power_sensors;
 export import :error;
 export import :timed_interrupt;
 

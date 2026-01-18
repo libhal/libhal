@@ -19,12 +19,18 @@ module;
 
 export module hal:units;
 
+import mp_units;
+
+using namespace mp_units;
+using namespace mp_units::si::unit_symbols;
+
 /**
  * @brief The foundation of libhal containing, interfaces, utilities and soft
  * drivers.
  *
  */
 export namespace hal::inline v5 {
+
 /// The standard time durations in libhal std::chrono::nanoseconds
 using time_duration = std::chrono::nanoseconds;
 
@@ -50,36 +56,45 @@ using i64 = std::int64_t;
 using isize = std::uintptr_t;
 using iptr = std::uintptr_t;
 
-/// Type for frequency represented in hertz.
-using hertz = u32;
+using common_rep_t = float;
+
+/// Type for frequency represented in hertz. We use u32 because sub 1-hertz
+/// frequencies are seldom used in application. In general, the whole number
+/// part of a frequency is more important than the decimal parts, so no need to
+/// pay for floating point operations on frequency values.
+using hertz = quantity<si::hertz, u32>;
 
 /// Type for acceleration represented in the force applied by gravity at sea
 /// level.
-using g_force = float;
+using acceleration = quantity<si::metre / pow<2>(si::second), common_rep_t>;
+using velocity = quantity<si::metre / si::second, common_rep_t>;
 
 /// Type for current represented in amps.
-using ampere = float;
+using amperes = quantity<si::ampere, common_rep_t>;
 
 /// Type for voltage represented in volts.
-using volts = float;
+using volts = quantity<si::volt, common_rep_t>;
 
-/// Type for temperature represented in celsius.
-using celsius = float;
+/// Type for temperature represented in kelvin.
+using kelvin = quantity<si::kelvin, common_rep_t>;
+
+/// Type for angular velocity represented in degrees per second
+using angular_velocity = quantity<si::degree / si::second, common_rep_t>;
 
 /// Type for rotational velocity represented in RPMs.
-using rpm = float;
+using rpm = quantity<mag<360> * si::degree / si::minute, common_rep_t>;
 
 /// Type for length represented in meters.
-using meters = float;
+using meters = quantity<si::metre, common_rep_t>;
 
 /// Type for angle represented in degrees.
-using degrees = float;
+using degrees = quantity<si::degree, common_rep_t>;
 
 /// Type for magnetic field represented in gauss.
-using gauss = float;
+using teslas = quantity<si::tesla, common_rep_t>;
 
 /// Type for torque represented in newton meters.
-using newton_meter = float;
+using newton_meter = quantity<si::newton * si::metre, common_rep_t>;
 
 /**
  * @brief Set of possible pin mode resistor settings.
@@ -101,201 +116,4 @@ enum class pin_resistor : u8
   /// also called VDD on some systems.
   pull_up,
 };
-
-/**
- * @brief Namespace containing user defined literals for the hal standard units
- *
- */
-namespace literals {
-
-// =============================================================================
-// Frequency
-// =============================================================================
-
-[[nodiscard]] consteval hertz operator""_Hz(long double p_value) noexcept
-{
-  return static_cast<u32>(p_value);
-}
-
-[[nodiscard]] consteval hertz operator""_kHz(long double p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::kilo::num);
-}
-
-[[nodiscard]] consteval hertz operator""_MHz(long double p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::mega::num);
-}
-
-[[nodiscard]] consteval hertz operator""_GHz(long double p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::giga::num);
-}
-
-[[nodiscard]] consteval u32 operator""_Hz(unsigned long long p_value) noexcept
-{
-  return static_cast<u32>(p_value);
-}
-
-[[nodiscard]] consteval u32 operator""_kHz(unsigned long long p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::kilo::num);
-}
-
-[[nodiscard]] consteval u32 operator""_MHz(unsigned long long p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::mega::num);
-}
-
-[[nodiscard]] consteval u32 operator""_GHz(unsigned long long p_value) noexcept
-{
-  return static_cast<u32>(p_value * std::giga::num);
-}
-
-// =============================================================================
-// G force
-// =============================================================================
-
-[[nodiscard]] consteval g_force operator""_g(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-// =============================================================================
-// Ampere
-// =============================================================================
-
-[[nodiscard]] consteval ampere operator""_kA(long double p_value) noexcept
-{
-  return static_cast<float>(p_value * std::kilo::num);
-}
-
-[[nodiscard]] consteval ampere operator""_A(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval ampere operator""_mA(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::milli::den);
-}
-
-[[nodiscard]] consteval ampere operator""_uA(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::micro::den);
-}
-
-// =============================================================================
-// Voltage
-// =============================================================================
-
-[[nodiscard]] consteval volts operator""_kV(long double p_value) noexcept
-{
-  return static_cast<float>(p_value * std::kilo::num);
-}
-
-[[nodiscard]] consteval volts operator""_V(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval volts operator""_mV(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::milli::den);
-}
-
-[[nodiscard]] consteval volts operator""_uV(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::micro::den);
-}
-
-// =============================================================================
-// Temperature
-// =============================================================================
-
-[[nodiscard]] consteval celsius operator""_C(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval celsius operator""_F(long double p_value) noexcept
-{
-  p_value = (p_value - 32.0L) * (5.0L / 9.0L);
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval celsius operator""_K(long double p_value) noexcept
-{
-  return static_cast<float>(p_value - 273.15L);
-}
-
-// =============================================================================
-// Rotational Velocity
-// =============================================================================
-
-[[nodiscard]] consteval rpm operator""_rpm(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval rpm operator""_deg_per_sec(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / 6.0L);
-}
-
-// =============================================================================
-// Angle
-// =============================================================================
-
-[[nodiscard]] consteval degrees operator""_deg(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-// =============================================================================
-// Lengths
-// =============================================================================
-
-[[nodiscard]] consteval meters operator""_um(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::micro::den);
-}
-
-[[nodiscard]] consteval meters operator""_mm(long double p_value) noexcept
-{
-  return static_cast<float>(p_value / std::milli::den);
-}
-
-[[nodiscard]] consteval meters operator""_m(long double p_value) noexcept
-{
-  return static_cast<float>(p_value);
-}
-
-[[nodiscard]] consteval meters operator""_km(long double p_value) noexcept
-{
-  return static_cast<float>(p_value * std::kilo::num);
-}
-
-[[nodiscard]] consteval meters operator""_inch(long double p_value) noexcept
-{
-  constexpr long double inch_to_meter = 0.0254L;
-  return static_cast<float>(p_value * inch_to_meter);
-}
-
-[[nodiscard]] consteval meters operator""_yards(long double p_value) noexcept
-{
-  constexpr long double yard_to_meter = 0.9144L;
-  return static_cast<float>(p_value * yard_to_meter);
-}
-
-[[nodiscard]] consteval meters operator""_miles(long double p_value) noexcept
-{
-  constexpr long double miles_to_meter = 1609.344L;
-  return static_cast<float>(p_value * miles_to_meter);
-}
-}  // namespace literals
-
-// Make user defined namespaces available to any library within the hal
-// namespace
-using namespace literals;
 }  // namespace hal::inline v5

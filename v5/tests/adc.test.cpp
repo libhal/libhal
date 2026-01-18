@@ -24,13 +24,21 @@ import async_context;
 
 namespace {
 
-class test_scheduler : public async::scheduler
+struct test_context : public async::basic_context
 {
-private:
-  void do_schedule(
-    async::context&,
-    async::blocked_by,
-    std::variant<std::chrono::nanoseconds, async::context*>) override
+  std::array<async::uptr, 1024> m_stack_memory{};
+
+  test_context()
+  {
+    initialize_stack_memory(m_stack_memory);
+  }
+
+  ~test_context() override
+  {
+    // cancel();
+  }
+
+  void do_schedule(async::blocked_by, async::block_info) noexcept override
   {
   }
 };
@@ -51,23 +59,18 @@ private:
 
 boost::ut::suite<"hal::adc16"> adc16_test = []() {
   using namespace boost::ut;
-  std::array<async::byte, 512> stack_memory{};
-  auto stack_span = std::span{ stack_memory };
-  auto scheduler =
-    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
-  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
-    std::pmr::new_delete_resource(), stack_span);
-  async::context context(scheduler, stack);
 
   "::read()"_test = [&]() {
     // Setup
+    test_context context;
     test_adc16 test;
 
     // Exercise
-    auto sample = test.read(context).sync_wait();
+    auto sample = test.read(context);
 
     // Verify
-    expect(that % test_adc16::returned_position == sample);
+    expect(that % sample.has_value());
+    expect(that % test_adc16::returned_position == sample.value());
   };
 };
 
@@ -87,23 +90,17 @@ private:
 boost::ut::suite<"hal::adc24"> adc24_test = []() {
   using namespace boost::ut;
 
-  std::array<async::byte, 512> stack_memory{};
-  auto stack_span = std::span{ stack_memory };
-  auto scheduler =
-    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
-  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
-    std::pmr::new_delete_resource(), stack_span);
-  async::context context(scheduler, stack);
-
   "::read()"_test = [&]() {
     // Setup
+    test_context context;
     test_adc24 test;
 
     // Exercise
-    auto sample = test.read(context).sync_wait();
+    auto sample = test.read(context);
 
     // Verify
-    expect(that % test_adc24::returned_position == sample);
+    expect(that % sample.has_value());
+    expect(that % test_adc24::returned_position == sample.value());
   };
 };
 
