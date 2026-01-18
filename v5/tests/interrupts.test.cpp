@@ -24,7 +24,7 @@ class test_callback : public hal::timed_interrupt_callback
 public:
   int call_count = 0;
 
-  void schedule(hal::timed_interrupt_schedule_tag) override
+  void schedule() override
   {
     call_count++;
   }

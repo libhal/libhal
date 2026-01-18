@@ -12,22 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-export module hal:timed_interrupt;
+export module hal:interrupts;
 
 export import strong_ptr;
 export import :units;
 
 export namespace hal::inline v5 {
-/**
- * @brief Disambiguation tag object for timer callbacks
- *
- */
-struct timed_interrupt_schedule_tag
-{};
 
 struct timed_interrupt_callback
 {
-  virtual void schedule(timed_interrupt_schedule_tag) = 0;
+  virtual void schedule() = 0;
 };
 
 /**
