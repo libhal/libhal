@@ -13,23 +13,28 @@
 // limitations under the License.
 
 #include <chrono>
+#include <coroutine>
+#include <memory_resource>
 #include <print>
 #include <span>
+#include <thread>
 #include <variant>
 
 import hal;
+import async_context;
 
-using namespace hal::literals;
+using namespace std::literals;
 
-class test_scheduler : public async::scheduler
+struct context : public async::basic_context
 {
-private:
-  void do_schedule(
-    async::context&,
-    async::blocked_by,
-    std::variant<std::chrono::nanoseconds, async::context*>) override
+  std::array<async::uptr, 1024> m_stack_memory{};
+
+  context()
   {
+    initialize_stack_memory(m_stack_memory);
   }
+
+  ~context() override = default;
 };
 
 class test_pwm : public hal::pwm16_channel
@@ -37,7 +42,8 @@ class test_pwm : public hal::pwm16_channel
 private:
   async::future<hal::hertz> driver_frequency(async::context&) final
   {
-    return 10.0_kHz;
+    using namespace mp_units::si::unit_symbols;
+    return 10 * kHz;
   }
   async::future<void> driver_duty_cycle(async::context&,
                                         hal::u16 p_duty_cycle) final
@@ -47,32 +53,41 @@ private:
   }
 };
 
-int main()
+async::future<int> app_main(async::context& p_ctx,
+                            mem::strong_ptr<hal::pwm16_channel> p_pwm)
 {
-  int status = 0;
-  std::array<async::byte, 512> stack_memory{};
-  auto stack_span = std::span{ stack_memory };
-  auto scheduler =
-    mem::make_strong_ptr<test_scheduler>(std::pmr::new_delete_resource());
-  auto stack = mem::make_strong_ptr<std::span<async::byte>>(
-    std::pmr::new_delete_resource(), stack_span);
-  async::context context(scheduler, stack);
-
-  test_pwm pwm;
-
   try {
-    std::println("PWM frequency = {}", pwm.frequency(context).sync_wait());
-    pwm.duty_cycle(context, 1 << 15).sync_wait();
-    pwm.duty_cycle(context, 1 << 14).sync_wait();
-    pwm.duty_cycle(context, 1 << 13).sync_wait();
-    pwm.duty_cycle(context, 1 << 12).sync_wait();
+    auto pwm_frequency_int = (co_await p_pwm->frequency(p_ctx))
+                               .numerical_value_in(mp_units::si::hertz);
+    std::println("PWM frequency = {}", pwm_frequency_int);
+    co_await p_pwm->duty_cycle(p_ctx, 1 << 15);
+    co_await p_pwm->duty_cycle(p_ctx, 1 << 14);
+    co_await p_pwm->duty_cycle(p_ctx, 1 << 13);
+    co_await p_pwm->duty_cycle(p_ctx, 1 << 12);
   } catch (hal::argument_out_of_domain const& p_errc) {
     std::println("Caught argument_out_of_domain error successfully!");
     std::println("    Object address: {}", p_errc.instance());
   } catch (...) {
     std::println("Unknown error!");
-    status = -1;
+    co_return -1;
   }
+  co_return 0;
+}
 
-  return status;
+int main()
+{
+  int status = 0;
+  try {
+    context context;
+    auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
+    auto app = app_main(context, pwm);
+
+    context.sync_wait([](async::sleep_duration p_duration) {
+      std::this_thread::sleep_for(p_duration);
+    });
+
+    return app.value();
+  } catch (...) {
+    return -2;
+  }
 }
