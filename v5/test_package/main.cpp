@@ -17,25 +17,12 @@
 #include <memory_resource>
 #include <print>
 #include <span>
-#include <thread>
 #include <variant>
 
 import hal;
 import async_context;
 
 using namespace std::literals;
-
-struct context : public async::basic_context
-{
-  std::array<async::uptr, 1024> m_stack_memory{};
-
-  context()
-  {
-    initialize_stack_memory(m_stack_memory);
-  }
-
-  ~context() override = default;
-};
 
 class test_pwm : public hal::pwm16_channel
 {
@@ -78,12 +65,12 @@ int main()
 {
   int status = 0;
   try {
-    context context;
+    async::basic_context<1024> context;
     auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
     auto app = app_main(context, pwm);
 
-    context.sync_wait([](async::sleep_duration p_duration) {
-      std::this_thread::sleep_for(p_duration);
+    context->sync_wait([](async::sleep_duration) {
+      // Skip waiting for test package
     });
 
     return app.value();

@@ -23,26 +23,6 @@ import hal;
 import async_context;
 
 namespace {
-
-struct test_context : public async::basic_context
-{
-  std::array<async::uptr, 1024> m_stack_memory{};
-
-  test_context()
-  {
-    initialize_stack_memory(m_stack_memory);
-  }
-
-  ~test_context() override
-  {
-    // cancel();
-  }
-
-  void do_schedule(async::blocked_by, async::block_info) noexcept override
-  {
-  }
-};
-
 class test_adc16 : public hal::adc16
 {
 public:
@@ -62,11 +42,11 @@ boost::ut::suite<"hal::adc16"> adc16_test = []() {
 
   "::read()"_test = [&]() {
     // Setup
-    test_context context;
+    async::basic_context<1024> ctx;
     test_adc16 test;
 
     // Exercise
-    auto sample = test.read(context);
+    auto sample = test.read(ctx);
 
     // Verify
     expect(that % sample.has_value());
@@ -92,7 +72,7 @@ boost::ut::suite<"hal::adc24"> adc24_test = []() {
 
   "::read()"_test = [&]() {
     // Setup
-    test_context context;
+    async::basic_context<1024> context;
     test_adc24 test;
 
     // Exercise
