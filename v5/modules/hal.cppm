@@ -21,7 +21,7 @@ export import :gpio;
 export import :motion_sensors;
 export import :power_sensors;
 export import :error;
-export import :timed_interrupt;
+export import :interrupts;
 
 export import strong_ptr;
 export import async_context;

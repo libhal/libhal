@@ -46,7 +46,7 @@ target_sources(hal PUBLIC
     modules/pwm.cppm
     modules/servo.cppm
     modules/steady_clock.cppm
-    modules/timed_interrupt.cppm
+    modules/interrupts.cppm
 )
 
 target_compile_options(hal PRIVATE
@@ -95,7 +95,7 @@ else()
     PRIVATE
         tests/adc.test.cpp
         tests/main.test.cpp
-        tests/timed_interrupt.test.cpp
+        tests/interrupts.test.cpp
     )
 
     target_compile_features(unit_test PUBLIC cxx_std_23)

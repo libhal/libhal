@@ -19,12 +19,12 @@ import hal;
 
 namespace {
 
-class test_callback : public hal::timed_interrupt_callback
+class test_callback : public hal::timed_callback
 {
 public:
   int call_count = 0;
 
-  void schedule(hal::timed_interrupt_schedule_tag) override
+  void callback() override
   {
     call_count++;
   }
@@ -34,7 +34,7 @@ class test_timed_interrupt : public hal::timed_interrupt
 {
 public:
   bool is_scheduled = false;
-  mem::optional_ptr<hal::timed_interrupt_callback> stored_callback;
+  mem::optional_ptr<hal::timed_callback> stored_callback;
   hal::time_duration stored_delay{ 0 };
 
   ~test_timed_interrupt() override = default;
@@ -45,9 +45,8 @@ private:
     return is_scheduled;
   }
 
-  void driver_schedule(
-    mem::optional_ptr<hal::timed_interrupt_callback> const& p_callback,
-    hal::time_duration p_delay) override
+  void driver_schedule(mem::optional_ptr<hal::timed_callback> const& p_callback,
+                       hal::time_duration p_delay) override
   {
     stored_callback = p_callback;
     stored_delay = p_delay;

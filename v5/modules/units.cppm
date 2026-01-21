@@ -19,7 +19,7 @@ module;
 
 export module hal:units;
 
-import mp_units;
+export import mp_units;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
