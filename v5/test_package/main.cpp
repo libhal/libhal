@@ -61,6 +61,8 @@ async::future<int> app_main(async::context& p_ctx,
   co_return 0;
 }
 
+async::sleep_duration last_sleep{};
+
 int main()
 {
   int status = 0;
@@ -69,9 +71,8 @@ int main()
     auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
     auto app = app_main(context, pwm);
 
-    context->sync_wait([](async::sleep_duration) {
-      // Skip waiting for test package
-    });
+    context->sync_wait(
+      [](async::sleep_duration p_sleep) { last_sleep = p_sleep; });
 
     return app.value();
   } catch (...) {
