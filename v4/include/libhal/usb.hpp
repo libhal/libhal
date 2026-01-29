@@ -871,10 +871,12 @@ using v5::usb::endpoint;
 using v5::usb::endpoint_info;
 using v5::usb::in_endpoint;
 using v5::usb::in_endpoint_type;
-using v5::usb::interface;
 using v5::usb::interrupt_in_endpoint;
 using v5::usb::interrupt_out_endpoint;
 using v5::usb::out_endpoint;
 using v5::usb::out_endpoint_type;
+
+using v5::usb::interface;
 using v5::usb::setup_packet;
+using v5::usb::standard_request_types;
 }  // namespace hal::usb

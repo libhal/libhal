@@ -285,4 +285,6 @@ using v5::scatter_span;
 using v5::spanable;
 using v5::spanable_bytes;
 using v5::spanable_writable_bytes;
+using v5::operator==;
+using v5::operator!=;
 }  // namespace hal
