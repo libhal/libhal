@@ -102,7 +102,13 @@ class libhal_conan(ConanFile):
                       })
 
     def layout(self):
-        cmake_layout(self)
+        build_path = Path("build") / (
+            str(self.settings.arch) + "-" +
+            str(self.settings.os) + "-" +
+            str(self.settings.compiler) + "-" +
+            str(self.settings.compiler.version)
+        )
+        cmake_layout(self, build_folder=str(build_path))
 
     def generate(self):
         tc = CMakeToolchain(self)
