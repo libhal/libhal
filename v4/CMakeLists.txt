@@ -14,6 +14,10 @@
 
 cmake_minimum_required(VERSION 3.15)
 
+# Generate compile commands for anyone using our libraries.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_COLOR_DIAGNOSTICS ON)
+
 # Because libhal is a header only library, this cmake file only builds and
 # executes the unit tests
 project(libhal LANGUAGES CXX)

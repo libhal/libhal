@@ -15,10 +15,10 @@
 # limitations under the License.
 
 from conan import ConanFile
-from conan.tools.cmake import CMake, cmake_layout
+from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
 from conan.tools.build import check_min_cppstd
-import os
+from pathlib import Path
 
 
 required_conan_version = ">=2.2.0"
@@ -35,7 +35,6 @@ class libhal_conan(ConanFile):
     settings = "compiler", "build_type", "os", "arch"
     exports_sources = "include/*", "tests/*", "CMakeLists.txt", "LICENSE"
     package_type = "header-library"
-    generators = "CMakeToolchain", "CMakeDeps"
     no_copy_source = True
 
     @property
@@ -56,6 +55,7 @@ class libhal_conan(ConanFile):
 
     def build_requirements(self):
         self.tool_requires("cmake/3.27.1")
+        self.tool_requires("ninja/[^1.3.0]")
         self.tool_requires("libhal-cmake-util/[^4.4.1]")
         self.test_requires("boost-ext-ut/2.1.0")
 
@@ -63,11 +63,21 @@ class libhal_conan(ConanFile):
         self.requires("tl-function-ref/1.0.0")
 
     def layout(self):
-        cmake_layout(self)
+        build_path = Path("build") / (
+            str(self.settings.arch) + "-" +
+            str(self.settings.os) + "-" +
+            str(self.settings.compiler) + "-" +
+            str(self.settings.compiler.version)
+        )
+        cmake_layout(self, build_folder=str(build_path))
 
     def generate(self):
-        cmake = CMake(self)
-        cmake.configure()
+        tc = CMakeToolchain(self)
+        tc.generator = "Ninja"
+        tc.generate()
+
+        deps = CMakeDeps(self)
+        deps.generate()
 
     def build(self):
         cmake = CMake(self)
@@ -76,14 +86,14 @@ class libhal_conan(ConanFile):
 
     def package(self):
         copy(self, "LICENSE",
-             dst=os.path.join(self.package_folder, "licenses"),
+             dst=Path(self.package_folder) / "licenses",
              src=self.source_folder)
         copy(self, "*.h",
-             dst=os.path.join(self.package_folder, "include"),
-             src=os.path.join(self.source_folder, "include"))
+             dst=Path(self.package_folder) / "include",
+             src=Path(self.source_folder) / "include")
         copy(self, "*.hpp",
-             dst=os.path.join(self.package_folder, "include"),
-             src=os.path.join(self.source_folder, "include"))
+             dst=Path(self.package_folder) / "include",
+             src=Path(self.source_folder) / "include")
 
     def package_info(self):
         self.cpp_info.bindirs = []
