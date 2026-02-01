@@ -14,10 +14,16 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <optional>
+#include <span>
+
 #include "functional.hpp"
+#include "libhal/error.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
-#include <optional>
 
 namespace hal::v5::usb {
 /**
@@ -449,6 +455,7 @@ concept in_endpoint_type =
  */
 struct setup_packet
 {
+
   /**
    * @brief Request type classification for setup packets
    *
@@ -457,7 +464,7 @@ struct setup_packet
    * responsible for handling it.
    */
 
-  enum class type : hal::byte
+  enum class request_type : hal::byte
   {
     /// Standard USB requests defined by the USB specification (e.g.,
     /// GET_DESCRIPTOR)
@@ -478,7 +485,7 @@ struct setup_packet
    * bmRequestType. This determines which component of the USB device should
    * handle the request.
    */
-  enum class recipient : hal::byte
+  enum class request_recipient : hal::byte
   {
     /// Request targets the entire device (e.g., SET_ADDRESS, GET_CONFIGURATION)
     device = 0,
@@ -492,6 +499,28 @@ struct setup_packet
   };
 
   /**
+    @brief Argument struct for building a setup packet from scratch
+
+
+   * @param type Request type (standard, class, or vendor)
+   * @param recipient Request recipient (device, interface, or endpoint)
+   * @param request bRequest field value
+   * @param value wValue field value
+   * @param index wIndex field value
+   * @param length wLength field value (data phase length)
+   */
+  struct args
+  {
+    bool device_to_host;
+    request_type type;
+    request_recipient recipient;
+    u8 request;
+    u16 value;
+    u16 index;
+    u16 length;
+  };
+
+  /**
    * @brief Extract the request type from bmRequestType field
    *
    * Parses bits 6-5 of the bmRequestType byte to determine if this is a
@@ -500,14 +529,14 @@ struct setup_packet
    * @return type The request type, or type::invalid if bits indicate reserved
    * value
    */
-  [[nodiscard]] constexpr type get_type() const
+  [[nodiscard]] constexpr request_type get_type() const
   {
-    u8 const t = request_type & (0b11 << 5);
+    u8 const t = request_type() & (0b11 << 5);
     if (t > 2) {
-      return type::invalid;
+      return request_type::invalid;
     }
 
-    return static_cast<type>(t);
+    return static_cast<enum request_type>(t);
   }
 
   /**
@@ -519,14 +548,14 @@ struct setup_packet
    * @return recipient The request recipient, or recipient::invalid if bits
    * indicate reserved value
    */
-  [[nodiscard]] constexpr recipient get_recipient() const
+  [[nodiscard]] constexpr request_recipient get_recipient() const
   {
-    u8 const r = request_type & 0b1111;
+    u8 const r = request_type() & 0b1111;
     if (r > 2) {
-      return recipient::invalid;
+      return request_recipient::invalid;
     }
 
-    return static_cast<recipient>(r);
+    return static_cast<request_recipient>(r);
   }
 
   /**
@@ -540,57 +569,35 @@ struct setup_packet
    */
   [[nodiscard]] constexpr bool is_device_to_host() const
   {
-    return request_type & 1 << 7;
+    return (request_type() & (1 << 7)) != 0;
   }
 
-  constexpr bool operator<=>(setup_packet const& rhs) const = default;
+  constexpr bool operator==(setup_packet const& rhs) const
+  {
+    return std::ranges::equal(raw_request_bytes, rhs.raw_request_bytes);
+  }
 
   constexpr setup_packet() = default;
 
   /**
-   * @brief Construct setup packet from individual field values
-   *
-   * @param p_request_type Complete bmRequestType byte value
-   * @param p_request bRequest field value
-   * @param p_value wValue field value (little-endian format expected)
-   * @param p_index wIndex field value (little-endian format expected)
-   * @param p_length wLength field value (little-endian format expected)
-   */
-  constexpr setup_packet(u8 p_request_type,  // NOLINT
-                         u8 p_request,
-                         u16 p_value,
-                         u16 p_index,
-                         u16 p_length)
-    : request_type(p_request_type)
-    , request(p_request)
-    , value(p_value)
-    , index(p_index)
-    , length(p_length) {};
-
-  /**
    * @brief Construct setup packet from semantic components
    *
-   * @param p_device_to_host The direction of the request
-   * @param p_type Request type (standard, class, or vendor)
-   * @param p_recipient Request recipient (device, interface, or endpoint)
-   * @param p_request bRequest field value
-   * @param p_value wValue field value
-   * @param p_index wIndex field value
-   * @param p_length wLength field value (data phase length)
+   * @param p_args Arguments for the individual fields of the packet
    */
-  constexpr setup_packet(bool p_device_to_host,
-                         type p_type,
-                         recipient p_recipient,
-                         u8 p_request,  // NOLINT
-                         u16 p_value,
-                         u16 p_index,
-                         u16 p_length)
-    : request_type((p_device_to_host << 7) | (static_cast<byte>(p_type) << 5) |
-                   static_cast<byte>(p_recipient))
-    , request(p_request)
-    , value(p_value)
-    , index(p_index)
-    , length(p_length) {};
+  constexpr setup_packet(args p_args)
+  {
+
+    raw_request_bytes[0] = p_args.device_to_host << 7 |
+                           static_cast<byte>(p_args.type) << 5 |
+                           static_cast<byte>(p_args.recipient);
+    raw_request_bytes[1] = p_args.request;
+
+    set_le_u16<value_offset>(p_args.value);
+
+    set_le_u16<index_offset>(p_args.value);
+
+    set_le_u16<length_offset>(p_args.value);
+  };
 
   /**
    * @brief Construct setup packet from raw USB data
@@ -600,21 +607,17 @@ struct setup_packet
    * This is typically used when processing setup packets received from the
    * control endpoint.
    *
-   * @param raw_req 8-byte span containing the raw setup packet data
+   * @param p_raw_req 8-byte span containing the raw setup packet data
    *
    * Raw packet format:
-   * - raw_req[0]: bmRequestType
-   * - raw_req[1]: bRequest
-   * - raw_req[2-3]: wValue (little-endian)
-   * - raw_req[4-5]: wIndex (little-endian)
-   * - raw_req[6-7]: wLength (little-endian)
+   * - p_raw_req[0]: bmRequestType
+   * - p_raw_req[1]: bRequest
+   * - p_raw_req[2-3]: wValue (little-endian)
+   * - p_raw_req[4-5]: wIndex (little-endian)
+   * - p_raw_req[6-7]: wLength (little-endian)
    */
-  constexpr setup_packet(std::span<byte> raw_req)
-    : request_type(raw_req[0])
-    , request(raw_req[1])
-    , value(from_le_bytes(raw_req[2], raw_req[3]))
-    , index(from_le_bytes(raw_req[4], raw_req[5]))
-    , length(from_le_bytes(raw_req[6], raw_req[7]))
+  constexpr setup_packet(std::array<byte, 8> const& p_raw_req)
+    : raw_request_bytes(p_raw_req)
 
   {
   }
@@ -630,7 +633,7 @@ struct setup_packet
    * @param second High byte (most significant)
    * @return u16 Combined 16-bit value in host byte order
    */
-  constexpr static u16 from_le_bytes(hal::byte& first, hal::byte& second)
+  constexpr static u16 from_le_bytes(hal::byte first, hal::byte second)
   {
     return static_cast<u16>(second) << 8 | first;
   }
@@ -645,17 +648,78 @@ struct setup_packet
    * @return std::array<hal::byte, 2> Array with low byte first, high byte
    * second
    */
-  constexpr static std::array<hal::byte, 2> to_le_bytes(u16 n)
+  [[nodiscard]] constexpr static std::array<hal::byte, 2> to_le_u16(u16 n)
   {
     return { static_cast<hal::byte>(n & 0xFF),
-             static_cast<hal::byte>((n & 0xFF << 8) >> 8) };
+             static_cast<hal::byte>((n >> 8) & 0xFF) };
   }
 
-  u8 request_type;
-  u8 request;
-  u16 value;
-  u16 index;
-  u16 length;
+  /**
+  @brief Emplace a 16 bit value into the interal setup_packet array at a given
+  offset in little endian form.
+
+  @tparam offset - The offset into the setup packet array (Array after the
+  offset needs to be at least two bytes)
+
+  @param n - 16-bit value to emplace
+   */
+  template<usize offset>
+  constexpr void set_le_u16(u16 n)
+  {
+    static_assert(offset < 7,
+                  "Offset greater than size of setup bytes, need at least two "
+                  "bytes to emplace the u16");
+    static_assert(0 == (offset & 0b1),
+                  "Offset must be even number (2-byte/16-bit aligned)");
+
+    raw_request_bytes[offset + 0] = static_cast<hal::byte>(n & 0xFF);
+    raw_request_bytes[offset + 1] = static_cast<hal::byte>((n >> 8) & 0xFF);
+  }
+
+  [[nodiscard]] constexpr u8 request_type() const
+  {
+    return raw_request_bytes[0];
+  }
+
+  [[nodiscard]] constexpr u8 request() const
+  {
+    return raw_request_bytes[1];
+  }
+
+  [[nodiscard]] constexpr u16 value() const
+  {
+    return from_le_bytes(raw_request_bytes[2], raw_request_bytes[3]);
+  }
+
+  [[nodiscard]] constexpr u16 index() const
+  {
+    return from_le_bytes(raw_request_bytes[4], raw_request_bytes[5]);
+  }
+
+  [[nodiscard]] constexpr u16 length() const
+  {
+    return from_le_bytes(raw_request_bytes[6], raw_request_bytes[7]);
+  }
+  constexpr void value(u16 p_value)
+  {
+    set_le_u16<value_offset>(p_value);
+  }
+
+  constexpr void index(u16 p_index)
+  {
+    set_le_u16<index_offset>(p_index);
+  }
+
+  constexpr void length(u16 p_length)
+  {
+    set_le_u16<length_offset>(p_length);
+  }
+
+  std::array<byte, 8> raw_request_bytes;
+
+  constexpr static usize value_offset = 2;
+  constexpr static usize index_offset = 4;
+  constexpr static usize length_offset = 6;
 };
 
 /**
@@ -694,21 +758,21 @@ enum class standard_request_types : hal::byte
  * - The request value is within the valid range for standard requests
  * - The request value is not 0x04 (which is reserved)
  *
- * @param pkt The setup packet to analyze
+ * @param p_packet The setup packet to analyze
  * @return standard_request_types The corresponding standard request type,
  *         or standard_request_types::invalid if the packet doesn't contain
  *         a valid standard request
  *
  */
 [[nodiscard]] constexpr standard_request_types determine_standard_request(
-  setup_packet pkt)
+  setup_packet p_packet)
 {
-  if (pkt.get_type() != setup_packet::type::standard || pkt.request == 0x04 ||
-      pkt.request > 0x12) {
+  if (p_packet.get_type() != setup_packet::request_type::standard ||
+      p_packet.request() == 0x04 || p_packet.request() > 0x12) {
     return standard_request_types::invalid;
   }
 
-  return static_cast<standard_request_types>(pkt.request);
+  return static_cast<standard_request_types>(p_packet.request());
 }
 
 /**
