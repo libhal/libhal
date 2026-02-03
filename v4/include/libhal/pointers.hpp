@@ -1048,15 +1048,18 @@ public:
    * @brief Default constructor creates a disengaged optional
    */
   constexpr optional_ptr() noexcept
-    : m_raw_ptrs({ nullptr, nullptr })
   {
+    // This constructor cannot be replaced with a `= default` because of the
+    // strong_ptr union member. strong_ptr doesn't have a default constructor
+    // and thus, prevents the `= default` from being used. This constructor, may
+    // look like its doing nothing but its allowing the m_raw_ptrs to be default
+    // constructed to `nullptr`s.
   }
 
   /**
    * @brief Constructor for nullptr (creates a disengaged optional)
    */
   constexpr optional_ptr(std::nullptr_t) noexcept
-    : m_raw_ptrs({ nullptr, nullptr })
   {
   }
 
