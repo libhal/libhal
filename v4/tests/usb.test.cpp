@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "libhal/scatter_span.hpp"
-#include <libhal/usb.hpp>
+#include <array>
 
 #include <libhal/error.hpp>
+#include <libhal/scatter_span.hpp>
+#include <libhal/usb.hpp>
 
 #include <boost/ut.hpp>
 
@@ -737,14 +738,15 @@ boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
 
   "req bitmap construction from byte test"_test = []() {
     u8 raw_byte = 0b10000001;
-    setup_packet bm;
-    bm.request_type = raw_byte;
+    std::array<byte, 8> pkt;
+    pkt[0] = raw_byte;
+    setup_packet bm(pkt);
 
     // Test recipient
-    expect(setup_packet::recipient::interface == bm.get_recipient());
+    expect(setup_packet::request_recipient::interface == bm.get_recipient());
 
     // Test type
-    expect(setup_packet::type::standard == bm.get_type());
+    expect(setup_packet::request_type::standard == bm.get_type());
 
     // Test direction
     expect(that % true == bm.is_device_to_host());
@@ -787,13 +789,10 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
 
   "interface::handle_request"_test = []() mutable {
     mock iface;
-    setup_packet command{
-      .request_type = 0x80,
-      .request = 0x01,
-      .value = 0x0203,
-      .index = 0x0405,
-      .length = 0x0607,
-    };
+    std::array<byte, 8> command_bytes{ 0x80, 0x01, 0x03, 0x02,
+                                       0x05, 0x04, 0x07, 0x06 };
+
+    setup_packet command{ command_bytes };
 
     bool called = false;
 

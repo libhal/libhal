@@ -14,7 +14,14 @@
 
 #pragma once
 
+#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <optional>
+#include <span>
+
 #include "functional.hpp"
+#include "libhal/error.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
 
@@ -434,67 +441,358 @@ concept in_endpoint_type =
 /**
  * @brief USB Setup Request packet definition
  *
+ * This structure represents the standard 8-byte USB setup packet that is sent
+ * by the host to initiate control transfers. Setup packets are used for device
+ * enumeration, configuration, and various control operations as defined by the
+ * USB specification.
+ *
+ * The setup packet format follows the USB specification exactly:
+ * - Byte 0: bmRequestType (direction, type, and recipient)
+ * - Byte 1: bRequest (specific request code)
+ * - Bytes 2-3: wValue (request-specific value, little-endian)
+ * - Bytes 4-5: wIndex (request-specific index, little-endian)
+ * - Bytes 6-7: wLength (data phase length, little-endian)
  */
 struct setup_packet
 {
-  enum class type : hal::byte
+
+  /**
+   * @brief Request type classification for setup packets
+   *
+   * Defines the type of USB request as specified in bits 6-5 of bmRequestType.
+   * This determines how the request should be interpreted and who is
+   * responsible for handling it.
+   */
+
+  enum class request_type : hal::byte
   {
+    /// Standard USB requests defined by the USB specification (e.g.,
+    /// GET_DESCRIPTOR)
     standard = 0,
+    /// Class-specific requests defined by USB device classes (e.g., HID, CDC,
+    /// MSC)
     class_t = 1,
+    /// Vendor-specific requests for custom functionality
     vendor = 2,
+    /// Invalid or reserved request type
     invalid
   };
 
-  enum class recipient : hal::byte
+  /**
+   * @brief Request recipient classification for setup packets
+   *
+   * Defines the target of the USB request as specified in bits 4-0 of
+   * bmRequestType. This determines which component of the USB device should
+   * handle the request.
+   */
+  enum class request_recipient : hal::byte
   {
+    /// Request targets the entire device (e.g., SET_ADDRESS, GET_CONFIGURATION)
     device = 0,
+    /// Request targets a specific interface (e.g., SET_INTERFACE, class
+    /// requests)
     interface = 1,
+    /// Request targets a specific endpoint (e.g., CLEAR_FEATURE on endpoint)
     endpoint = 2,
+    /// Invalid or reserved recipient
     invalid
   };
 
-  [[nodiscard]] constexpr type get_type() const
+  /**
+    @brief Argument struct for building a setup packet from scratch
+
+
+   * @param type Request type (standard, class, or vendor)
+   * @param recipient Request recipient (device, interface, or endpoint)
+   * @param request bRequest field value
+   * @param value wValue field value
+   * @param index wIndex field value
+   * @param length wLength field value (data phase length)
+   */
+  struct args
   {
-    u8 const t = request_type & (0b11 << 5);
+    bool device_to_host;
+    request_type type;
+    request_recipient recipient;
+    u8 request;
+    u16 value;
+    u16 index;
+    u16 length;
+  };
+
+  /**
+   * @brief Extract the request type from bmRequestType field
+   *
+   * Parses bits 6-5 of the bmRequestType byte to determine if this is a
+   * standard, class, or vendor-specific request.
+   *
+   * @return type The request type, or type::invalid if bits indicate reserved
+   * value
+   */
+  [[nodiscard]] constexpr request_type get_type() const
+  {
+    u8 const t = request_type() & (0b11 << 5);
     if (t > 2) {
-      return type::invalid;
+      return request_type::invalid;
     }
 
-    return static_cast<type>(t);
+    return static_cast<enum request_type>(t);
   }
 
-  [[nodiscard]] constexpr recipient get_recipient() const
+  /**
+   * @brief Extract the request recipient from bmRequestType field
+   *
+   * Parses bits 4-0 of the bmRequestType byte to determine the target
+   * component for this request.
+   *
+   * @return recipient The request recipient, or recipient::invalid if bits
+   * indicate reserved value
+   */
+  [[nodiscard]] constexpr request_recipient get_recipient() const
   {
-    u8 const r = request_type & 0b1111;
+    u8 const r = request_type() & 0b1111;
     if (r > 2) {
-      return recipient::invalid;
+      return request_recipient::invalid;
     }
 
-    return static_cast<recipient>(r);
+    return static_cast<request_recipient>(r);
   }
 
+  /**
+   * @brief Check the data phase direction of the request
+   *
+   * Examines bit 7 of bmRequestType to determine the direction of data
+   * transfer in the data phase (if wLength > 0).
+   *
+   * @return true if data flows from device to host (IN direction)
+   * @return false if data flows from host to device (OUT direction)
+   */
   [[nodiscard]] constexpr bool is_device_to_host() const
   {
-    return request_type & 1 << 7;
+    return (request_type() & (1 << 7)) != 0;
   }
 
-  constexpr bool operator<=>(setup_packet const& rhs) const = default;
+  constexpr bool operator==(setup_packet const& rhs) const
+  {
+    return std::ranges::equal(raw_request_bytes, rhs.raw_request_bytes);
+  }
 
-  u8 request_type;
-  u8 request;
-  u16 value;
-  u16 index;
-  u16 length;
+  constexpr setup_packet() = default;
+
+  /**
+   * @brief Construct setup packet from semantic components
+   *
+   * @param p_args Arguments for the individual fields of the packet
+   */
+  constexpr setup_packet(args p_args)
+  {
+
+    raw_request_bytes[0] = p_args.device_to_host << 7 |
+                           static_cast<byte>(p_args.type) << 5 |
+                           static_cast<byte>(p_args.recipient);
+    raw_request_bytes[1] = p_args.request;
+
+    set_le_u16<value_offset>(p_args.value);
+
+    set_le_u16<index_offset>(p_args.value);
+
+    set_le_u16<length_offset>(p_args.value);
+  };
+
+  /**
+   * @brief Construct setup packet from raw USB data
+   *
+   * Parses an 8-byte setup packet received from the USB host. This constructor
+   * handles the little-endian byte ordering conversion for multi-byte fields.
+   * This is typically used when processing setup packets received from the
+   * control endpoint.
+   *
+   * @param p_raw_req 8-byte span containing the raw setup packet data
+   *
+   * Raw packet format:
+   * - p_raw_req[0]: bmRequestType
+   * - p_raw_req[1]: bRequest
+   * - p_raw_req[2-3]: wValue (little-endian)
+   * - p_raw_req[4-5]: wIndex (little-endian)
+   * - p_raw_req[6-7]: wLength (little-endian)
+   */
+  constexpr setup_packet(std::array<byte, 8> const& p_raw_req)
+    : raw_request_bytes(p_raw_req)
+
+  {
+  }
+
+  /**
+   * @brief Convert two bytes from little-endian to host byte order
+   *
+   * Helper function to combine two bytes in little-endian format into a 16-bit
+   * value in host byte order. Used internally for parsing multi-byte fields
+   * from raw USB data.
+   *
+   * @param first Low byte (least significant)
+   * @param second High byte (most significant)
+   * @return u16 Combined 16-bit value in host byte order
+   */
+  constexpr static u16 from_le_bytes(hal::byte first, hal::byte second)
+  {
+    return static_cast<u16>(second) << 8 | first;
+  }
+
+  /**
+   * @brief Convert 16-bit value to little-endian byte array
+   *
+   * Helper function to convert a 16-bit value into two bytes in little-endian
+   * format. Used when constructing USB descriptor data or response packets.
+   *
+   * @param n 16-bit value to convert
+   * @return std::array<hal::byte, 2> Array with low byte first, high byte
+   * second
+   */
+  [[nodiscard]] constexpr static std::array<hal::byte, 2> to_le_u16(u16 n)
+  {
+    return { static_cast<hal::byte>(n & 0xFF),
+             static_cast<hal::byte>((n >> 8) & 0xFF) };
+  }
+
+  /**
+  @brief Emplace a 16 bit value into the interal setup_packet array at a given
+  offset in little endian form.
+
+  @tparam offset - The offset into the setup packet array (Array after the
+  offset needs to be at least two bytes)
+
+  @param n - 16-bit value to emplace
+   */
+  template<usize offset>
+  constexpr void set_le_u16(u16 n)
+  {
+    static_assert(offset < 7,
+                  "Offset greater than size of setup bytes, need at least two "
+                  "bytes to emplace the u16");
+    static_assert(0 == (offset & 0b1),
+                  "Offset must be even number (2-byte/16-bit aligned)");
+
+    raw_request_bytes[offset + 0] = static_cast<hal::byte>(n & 0xFF);
+    raw_request_bytes[offset + 1] = static_cast<hal::byte>((n >> 8) & 0xFF);
+  }
+
+  [[nodiscard]] constexpr u8 request_type() const
+  {
+    return raw_request_bytes[0];
+  }
+
+  [[nodiscard]] constexpr u8 request() const
+  {
+    return raw_request_bytes[1];
+  }
+
+  [[nodiscard]] constexpr u16 value() const
+  {
+    return from_le_bytes(raw_request_bytes[2], raw_request_bytes[3]);
+  }
+
+  [[nodiscard]] constexpr u16 index() const
+  {
+    return from_le_bytes(raw_request_bytes[4], raw_request_bytes[5]);
+  }
+
+  [[nodiscard]] constexpr u16 length() const
+  {
+    return from_le_bytes(raw_request_bytes[6], raw_request_bytes[7]);
+  }
+  constexpr void value(u16 p_value)
+  {
+    set_le_u16<value_offset>(p_value);
+  }
+
+  constexpr void index(u16 p_index)
+  {
+    set_le_u16<index_offset>(p_index);
+  }
+
+  constexpr void length(u16 p_length)
+  {
+    set_le_u16<length_offset>(p_length);
+  }
+
+  std::array<byte, 8> raw_request_bytes;
+
+  constexpr static usize value_offset = 2;
+  constexpr static usize index_offset = 4;
+  constexpr static usize length_offset = 6;
 };
 
 /**
- * @brief A class representing a usb interface
+ * @brief Standard USB request types as defined by the USB specification
  *
- * Examples of this could be a HID device, a microphone, a storage device, etc
- * Is to be paired with a given USB peripheral device and a configuration during
- * enumeration.
+ * These request types are used in setup packets to perform standard USB
+ * operations during device enumeration and configuration. Each request type
+ * corresponds to a specific USB operation that all USB devices must support.
+ */
+enum class standard_request_types : hal::byte
+{
+  get_status = 0x00,
+  clear_feature = 0x01,
+  set_feature = 0x03,
+  set_address = 0x05,
+  get_descriptor = 0x06,
+  set_descriptor = 0x07,
+  get_configuration = 0x08,
+  set_configuration = 0x09,
+  get_interface = 0x0A,
+  set_interface = 0x11,
+  synch_frame = 0x12,
+  invalid
+};
+
+/**
+ * @brief Validates and converts a setup packet request to a standard request
+ * type
  *
- * TODO(#164): tech debt, clean up API descriptions
+ * This function examines a USB setup packet and determines if it contains a
+ * valid standard request. It performs validation on the request type and
+ * request value to ensure they conform to the USB specification.
+ *
+ * The function validates:
+ * - The request type is marked as 'standard' in the setup packet
+ * - The request value is within the valid range for standard requests
+ * - The request value is not 0x04 (which is reserved)
+ *
+ * @param p_packet The setup packet to analyze
+ * @return standard_request_types The corresponding standard request type,
+ *         or standard_request_types::invalid if the packet doesn't contain
+ *         a valid standard request
+ *
+ */
+[[nodiscard]] constexpr standard_request_types determine_standard_request(
+  setup_packet p_packet)
+{
+  if (p_packet.get_type() != setup_packet::request_type::standard ||
+      p_packet.request() == 0x04 || p_packet.request() > 0x12) {
+    return standard_request_types::invalid;
+  }
+
+  return static_cast<standard_request_types>(p_packet.request());
+}
+
+/**
+ * @brief USB Interface class for implementing specific USB device functionality
+ *
+ * This class represents a USB interface, which defines a specific function or
+ * capability of a USB device. Examples include HID devices (keyboards, mice),
+ * audio devices, storage devices, or communication
+ * devices.
+ *
+ * A USB interface is designed to be anything under a configuration, typically
+ * this will be at the interface level but could also be multiple USB interface
+ * descriptors that are associated for a given functionality.
+ *
+ * It is responsible for:
+ * - Providing its own descriptors during enumeration
+ * - Managing string descriptors for its functionality
+ * - Handling interface-specific and endpoint-specific USB requests
+ * - Implementing the specific protocol or behavior of the interface type
+ *
  */
 class interface
 {
@@ -502,32 +800,41 @@ public:
   using endpoint_writer = hal::callback<void(scatter_span<hal::byte const>)>;
 
   /**
-   * @brief Encapsulates the number of interfaces and strings this usb interface
-   * contains.
+   * @brief Encapsulates the number of interface and string descriptors
+   *
+   * This structure is returned by write_descriptors() to inform the USB
+   * configuration how many descriptors were written and how many resources
+   * (interface numbers and string indices) were consumed.
    */
   struct descriptor_count
   {
+    /// Number of interface descriptors written by this interface
     u8 interface;
+
+    /// Number of string descriptors provided by this interface
     u8 string;
     constexpr bool operator<=>(descriptor_count const& rhs) const = default;
   };
 
   /**
-   * @brief Encapsulates the starting indexes for which this interface must use
-   * for its interface descriptor.
+   * @brief Starting indices for interface numbers and string descriptors
+   *
+   * This structure is passed to write_descriptors() to inform the interface
+   * what numbering it should use for its descriptors. The interface must use
+   * sequential numbering starting from these values.
    */
   struct descriptor_start
   {
     /// Defines the starting index value for this interface. For example, if
     /// this usb interface contains two sub interfaces, then the interface
     /// number should be `interface` and the second should be `interface + 1`.
-    u8 interface;
+    std::optional<u8> interface;
 
     /// Defines the starting index value for this interface's strings. For
     /// example, if this usb interface has 3 strings, then the starting ID for
     /// those strings would be this value. String 1 would be this value, then
     /// string 2 would be `value + 1` and string 3 would be `value + 2`.
-    u8 string;
+    std::optional<u8> string;
 
     constexpr bool operator<=>(descriptor_start const& rhs) const = default;
   };
@@ -552,10 +859,16 @@ public:
   }
 
   /**
-   * @brief Write string descriptor
+   * @brief Write a specific string descriptor
    *
-   * All usb interfaces MUST default initialize their starting string descriptor
-   * index to 1 and update it based on the `write_descriptors()` function.
+   * Invoked to write a string given a specific index that the interface is
+   responsible for. The string will be written in the encoding of UTF-16LE
+   *
+   *
+   * The interface must have evaluated all string indexes by invoking
+   * write_descriptors() to properly identify its string descriptors.
+   * String descriptors use the USB string descriptor format with length
+   * and descriptor type fields.
    *
    * @param p_index - Which string index's descriptor should be written.
    * @param p_callback - A callback used to write the string descriptor.
@@ -571,8 +884,22 @@ public:
   }
 
   /**
-   * @brief Generic handler for requests targeting the interface or below level
-   * of a USB device. These could be standard requests or custom requests.
+   * @brief Handle USB requests directed to this interface or its endpoints
+   *
+   * This method is called when the USB device receives a setup packet that
+   * targets this interface (interface-specific requests) or one of its
+   * endpoints (endpoint-specific requests). The interface should examine
+   * the setup packet and handle any requests it recognizes.
+   *
+   * The interface may handle:
+   * - Standard requests specific to this interface type
+   * - Class-specific requests defined by the interface's USB class
+   * - Vendor-specific requests for custom functionality
+   * - Endpoint-specific requests for its endpoints
+   * - Anything that isn't a device or configuration level request
+   *
+   * If the request has a data phase (wLength > 0 and device-to-host direction),
+   * the interface should use the callback to send the response data.
    *
    * @param p_setup - Setup request from the host.
    * @param p_callback - The callback to write out the response to the request
@@ -608,10 +935,12 @@ using v5::usb::endpoint;
 using v5::usb::endpoint_info;
 using v5::usb::in_endpoint;
 using v5::usb::in_endpoint_type;
-using v5::usb::interface;
 using v5::usb::interrupt_in_endpoint;
 using v5::usb::interrupt_out_endpoint;
 using v5::usb::out_endpoint;
 using v5::usb::out_endpoint_type;
+
+using v5::usb::interface;
 using v5::usb::setup_packet;
+using v5::usb::standard_request_types;
 }  // namespace hal::usb
