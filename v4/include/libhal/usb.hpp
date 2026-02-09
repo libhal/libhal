@@ -676,7 +676,7 @@ struct setup_packet
     raw_request_bytes[offset + 1] = static_cast<hal::byte>((n >> 8) & 0xFF);
   }
 
-  [[nodiscard]] constexpr u8 request_type() const
+  [[nodiscard]] constexpr u8 bm_request_type() const
   {
     return raw_request_bytes[0];
   }
