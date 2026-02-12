@@ -1,9 +1,0 @@
-sphinx
-sphinx-rtd-theme
-mkdocs-material
-mkdocs-literate-nav
-mkdoxy
-pydata-sphinx-theme
-myst_parser
-mike
-breathe

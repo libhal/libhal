@@ -28,7 +28,17 @@ permissions:
 
 jobs:
   v4_api:
-    uses: libhal/ci/.github/workflows/api_docs_gen.yml@api-simplify
+    uses: libhal/ci/.github/workflows/api_docs_gen.yml@5.x.y
     with:
       dir: v4
     secrets: inherit
+
+  # TODO(#191): Comment out the code below and add a condition for v5 and v4
+  # docs depending on the ref_name. If the ref_name is "main", the v4 also run
+  # until we decide to release v5
+
+  # v5_api:
+  #   uses: libhal/ci/.github/workflows/api_docs_gen.yml@5.x.y
+  #   with:
+  #     dir: v5
+  #   secrets: inherit
