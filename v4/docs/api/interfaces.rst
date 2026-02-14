@@ -7,21 +7,16 @@ the APIs.
 
 .. toctree::
     :caption: Interfaces
-    :maxdepth: 2
+    :maxdepth: 3
 
     accelerometer
     adc
-    allocated_buffer
     angular_velocity_sensor
     can
-    circular_buffer
     dac
     distance_sensor
-    error
-    functional
     gyroscope
     i2c
-    initializers
     input_pin
     interrupt_pin
     io_waiter
@@ -32,7 +27,6 @@ the APIs.
     pointers
     pwm
     rotation_sensor
-    scatter_span
     serial
     servo
     spi
@@ -42,5 +36,4 @@ the APIs.
     timed_interrupt
     timeout
     timer
-    units
     usb
