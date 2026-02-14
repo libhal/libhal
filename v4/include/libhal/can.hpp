@@ -98,8 +98,7 @@ public:
      *
      * CAN Bit Quanta Timing Diagram of:
      *
-     * ```
-     *
+     * ```text
      *                               | <--- sjw ---> |
      *         ____    ______    __________    __________
      *      _/ SYNC \/  PROP  \/   PHASE1   \/   PHASE2   \_

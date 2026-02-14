@@ -6,22 +6,19 @@ Defined in namespace `hal`
 
 *#include <libhal/initializers.hpp>*
 
-```{doxygenclass} hal::selector_t
+```{doxygenvariable} hal::port
 ```
 
-```{doxygenclass} hal::port_t
+```{doxygenvariable} hal::pin
 ```
 
-```{doxygenclass} hal::pin_t
+```{doxygenvariable} hal::bus
 ```
 
-```{doxygenclass} hal::bus_t
+```{doxygenvariable} hal::channel
 ```
 
-```{doxygenclass} hal::channel_t
-```
-
-```{doxygenclass} hal::buffer_t
+```{doxygenvariable} hal::buffer
 ```
 
 ```{doxygenstruct} hal::runtime

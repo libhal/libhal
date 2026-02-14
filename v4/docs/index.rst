@@ -14,6 +14,8 @@ hardware. This will also include utility functions.
 
 .. toctree::
   :caption: libhal Docs
-  :maxdepth: 5
+  :maxdepth: 4
 
-  Libhal Interfaces <libhal/index>
+  Hardware Interfaces <api/interfaces>
+  Containers <api/containers>
+  Constants <api/constants>
