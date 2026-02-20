@@ -630,14 +630,29 @@ struct setup_packet
     return from_le_bytes(raw_request_bytes[2], raw_request_bytes[3]);
   }
 
+  [[nodiscard]] constexpr std::span<hal::byte const> value_bytes() const
+  {
+    return std::span(raw_request_bytes).subspan(2, 2);
+  }
+
   [[nodiscard]] constexpr u16 index() const
   {
     return from_le_bytes(raw_request_bytes[4], raw_request_bytes[5]);
   }
 
+  [[nodiscard]] constexpr std::span<hal::byte const> index_bytes() const
+  {
+    return std::span(raw_request_bytes).subspan(4, 2);
+  }
+
   [[nodiscard]] constexpr u16 length() const
   {
     return from_le_bytes(raw_request_bytes[6], raw_request_bytes[7]);
+  }
+
+  [[nodiscard]] constexpr std::span<hal::byte const> length_bytes() const
+  {
+    return std::span(raw_request_bytes).subspan(6, 2);
   }
 
   constexpr void value(u16 p_value)
