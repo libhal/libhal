@@ -54,7 +54,8 @@ private:
   }
 };
 
-boost::ut::suite<"hal::timed_interrupt"> timed_interrupt_test = []() {
+void timed_interrupt_test() noexcept
+{
   using namespace boost::ut;
 
   "::scheduled() - false by default"_test = []() {
@@ -138,3 +139,8 @@ boost::ut::suite<"hal::timed_interrupt"> timed_interrupt_test = []() {
 };
 
 }  // namespace
+
+int main()
+{
+  timed_interrupt_test();
+}

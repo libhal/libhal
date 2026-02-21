@@ -12,6 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# ==============================================================================
+# NOTICE: This test package is written without libhal-cmake-util to demonstrate
+#         what is needed with normal CMake to use the libhal library.
+# ==============================================================================
+
 cmake_minimum_required(VERSION 3.28)
 
 # Generate compile commands for anyone using our libraries.
@@ -27,12 +32,28 @@ endif()
 
 find_package(libhal REQUIRED CONFIG)
 
+# Suppress clang's "argument unused during compilation: '-c'" warning that
+# fires during CMake's C++20 module dependency scanning phase. clang-scan-deps
+# passes both --precompile and -c to the compiler, making -c unused. Using
+# -Qunused-arguments via CMAKE_CXX_FLAGS ensures the flag is visible to module
+# scanning commands for imported targets.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+    string(APPEND CMAKE_CXX_FLAGS " -Qunused-arguments")
+endif()
+
 add_executable(${PROJECT_NAME} main.cpp)
 
 target_include_directories(${PROJECT_NAME} PUBLIC .)
 target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_23)
 target_compile_options(${PROJECT_NAME} PRIVATE -fno-rtti)
-target_link_libraries(${PROJECT_NAME} PRIVATE libhal::hal)
+target_link_libraries(${PROJECT_NAME} PRIVATE libhal::libhal)
+
+
+# ==============================================================================
+# NOTICE: Everything below this line is simply here for testing and CI
+#         purposes. If CI fails, having a detailed trace of what went wrong is
+#         very helpful.
+# ==============================================================================
 
 if (NOT CMAKE_CROSSCOMPILING)
     target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address)
