@@ -1,0 +1,39 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.{cpp,cppm,hpp,h,c}]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 80
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[CMakeLists.txt]
+indent_style = space
+indent_size = 4
+max_line_length = 80
+
+[*.cmake]
+indent_style = space
+indent_size = 4
+max_line_length = 80
+
+[*.md]
+trim_trailing_whitespace = false
+max_line_length = 80
+
+[*.json]
+indent_style = space
+indent_size = 2

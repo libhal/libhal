@@ -1,0 +1,35 @@
+repos:
+  # General file fixes
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: [--fix=lf]
+
+  # Spell checking
+  - repo: https://github.com/streetsidesoftware/cspell-cli
+    rev: v8.6.0
+    hooks:
+      - id: cspell
+        files: \.(cpp|cppm|hpp|h|md)$
+
+  # C++ formatting with clang-format
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v21.1.8
+    hooks:
+      - id: clang-format
+        types_or: [c, c++]
+        files: \.(cpp|cppm|hpp|h|c)$
+
+  # Doxygen documentation checker
+  - repo: local
+    hooks:
+      - id: doxygen-check
+        name: doxygen-check
+        entry: doxygen
+        args: [docs/doxygen.conf]
+        language: system
+        pass_filenames: false
+        files: \.(cpp|cppm|hpp|h)$

@@ -19,6 +19,7 @@ from conan.tools.cmake import CMake, cmake_layout, CMakeToolchain, CMakeDeps
 from conan.tools.files import copy
 from conan.errors import ConanInvalidConfiguration
 from conan.tools.build import check_min_cppstd
+from conan.tools.scm import Version
 from pathlib import Path
 
 
@@ -37,6 +38,14 @@ class libhal_conan(ConanFile):
     exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
     package_type = "static-library"
     shared = False
+    options = {
+        "enable_clang_tidy": [True, False],
+        "clang_tidy_fix": [True, False],
+    }
+    default_options = {
+        "enable_clang_tidy": False,
+        "clang_tidy_fix": False,
+    }
 
     @property
     def _min_cppstd(self):
@@ -44,19 +53,20 @@ class libhal_conan(ConanFile):
 
     @property
     def _compilers_minimum_version(self):
+        # We may reduce these in the future.
         return {
-            "gcc": ("14", "GCC 14+ required for C++20 modules"),
+            "gcc": ("14", "GCC 14+ required for libhal"),
             "clang": (
                 "19",
-                "Clang 19+ required for C++20 modules (response file fixes)"
+                "Clang 19+ required for libhal"
             ),
             "apple-clang": (
                 "19.0.0",
-                "Apple Clang 19+ required for C++20 modules"
+                "Apple Clang 19+ for libhal"
             ),
             "msvc": (
                 "193.4",
-                "MSVC 14.34+ (Visual Studio 17.4+) required for C++20 modules"
+                "MSVC 14.34+ (Visual Studio 17.4+) for libhal"
             )
         }
 
@@ -74,8 +84,13 @@ class libhal_conan(ConanFile):
                 f"Compiler {compiler} is not supported for C++20 modules")
 
         min_version, error_msg = min_versions[compiler_key]
-        if version < min_version:
+        if Version(version) < min_version:
             raise ConanInvalidConfiguration(error_msg)
+
+    def set_version(self):
+        # Use latest if not specified via command line
+        if not self.version:
+            self.version = "latest"
 
     def validate(self):
         if self.settings.get_safe("compiler.cppstd"):
@@ -89,8 +104,8 @@ class libhal_conan(ConanFile):
         self.test_requires("boost-ext-ut/2.3.1")
 
     def requirements(self):
-        self.requires("strong_ptr/[^0.1.3]")
-        self.requires("async_context/[^0.0.6]")
+        self.requires("strong_ptr/[^0.1.8]")
+        self.requires("async_context/[^0.0.8]")
         self.requires("mp-units/2.5.1@libhal",
                       options={
                           "freestanding": True,
@@ -113,6 +128,8 @@ class libhal_conan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.generator = "Ninja"
+        tc.variables["LIBHAL_ENABLE_CLANG_TIDY"] = self.options.enable_clang_tidy
+        tc.variables["LIBHAL_CLANG_TIDY_FIX"] = self.options.clang_tidy_fix
         tc.generate()
 
         deps = CMakeDeps(self)
@@ -122,6 +139,8 @@ class libhal_conan(ConanFile):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
+        if not self.conf.get("tools.build:skip_test", default=False):
+            cmake.ctest(["--output-on-failure"])
 
     def package(self):
         cmake = CMake(self)

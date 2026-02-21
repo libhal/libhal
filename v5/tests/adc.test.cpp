@@ -37,7 +37,8 @@ private:
   }
 };
 
-boost::ut::suite<"hal::adc16"> adc16_test = []() {
+void adc16_test() noexcept
+{
   using namespace boost::ut;
 
   "::read()"_test = [&]() {
@@ -67,7 +68,8 @@ private:
   }
 };
 
-boost::ut::suite<"hal::adc24"> adc24_test = []() {
+void adc24_test() noexcept
+{
   using namespace boost::ut;
 
   "::read()"_test = [&]() {
@@ -85,3 +87,9 @@ boost::ut::suite<"hal::adc24"> adc24_test = []() {
 };
 
 }  // namespace
+
+int main()
+{
+  adc16_test();
+  adc24_test();
+}

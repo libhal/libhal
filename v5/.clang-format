@@ -1,0 +1,11 @@
+BasedOnStyle: Mozilla
+Language: Cpp
+UseTab: Never
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+AllowShortFunctionsOnASingleLine: None
+FixNamespaceComments: true
+SpacesBeforeTrailingComments: 2
+ColumnLimit: 80
+QualifierAlignment: Right
+InsertNewlineAtEOF: true
