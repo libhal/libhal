@@ -21,7 +21,6 @@
 #include <span>
 
 #include "functional.hpp"
-#include "libhal/error.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
 
@@ -625,46 +624,73 @@ struct setup_packet
     return raw_request_bytes[1];
   }
 
+  /**
+   * @brief Get wValue field in native endianness for program use
+   */
   [[nodiscard]] constexpr u16 value() const
   {
     return from_le_bytes(raw_request_bytes[2], raw_request_bytes[3]);
   }
 
+  /**
+   * @brief Get wValue field as raw LE bytes for USB bus transmission
+   */
   [[nodiscard]] constexpr std::span<hal::byte const> value_bytes() const
   {
     return std::span(raw_request_bytes).subspan(2, 2);
   }
 
+  /**
+   * @brief Get wIndex field in native endianness for program use
+   */
   [[nodiscard]] constexpr u16 index() const
   {
     return from_le_bytes(raw_request_bytes[4], raw_request_bytes[5]);
   }
 
+  /**
+   * @brief Get wIndex field as raw LE bytes for USB bus transmission
+   */
   [[nodiscard]] constexpr std::span<hal::byte const> index_bytes() const
   {
     return std::span(raw_request_bytes).subspan(4, 2);
   }
 
+  /**
+   * @brief Get wLength field in native endianness for program use
+   */
   [[nodiscard]] constexpr u16 length() const
   {
     return from_le_bytes(raw_request_bytes[6], raw_request_bytes[7]);
   }
 
+  /**
+   * @brief Get wLength field as raw LE bytes for USB bus transmission
+   */
   [[nodiscard]] constexpr std::span<hal::byte const> length_bytes() const
   {
     return std::span(raw_request_bytes).subspan(6, 2);
   }
 
+  /**
+   * @brief Set wValue field from native endianness value (stored as LE)
+   */
   constexpr void value(u16 p_value)
   {
     set_le_u16<value_offset>(p_value);
   }
 
+  /**
+   * @brief Set wIndex field from native endianness value (stored as LE)
+   */
   constexpr void index(u16 p_index)
   {
     set_le_u16<index_offset>(p_index);
   }
 
+  /**
+   * @brief Set wLength field from native endianness value (stored as LE)
+   */
   constexpr void length(u16 p_length)
   {
     set_le_u16<length_offset>(p_length);
