@@ -36,11 +36,11 @@ boost::ut::suite g_force_test = []() {
 
     "g_force_type calculation test"_test = []() {
       // Setup
-      float earth_accelereation_rate = 9.81;  // m/s^2
+      float earth_acceleration_rate = 9.81;  // m/s^2
       g_force earth_g_force = 1.0_g;
 
       // Test Multiplication and Division
-      g_force g_force_quotient = earth_accelereation_rate / 9.81f;
+      g_force g_force_quotient = earth_acceleration_rate / 9.81f;
       g_force g_force_product = 1.5_g * 2;
 
       // // Attempting to sum g_force together
@@ -55,7 +55,7 @@ boost::ut::suite g_force_test = []() {
       expect(that % compare_floats({ .a = -0.5_g, .b = g_force_difference }));
     };
 
-    "g_force_type boundry test"_test = []() {
+    "g_force_type boundary test"_test = []() {
       // Set up
       g_force g_force_max = std::numeric_limits<g_force>::max();
       g_force g_force_min = std::numeric_limits<g_force>::min();

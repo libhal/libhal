@@ -1438,7 +1438,6 @@ template<typename T>
   // Try to increment the strong count
   auto current_count = m_ctrl->strong_count.load(std::memory_order_relaxed);
   while (current_count > 0) {
-    // TODO(kammce): Consider if this is dangerous
     if (m_ctrl->strong_count.compare_exchange_weak(current_count,
                                                    current_count + 1,
                                                    std::memory_order_acq_rel,
