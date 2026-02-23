@@ -811,6 +811,59 @@ enum class standard_request_types : hal::byte
 }
 
 /**
+ * @brief Endpoint I/O interface for USB request handling
+ *
+ * This interface provides read and write access to endpoint data during USB
+ * control transfer handling. It is passed to `interface` methods such as
+ * `handle_request`, `write_descriptors`, and `write_string_descriptor` to
+ * allow interface implementations to send or receive data during the data
+ * phase of control transfers.
+ *
+ * The direction of data transfer depends on the setup packet:
+ * - Device-to-host (IN): Use `write()` to send response data to the host
+ * - Host-to-device (OUT): Use `read()` to receive data sent by the host
+ */
+class endpoint_io
+{
+public:
+  /**
+   * @brief Read data from the endpoint
+   *
+   * Reads data that was sent by the host during a host-to-device (OUT) control
+   * transfer. The data is copied into the provided buffer from the endpoint.
+   *
+   * @param p_buffer - scatter span of byte buffers to fill with data from the
+   * endpoint
+   * @return usize - the number of bytes read into the provided buffers
+   */
+  usize read(scatter_span<byte> p_buffer)
+  {
+    return driver_read(p_buffer);
+  }
+
+  /**
+   * @brief Write data to the endpoint
+   *
+   * Writes data to be sent to the host during a device-to-host (IN) control
+   * transfer. The data is copied from the provided buffer to the endpoint.
+   *
+   * @param p_buffer - scatter span of const byte buffers containing data to
+   * write to the endpoint
+   * @return usize - the number of bytes written from the provided buffers
+   */
+  usize write(scatter_span<byte const> p_buffer)
+  {
+    return driver_write(p_buffer);
+  }
+
+  virtual ~endpoint_io() = default;
+
+private:
+  virtual usize driver_read(scatter_span<byte> p_buffer) = 0;
+  virtual usize driver_write(scatter_span<byte const> p_buffer) = 0;
+};
+
+/**
  * @brief USB Interface class for implementing specific USB device functionality
  *
  * This class represents a USB interface, which defines a specific function or
@@ -832,8 +885,6 @@ enum class standard_request_types : hal::byte
 class interface
 {
 public:
-  using endpoint_writer = hal::callback<void(scatter_span<hal::byte const>)>;
-
   /**
    * @brief Encapsulates the number of interface and string descriptors
    *
@@ -875,30 +926,27 @@ public:
   };
 
   /**
-   * @brief Writes descriptors that this interface is responsible for via a
-   * callback. This function may be called multiple times during
+   * @brief Writes descriptors that this interface is responsible for via the
+   * endpoint I/O interface. This function may be called multiple times during
    * (re)enumeration.
    *
-   * @param p_callback - A hal::callback that returns void and takes a span of
-   * const bytes as a parameter, that span is where the descriptor stream will
-   * be written to.
    * @param p_start - the starting values for interface numbers and string
    * indexes. The `string` field should be cached by the interface in order to
    * allow `write_string_descriptor` to work correctly.
+   * @param p_ep_req - endpoint I/O interface used to write descriptor data to
+   * the host.
    */
-  [[nodiscard]] descriptor_count write_descriptors(
-    descriptor_start p_start,
-    endpoint_writer const& p_callback)
+  [[nodiscard]] descriptor_count write_descriptors(descriptor_start p_start,
+                                                   endpoint_io& p_ep_req)
   {
-    return driver_write_descriptors(p_start, p_callback);
+    return driver_write_descriptors(p_start, p_ep_req);
   }
 
   /**
    * @brief Write a specific string descriptor
    *
    * Invoked to write a string given a specific index that the interface is
-   responsible for. The string will be written in the encoding of UTF-16LE
-   *
+   * responsible for. The string will be written in the encoding of UTF-16LE.
    *
    * The interface must have evaluated all string indexes by invoking
    * write_descriptors() to properly identify its string descriptors.
@@ -906,16 +954,15 @@ public:
    * and descriptor type fields.
    *
    * @param p_index - Which string index's descriptor should be written.
-   * @param p_callback - A callback used to write the string descriptor.
+   * @param p_ep_req - endpoint I/O interface used to write the string
+   * descriptor to the host.
    *
-   * @returns true - if the string was located and written over the
-   * endpoint_writer.
+   * @returns true - if the string was located and written via the endpoint I/O.
    * @returns false - if the string requested does not belong to this interface.
    */
-  [[nodiscard]] bool write_string_descriptor(u8 p_index,
-                                             endpoint_writer const& p_callback)
+  [[nodiscard]] bool write_string_descriptor(u8 p_index, endpoint_io& p_ep_req)
   {
-    return driver_write_string_descriptor(p_index, p_callback);
+    return driver_write_string_descriptor(p_index, p_ep_req);
   }
 
   /**
@@ -933,32 +980,30 @@ public:
    * - Endpoint-specific requests for its endpoints
    * - Anything that isn't a device or configuration level request
    *
-   * If the request has a data phase (wLength > 0 and device-to-host direction),
-   * the interface should use the callback to send the response data.
+   * If the request has a data phase (wLength > 0), use the endpoint I/O
+   * interface to send response data (device-to-host) or receive data
+   * (host-to-device).
    *
    * @param p_setup - Setup request from the host.
-   * @param p_callback - The callback to write out the response to the request
-   * to the host if the setup has a data phase.
+   * @param p_ep_req - endpoint I/O interface for reading or writing data
+   * during the data phase of the control transfer.
    * @return true - if the request was handled by the interface.
    * @return false - if the request could not be handled by interface.
    */
-  bool handle_request(setup_packet const& p_setup,
-                      endpoint_writer const& p_callback)
+  bool handle_request(setup_packet const& p_setup, endpoint_io& p_ep_req)
   {
-    return driver_handle_request(p_setup, p_callback);
+    return driver_handle_request(p_setup, p_ep_req);
   }
 
   virtual ~interface() = default;
 
 private:
-  virtual descriptor_count driver_write_descriptors(
-    descriptor_start p_start,
-    endpoint_writer const& p_callback) = 0;
-  virtual bool driver_write_string_descriptor(
-    u8 p_index,
-    endpoint_writer const& p_callback) = 0;
+  virtual descriptor_count driver_write_descriptors(descriptor_start p_start,
+                                                    endpoint_io& p_ep_req) = 0;
+  virtual bool driver_write_string_descriptor(u8 p_index,
+                                              endpoint_io& p_ep_req) = 0;
   virtual bool driver_handle_request(setup_packet const& p_setup,
-                                     endpoint_writer const& p_callback) = 0;
+                                     endpoint_io& p_ep_req) = 0;
 };
 }  // namespace hal::v5::usb
 
@@ -975,6 +1020,7 @@ using v5::usb::interrupt_out_endpoint;
 using v5::usb::out_endpoint;
 using v5::usb::out_endpoint_type;
 
+using v5::usb::endpoint_io;
 using v5::usb::interface;
 using v5::usb::setup_packet;
 using v5::usb::standard_request_types;
