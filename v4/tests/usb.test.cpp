@@ -681,6 +681,24 @@ size_t scatter_span_size(scatter_span<T> ss)
   return res;
 }
 
+struct mock_endpoint_io : public endpoint_io
+{
+  usize driver_read(scatter_span<byte> p_buffer) override
+  {
+    read_called = true;
+    return scatter_span_size(p_buffer);
+  }
+
+  usize driver_write(scatter_span<byte const> p_buffer) override
+  {
+    write_called = true;
+    return scatter_span_size(p_buffer);
+  }
+
+  bool read_called = false;
+  bool write_called = false;
+};
+
 constexpr u8 iface_desc_length = 9;
 constexpr u8 iface_desc_type = 0x4;
 
@@ -700,30 +718,35 @@ struct mock : public interface
 
   [[nodiscard]] descriptor_count driver_write_descriptors(
     descriptor_start p_start,
-    endpoint_writer const& p_callback) override
+    endpoint_io& p_ep_req) override
   {
     write_descriptors_start = p_start;
-    p_callback(make_scatter_bytes(expected_descriptor));
+    auto payload = make_scatter_bytes(expected_descriptor);
+    p_ep_req.write(payload);
 
     return { .interface = 1, .string = 1 };
   }
 
   [[nodiscard]] bool driver_write_string_descriptor(
     u8 p_index,
-    endpoint_writer const& p_callback) override
+    endpoint_io& p_ep_req) override
   {
     write_string_descriptor_string_index = p_index;
-    p_callback(make_scatter_bytes(std::to_array<u8>({ 0, 0x01 })));
-    return true;
+    auto data = std::to_array<u8>({ 0, 0x01 });
+    auto payload = make_scatter_bytes(data);
+    auto bytes_written = p_ep_req.write(payload);
+    return bytes_written == data.size();
   }
 
   bool driver_handle_request(setup_packet const& p_setup,
-                             endpoint_writer const& p_callback) override
+                             endpoint_io& p_ep_req) override
   {
     handle_request_setup = p_setup;
-    p_callback(make_scatter_bytes(std::to_array<u8>({ 0xAA, 0xBB })));
+    auto data = std::to_array<u8>({ 0xAA, 0xBB });
+    auto payload = make_writable_scatter_bytes(data);
+    auto bytes_read = p_ep_req.read(payload);
 
-    return true;
+    return bytes_read == data.size();
   }
 
   descriptor_start write_descriptors_start{};
@@ -760,47 +783,36 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
 
   "interface::write_descriptor"_test = []() {
     mock iface;
+    mock_endpoint_io eio;
 
-    bool callback_called = false;
-    auto callback = [&callback_called](scatter_span<hal::byte const> p_data) {
-      expect(that % mock::expected_descriptor.size() ==
-             scatter_span_size(p_data));
-      expect(that % mock::expected_descriptor.data() == p_data[0].data());
-      callback_called = true;
-    };
-
-    auto delta =
-      iface.write_descriptors({ .interface = 0, .string = 1 }, callback);
+    auto delta = iface.write_descriptors({ .interface = 0, .string = 1 }, eio);
 
     expect(descriptor_count{ 1, 1 } == delta);
-    expect(that % callback_called);
+    expect(that % eio.write_called);
   };
 
   "interface::write_string_descriptor"_test = []() mutable {
     mock iface;
-    bool called = false;
-    auto success = iface.write_string_descriptor(
-      1, [&called](scatter_span<hal::byte const>) { called = true; });
+    mock_endpoint_io eio;
+    auto success = iface.write_string_descriptor(1, eio);
 
     expect(that % 1 == iface.write_string_descriptor_string_index);
-    expect(that % called);
+    expect(that % eio.write_called);
     expect(that % success);
   };
 
   "interface::handle_request"_test = []() mutable {
     mock iface;
+    mock_endpoint_io eio;
     std::array<byte, 8> command_bytes{ 0x80, 0x01, 0x03, 0x02,
                                        0x05, 0x04, 0x07, 0x06 };
 
     setup_packet command{ command_bytes };
 
-    bool called = false;
-
-    auto actual_res = iface.handle_request(
-      command, [&called](scatter_span<hal::byte const>) { called = true; });
+    auto actual_res = iface.handle_request(command, eio);
 
     expect(that % actual_res);
-    expect(that % called);
+    expect(that % eio.read_called);
     expect(command == iface.handle_request_setup);
   };
 };
