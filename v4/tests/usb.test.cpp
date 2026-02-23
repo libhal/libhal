@@ -785,11 +785,6 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
     mock iface;
     mock_endpoint_io eio;
 
-    // auto callback = [&callback_called](scatter_span<hal::byte const> p_data)
-    // {
-    //   expect(that % mock::expected_descriptor.data() == p_data[0].data());
-    //   callback_called = true;
-    // };
     auto delta = iface.write_descriptors({ .interface = 0, .string = 1 }, eio);
 
     expect(descriptor_count{ 1, 1 } == delta);
