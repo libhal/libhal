@@ -23,13 +23,24 @@ repos:
         types_or: [c, c++]
         files: \.(cpp|cppm|hpp|h|c)$
 
-  # Doxygen documentation checker
+  # V4 Doxygen documentation checker
   - repo: local
     hooks:
       - id: doxygen-check
         name: doxygen-check
         entry: doxygen
-        args: [docs/doxygen.conf]
+        args: [v4/docs/doxygen.conf]
         language: system
         pass_filenames: false
         files: \.(cpp|cppm|hpp|h)$
+
+  # # V5 Doxygen documentation checker (later)
+  # - repo: local
+  #   hooks:
+  #     - id: doxygen-check
+  #       name: doxygen-check
+  #       entry: doxygen
+  #       args: [v5/docs/doxygen.conf]
+  #       language: system
+  #       pass_filenames: false
+  #       files: \.(cpp|cppm|hpp|h)$

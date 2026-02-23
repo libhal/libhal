@@ -25,11 +25,16 @@ on:
 
 # Jog CI
 jobs:
-  library_check_v4:
-    uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
-    with:
-      dir: "v4/"
-    secrets: inherit
+  pre-commit:
+    name: 🧹 Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get install -y doxygen
+      - uses: pre-commit/action@v3.0.1
 
   deploy_check_v4:
     uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
@@ -40,13 +45,6 @@ jobs:
       compiler_package: ""
       dir: "v4/"
       os: Linux
-
-  library_check_v5:
-    if: false # disable for now
-    uses: libhal/ci/.github/workflows/library_check.yml@5.x.y
-    with:
-      dir: "v5/"
-    secrets: inherit
 
   deploy_v5_check:
     uses: libhal/ci/.github/workflows/package_and_upload_all.yml@5.x.y

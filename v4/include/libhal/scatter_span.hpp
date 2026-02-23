@@ -45,7 +45,7 @@ namespace hal::v5 {
  *   ```
  *
  * @note **Lifetime** – `scatter_span` does **not** own its data.  All
- * spans it contains must outlive the `scatter_span` object. It is, therefor,
+ * spans it contains must outlive the `scatter_span` object. It is, Therefore,
  * recommended to only use this as an input parameter to functions. Such
  * functions SHOULD NOT capture the information outside of their scope, (e.g.
  * class member variable, global/static memory, heap memory).

@@ -697,7 +697,7 @@ struct setup_packet
   }
 
   /**
-  @brief Emplace a 16 bit value into the interal setup_packet array at a given
+  @brief Emplace a 16 bit value into the internal setup_packet array at a given
   offset in little endian form.
 
   @tparam offset - The offset into the setup packet array (Array after the
@@ -834,7 +834,7 @@ public:
    *
    * @param p_buffer - scatter span of byte buffers to fill with data from the
    * endpoint
-   * @return usize - the number of bytes read into the provided buffers. Value 
+   * @return usize - the number of bytes read into the provided buffers. Value
    * is 0 if there is no data available within the endpoint.
    */
   usize read(scatter_span<byte> p_buffer)
