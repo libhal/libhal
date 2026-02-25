@@ -39,6 +39,8 @@ libhal_add_library(libhal
         modules/servo.cppm
         modules/steady_clock.cppm
         modules/interrupts.cppm
+        modules/scatter_span.cppm
+        modules/i2c.cppm
 )
 
 target_link_libraries(libhal

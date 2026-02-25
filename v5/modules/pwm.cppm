@@ -29,7 +29,7 @@ export namespace hal::inline v5 {
  * Duty cycle, what proportion of the wavelength of the pulse is the voltage
  * HIGH.
  *
- *  ```
+ *  ```text
  *     ____________________       _
  *    |                    |     |
  *   _|                    |_____|
