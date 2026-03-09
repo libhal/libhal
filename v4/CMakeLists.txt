@@ -15,65 +15,69 @@
 
 cmake_minimum_required(VERSION 4.0)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON )
+
 project(libhal LANGUAGES CXX)
 
 # libhal cmake utilities from libhal-cmake-util
 # Source: https://github.com/libhal/libhal-cmake-util
 find_package(LibhalCMakeUtil REQUIRED)
 
-# if(CMAKE_CROSSCOMPILING)
-#     message(STATUS "Cross compiling, skipping unit test execution")
-# else()
+find_package(tl-function-ref REQUIRED)
 
-  find_package(tl-function-ref REQUIRED)
+libhal_project_init(DISABLE_MODULES)
 
-  libhal_project_init()
+add_library(libhal INTERFACE)
+target_include_directories(libhal INTERFACE include)
 
-  add_library(libhal INTERFACE)
-  target_include_directories(libhal INTERFACE include)
+libhal_add_tests(libhal
+    TEST_NAMES
+      can
+      pwm
+      timer
+      i2c
+      spi
+      adc
+      dac
+      initializers
+      input_pin
+      interrupt_pin
+      output_pin
+      serial
+      steady_clock
+      motor
+      timeout
+      error
+      accelerometer
+      distance_sensor
+      gyroscope
+      magnetometer
+      rotation_sensor
+      temperature_sensor
+      servo
+      g_force
+      io_waiter
+      lengths
+      angular_velocity_sensor
+      current_sensor
+      stream_dac
+      lock
+      usb
+      zero_copy_serial
+      pointers
+      circular_buffer
+      allocated_buffer
 
-  libhal_add_tests(libhal
-      TEST_NAMES
-        can
-        pwm
-        timer
-        i2c
-        spi
-        adc
-        dac
-        initializers
-        input_pin
-        interrupt_pin
-        output_pin
-        serial
-        steady_clock
-        motor
-        timeout
-        error
-        accelerometer
-        distance_sensor
-        gyroscope
-        magnetometer
-        rotation_sensor
-        temperature_sensor
-        servo
-        g_force
-        io_waiter
-        lengths
-        angular_velocity_sensor
-        current_sensor
-        stream_dac
-        lock
-        usb
-        zero_copy_serial
-        pointers
-        circular_buffer
-        allocated_buffer
+    PACKAGES
+      tl-function-ref
 
-      PACKAGES
-        tl-function-ref
+    LINK_LIBRARIES
+      tl::function-ref
+)
 
-      LINK_LIBRARIES
-        tl::function-ref
-  )
-# endif()
+add_custom_target(copy_compile_commands2 ALL
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_BINARY_DIR}/compile_commands.json
+    ${CMAKE_SOURCE_DIR}/compile_commands.json
+    COMMENT "Copying compile_commands.json to source directory"
+)

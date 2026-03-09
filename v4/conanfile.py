@@ -49,6 +49,11 @@ class libhal_conan(ConanFile):
             "apple-clang": "14.0.0"
         }
 
+    def set_version(self):
+        # Use latest if not specified via command line
+        if not self.version:
+            self.version = "latest"
+
     def validate(self):
         if self.settings.get_safe("compiler.cppstd"):
             check_min_cppstd(self, self._min_cppstd)
@@ -56,7 +61,7 @@ class libhal_conan(ConanFile):
     def build_requirements(self):
         self.tool_requires("cmake/[^4.0.0]")
         self.tool_requires("ninja/[^1.3.0]")
-        self.tool_requires("libhal-cmake-util/[^5.0.5]")
+        self.tool_requires("libhal-cmake-util/[^5.0.6]")
         self.test_requires("boost-ext-ut/2.1.0")
 
     def requirements(self):
