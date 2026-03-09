@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <array>
+#include <optional>
 
 #include <libhal/error.hpp>
 #include <libhal/scatter_span.hpp>
@@ -62,6 +63,7 @@ public:
   usize m_read_result{ 0 };
   callback<void(on_receive_tag)> m_receive_callback{};
   bool m_on_receive_called{ false };
+  std::optional<bool> m_has_setup_state{};
 
 private:
   [[nodiscard]] endpoint_info driver_info() const override
@@ -105,6 +107,11 @@ private:
   void driver_reset() override
   {
     m_endpoint.reset();
+  }
+
+  std::optional<bool> driver_has_setup() const noexcept override
+  {
+    return m_has_setup_state;
   }
 };
 
@@ -365,6 +372,21 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     expect(that % not endpoint.m_endpoint.m_reset_called);
     endpoint.reset();
     expect(that % endpoint.m_endpoint.m_reset_called);
+  };
+
+  "mock_usb_control_endpoint has_setup test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+    endpoint.m_has_setup_state = std::nullopt;
+    auto const val1 = endpoint.has_setup();
+    expect(std::nullopt == val1);
+
+    endpoint.m_has_setup_state = true;
+    auto const val2 = endpoint.has_setup();
+    expect(that % true == *val2);
+
+    endpoint.m_has_setup_state = false;
+    auto const val3 = endpoint.has_setup();
+    expect(that % false == *val3);
   };
 };
 

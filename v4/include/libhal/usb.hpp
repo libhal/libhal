@@ -255,9 +255,34 @@ public:
    * @param p_callback The callback function to be called when a USB request
    * command is received on the control endpoint.
    */
-  void on_receive(hal::callback<void(on_receive_tag)> const& p_callback)
+  void on_receive(callback<void(on_receive_tag)> const& p_callback)
   {
     driver_on_receive(p_callback);
+  }
+
+  /**
+   * @brief Returns whether the endpoint's receive buffer contains a setup
+   * packet.
+   *
+   * Returns `true` until all 8 bytes of the setup packet have been extracted
+   * via `read()`. Returns `false` once the setup packet has been fully consumed
+   * or if the last received packet was not a setup packet.
+   *
+   * Returns `std::nullopt` if the implementation does not support setup packet
+   * detection. Enumerators that require this information should accept a
+   * callable (as a template parameter or type-erased input parameter) to work
+   * around legacy implementations.
+   *
+   * @note Safe to call from ISR context. Implementations must not throw,
+   * call throwing functions, or perform I/O within this method.
+   *
+   * @return `std::nullopt` if setup packet detection is unsupported.
+   * @return `true` if the receive buffer contains an unconsumed setup packet.
+   * @return `false` otherwise.
+   */
+  [[nodiscard]] std::optional<bool> has_setup() const noexcept
+  {
+    return driver_has_setup();
   }
 
 private:
@@ -267,6 +292,10 @@ private:
   virtual usize driver_read(scatter_span<byte> p_buffer) = 0;
   virtual void driver_on_receive(
     callback<void(on_receive_tag)> const& p_callback) = 0;
+  [[nodiscard]] virtual std::optional<bool> driver_has_setup() const noexcept
+  {
+    return {};
+  }
 };
 
 /**
@@ -454,6 +483,10 @@ concept in_endpoint_type =
  */
 struct setup_packet
 {
+  constexpr static usize value_offset = 2;
+  constexpr static usize index_offset = 4;
+  constexpr static usize length_offset = 6;
+
   /**
    * @brief Request type classification for setup packets
    *
@@ -578,7 +611,7 @@ struct setup_packet
       return request_type::invalid;
     }
 
-    return static_cast<enum request_type>(t);
+    return static_cast<request_type>(t);
   }
 
   /**
@@ -629,7 +662,8 @@ struct setup_packet
    */
   [[nodiscard]] constexpr u16 value() const
   {
-    return from_le_bytes(raw_request_bytes[2], raw_request_bytes[3]);
+    return from_le_bytes(raw_request_bytes[value_offset],
+                         raw_request_bytes[value_offset + 1]);
   }
 
   /**
@@ -637,7 +671,7 @@ struct setup_packet
    */
   [[nodiscard]] constexpr std::span<hal::byte const> value_bytes() const
   {
-    return std::span(raw_request_bytes).subspan(2, 2);
+    return std::span(raw_request_bytes).subspan(value_offset, sizeof(u16));
   }
 
   /**
@@ -645,7 +679,8 @@ struct setup_packet
    */
   [[nodiscard]] constexpr u16 index() const
   {
-    return from_le_bytes(raw_request_bytes[4], raw_request_bytes[5]);
+    return from_le_bytes(raw_request_bytes[index_offset],
+                         raw_request_bytes[index_offset + 1]);
   }
 
   /**
@@ -653,7 +688,7 @@ struct setup_packet
    */
   [[nodiscard]] constexpr std::span<hal::byte const> index_bytes() const
   {
-    return std::span(raw_request_bytes).subspan(4, 2);
+    return std::span(raw_request_bytes).subspan(index_offset, sizeof(u16));
   }
 
   /**
@@ -661,7 +696,8 @@ struct setup_packet
    */
   [[nodiscard]] constexpr u16 length() const
   {
-    return from_le_bytes(raw_request_bytes[6], raw_request_bytes[7]);
+    return from_le_bytes(raw_request_bytes[length_offset],
+                         raw_request_bytes[length_offset + 1]);
   }
 
   /**
@@ -669,7 +705,7 @@ struct setup_packet
    */
   [[nodiscard]] constexpr std::span<hal::byte const> length_bytes() const
   {
-    return std::span(raw_request_bytes).subspan(6, 2);
+    return std::span(raw_request_bytes).subspan(length_offset, sizeof(u16));
   }
 
   /**
@@ -751,10 +787,6 @@ struct setup_packet
   }
 
   std::array<byte, 8> raw_request_bytes;
-
-  constexpr static usize value_offset = 2;
-  constexpr static usize index_offset = 4;
-  constexpr static usize length_offset = 6;
 };
 
 /**
@@ -836,6 +868,11 @@ public:
    * endpoint
    * @return usize - the number of bytes read into the provided buffers. Value
    * is 0 if there is no data available within the endpoint.
+   * @throws hal::operation_not_permitted - when the endpoint_io represents a
+   * control endpoint. The endpoint_io passed to
+   * `hal::usb::interface::handle_request` must always assume its using a
+   * control endpoint. This exception signals that the HOST has sent a new setup
+   * packet and is aborting the current setup command.
    */
   usize read(scatter_span<byte> p_buffer)
   {
@@ -851,6 +888,11 @@ public:
    * @param p_buffer - scatter span of const byte buffers containing data to
    * write to the endpoint
    * @return usize - the number of bytes written from the provided buffers
+   * @throws hal::operation_not_permitted - when the endpoint_io represents a
+   * control endpoint. The endpoint_io passed to
+   * `hal::usb::interface::handle_request` must always assume its using a
+   * control endpoint. This exception signals that the HOST has sent a new setup
+   * packet and is aborting the current setup command.
    */
   usize write(scatter_span<byte const> p_buffer)
   {
@@ -934,13 +976,13 @@ public:
    * @param p_start - the starting values for interface numbers and string
    * indexes. The `string` field should be cached by the interface in order to
    * allow `write_string_descriptor` to work correctly.
-   * @param p_ep_req - endpoint I/O interface used to write descriptor data to
+   * @param p_endpoint - endpoint I/O interface used to write descriptor data to
    * the host.
    */
   [[nodiscard]] descriptor_count write_descriptors(descriptor_start p_start,
-                                                   endpoint_io& p_ep_req)
+                                                   endpoint_io& p_endpoint)
   {
-    return driver_write_descriptors(p_start, p_ep_req);
+    return driver_write_descriptors(p_start, p_endpoint);
   }
 
   /**
@@ -955,15 +997,16 @@ public:
    * and descriptor type fields.
    *
    * @param p_index - Which string index's descriptor should be written.
-   * @param p_ep_req - endpoint I/O interface used to write the string
+   * @param p_endpoint - endpoint I/O interface used to write the string
    * descriptor to the host.
    *
    * @returns true - if the string was located and written via the endpoint I/O.
    * @returns false - if the string requested does not belong to this interface.
    */
-  [[nodiscard]] bool write_string_descriptor(u8 p_index, endpoint_io& p_ep_req)
+  [[nodiscard]] bool write_string_descriptor(u8 p_index,
+                                             endpoint_io& p_endpoint)
   {
-    return driver_write_string_descriptor(p_index, p_ep_req);
+    return driver_write_string_descriptor(p_index, p_endpoint);
   }
 
   /**
@@ -975,6 +1018,7 @@ public:
    * the setup packet and handle any requests it recognizes.
    *
    * The interface may handle:
+   *
    * - Standard requests specific to this interface type
    * - Class-specific requests defined by the interface's USB class
    * - Vendor-specific requests for custom functionality
@@ -985,26 +1029,53 @@ public:
    * interface to send response data (device-to-host) or receive data
    * (host-to-device).
    *
+   * All APIs of endpoint I/O interface may throw an
+   * `hal::operation_not_permitted` exception if the HOST sends a new setup
+   * packet. This exception must be handled in the following way:
+   *
+   * # Implementation Exception Handling
+   *
+   * Implementations should anticipate that exception and MUST REFRAIN from
+   * catching it. The enumerator is responsible for calling `handle_request`
+   * with the current setup packet and endpoint I/O for the control endpoint.
+   * The exception should be allowed to propagate to the enumerator where it
+   * will be handled. If the exception is caught for any reason, it must be
+   * rethrown via the `throw;` expression before exiting the catch block.
+   *
+   * # Enumerator Exception Handling
+   *
+   * The implementation of the endpoint I/O should be able to detect if a new
+   * setup packet has been sent before the setup command has been handled. This
+   * defines an setup abort operation. When an setup abort condition has
+   * occurred, the endpoint I/O API must throw a `hal::operation_not_permitted`
+   * exception on next usage. It is the enumerator's responsibility to catch the
+   * `hal::operation_not_permitted` exception, swallow it, and re-evaluate the
+   * new setup packet to determine how it should handled, either by the
+   * enumerator itself or by one of the `usb::interface` provided to the
+   * enumerator.
+   *
    * @param p_setup - Setup request from the host.
-   * @param p_ep_req - endpoint I/O interface for reading or writing data
-   * during the data phase of the control transfer.
+   * @param p_endpoint - endpoint I/O interface for reading or writing data to
+   * the host via the control endpoint during the data phase of the control
+   * transfer.
    * @return true - if the request was handled by the interface.
    * @return false - if the request could not be handled by interface.
    */
-  bool handle_request(setup_packet const& p_setup, endpoint_io& p_ep_req)
+  bool handle_request(setup_packet const& p_setup, endpoint_io& p_endpoint)
   {
-    return driver_handle_request(p_setup, p_ep_req);
+    return driver_handle_request(p_setup, p_endpoint);
   }
 
   virtual ~interface() = default;
 
 private:
-  virtual descriptor_count driver_write_descriptors(descriptor_start p_start,
-                                                    endpoint_io& p_ep_req) = 0;
+  virtual descriptor_count driver_write_descriptors(
+    descriptor_start p_start,
+    endpoint_io& p_endpoint) = 0;
   virtual bool driver_write_string_descriptor(u8 p_index,
-                                              endpoint_io& p_ep_req) = 0;
+                                              endpoint_io& p_endpoint) = 0;
   virtual bool driver_handle_request(setup_packet const& p_setup,
-                                     endpoint_io& p_ep_req) = 0;
+                                     endpoint_io& p_endpoint) = 0;
 };
 }  // namespace hal::v5::usb
 
