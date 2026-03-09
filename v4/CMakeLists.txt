@@ -23,7 +23,7 @@ set(CMAKE_COLOR_DIAGNOSTICS ON)
 project(libhal LANGUAGES CXX)
 
 if(CMAKE_CROSSCOMPILING)
-    message(STATUS "Cross compiling, skipping unit test execution")
+    message(STATUS "⏭️ Cross compiling, skipping unit test execution")
 else()
   libhal_unit_test(SOURCES
     tests/helpers.cpp
