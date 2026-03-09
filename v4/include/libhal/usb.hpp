@@ -841,7 +841,6 @@ enum class standard_request_types : hal::byte
 
   return static_cast<standard_request_types>(p_packet.request());
 }
-
 /**
  * @brief Endpoint I/O interface for USB request handling
  *
@@ -852,8 +851,14 @@ enum class standard_request_types : hal::byte
  * phase of control transfers.
  *
  * The direction of data transfer depends on the setup packet:
+ *
  * - Device-to-host (IN): Use `write()` to send response data to the host
  * - Host-to-device (OUT): Use `read()` to receive data sent by the host
+ *
+ * @throws hal::operation_not_permitted - If a new setup packet is received
+ * before the current control transfer completes, this exception is thrown to
+ * interrupt the data phase. Only the enumerator should handle this exception;
+ * it must catch it and evaluate the new setup packet.
  */
 class endpoint_io
 {
@@ -868,11 +873,7 @@ public:
    * endpoint
    * @return usize - the number of bytes read into the provided buffers. Value
    * is 0 if there is no data available within the endpoint.
-   * @throws hal::operation_not_permitted - when the endpoint_io represents a
-   * control endpoint. The endpoint_io passed to
-   * `hal::usb::interface::handle_request` must always assume its using a
-   * control endpoint. This exception signals that the HOST has sent a new setup
-   * packet and is aborting the current setup command.
+   * @throws hal::operation_not_permitted - See class documentation.
    */
   usize read(scatter_span<byte> p_buffer)
   {
@@ -888,11 +889,7 @@ public:
    * @param p_buffer - scatter span of const byte buffers containing data to
    * write to the endpoint
    * @return usize - the number of bytes written from the provided buffers
-   * @throws hal::operation_not_permitted - when the endpoint_io represents a
-   * control endpoint. The endpoint_io passed to
-   * `hal::usb::interface::handle_request` must always assume its using a
-   * control endpoint. This exception signals that the HOST has sent a new setup
-   * packet and is aborting the current setup command.
+   * @throws hal::operation_not_permitted - See class documentation.
    */
   usize write(scatter_span<byte const> p_buffer)
   {
@@ -1008,51 +1005,35 @@ public:
   {
     return driver_write_string_descriptor(p_index, p_endpoint);
   }
-
   /**
    * @brief Handle USB requests directed to this interface or its endpoints
    *
-   * This method is called when the USB device receives a setup packet that
-   * targets this interface (interface-specific requests) or one of its
+   * This method is called when the USB device receives a setup packet that may
+   * target this interface (interface-specific requests) or one of its
    * endpoints (endpoint-specific requests). The interface should examine
-   * the setup packet and handle any requests it recognizes.
+   * the setup packet and handle any requests it recognizes. If the setup packet
+   * is not for this interface, this API must return false.
    *
-   * The interface may handle:
+   * The interface must handle:
    *
    * - Standard requests specific to this interface type
    * - Class-specific requests defined by the interface's USB class
    * - Vendor-specific requests for custom functionality
    * - Endpoint-specific requests for its endpoints
-   * - Anything that isn't a device or configuration level request
+   *
+   * The `endpoint_io` object is constructed by the enumerator to provide
+   * limited access to the control endpoint.
    *
    * If the request has a data phase (wLength > 0), use the endpoint I/O
-   * interface to send response data (device-to-host) or receive data
-   * (host-to-device).
+   * interface to send data from device-to-host via the `write` API or
+   * receive data from host-to-device via the `read` API.
    *
-   * All APIs of endpoint I/O interface may throw an
-   * `hal::operation_not_permitted` exception if the HOST sends a new setup
-   * packet. This exception must be handled in the following way:
-   *
-   * # Implementation Exception Handling
-   *
-   * Implementations should anticipate that exception and MUST REFRAIN from
-   * catching it. The enumerator is responsible for calling `handle_request`
-   * with the current setup packet and endpoint I/O for the control endpoint.
-   * The exception should be allowed to propagate to the enumerator where it
-   * will be handled. If the exception is caught for any reason, it must be
-   * rethrown via the `throw;` expression before exiting the catch block.
-   *
-   * # Enumerator Exception Handling
-   *
-   * The implementation of the endpoint I/O should be able to detect if a new
-   * setup packet has been sent before the setup command has been handled. This
-   * defines an setup abort operation. When an setup abort condition has
-   * occurred, the endpoint I/O API must throw a `hal::operation_not_permitted`
-   * exception on next usage. It is the enumerator's responsibility to catch the
-   * `hal::operation_not_permitted` exception, swallow it, and re-evaluate the
-   * new setup packet to determine how it should handled, either by the
-   * enumerator itself or by one of the `usb::interface` provided to the
-   * enumerator.
+   * When a new setup packet is received from the HOST, the enumerator ensures
+   * that `hal::operation_not_permitted` is thrown from all `endpoint_io` APIs.
+   * Implementations of `driver_handle_request` MUST NOT catch this exception;
+   * it must propagate to the enumerator for handling. Correct use of RAII to
+   * undo state changes is advised. If cleanup requires a catch block, the
+   * exception must be rethrown via `throw;` before exiting.
    *
    * @param p_setup - Setup request from the host.
    * @param p_endpoint - endpoint I/O interface for reading or writing data to
@@ -1060,6 +1041,9 @@ public:
    * transfer.
    * @return true - if the request was handled by the interface.
    * @return false - if the request could not be handled by interface.
+   * @throws hal::operation_not_permitted - If a new setup packet is received
+   * before the current control transfer completes. This exception must not be
+   * caught by the implementation; it is intended for the enumerator.
    */
   bool handle_request(setup_packet const& p_setup, endpoint_io& p_endpoint)
   {

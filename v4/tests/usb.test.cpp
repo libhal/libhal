@@ -388,6 +388,42 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     auto const val3 = endpoint.has_setup();
     expect(that % false == *val3);
   };
+
+  "mock_usb_control_endpoint default has_setup test"_test = []() {
+    struct test_ctrl_ep : public hal::usb::control_endpoint
+    {
+      void driver_connect(bool) override
+      {
+      }
+      void driver_set_address(u8) override
+      {
+      }
+      void driver_write(scatter_span<byte const>) override
+      {
+      }
+      usize driver_read(scatter_span<byte>) override
+      {
+        return 0;
+      }
+      void driver_on_receive(callback<void(on_receive_tag)> const&) override
+      {
+      }
+      [[nodiscard]] endpoint_info driver_info() const override
+      {
+        return {};
+      }
+      void driver_stall(bool) override
+      {
+      }
+      void driver_reset() override
+      {
+      }
+      // driver_has_setup skipped!
+    } endpoint;
+
+    auto const val1 = endpoint.has_setup();
+    expect(std::nullopt == val1);
+  };
 };
 
 // Test for usb_in_endpoint interface
