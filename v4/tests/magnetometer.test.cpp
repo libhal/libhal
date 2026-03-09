@@ -13,3 +13,7 @@
 // limitations under the License.
 
 #include <libhal/magnetometer.hpp>
+
+int main()
+{
+}

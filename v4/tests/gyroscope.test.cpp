@@ -13,3 +13,7 @@
 // limitations under the License.
 
 #include <libhal/gyroscope.hpp>
+
+int main()
+{
+}

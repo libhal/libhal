@@ -19,7 +19,8 @@
 #include <boost/ut.hpp>
 
 namespace hal {
-boost::ut::suite timeout_test = []() {
+void timeout_test()
+{
   {
     using namespace boost::ut;
 #if 0
@@ -64,3 +65,8 @@ boost::ut::suite timeout_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::timeout_test();
+}

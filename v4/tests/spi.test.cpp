@@ -57,7 +57,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"spi_test"> spi_test = []() {
+void spi_test()
+{
   using namespace boost::ut;
   "test"_test = []() {
     // Setup
@@ -158,7 +159,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"spi_channel_test"> spi_channel_test = []() {
+void spi_channel_test()
+{
   using namespace boost::ut;
   // Setup
   test_spi_channel test;
@@ -179,3 +181,9 @@ boost::ut::suite<"spi_channel_test"> spi_channel_test = []() {
   expect(test_spi_channel::expected_settings == test.m_settings);
 };
 }  // namespace hal
+
+int main()
+{
+  hal::spi_test();
+  hal::spi_channel_test();
+}

@@ -29,7 +29,8 @@ std::pmr::polymorphic_allocator<byte> test_allocator{ &test_buffer };
 }  // namespace
 
 // Dynbuffer test suite
-boost::ut::suite<"allocated_buffer_test"> allocated_buffer_test = []() {
+void allocated_buffer_test()
+{
   using namespace boost::ut;
 
   "construction"_test = [&] {
@@ -292,3 +293,8 @@ boost::ut::suite<"allocated_buffer_test"> allocated_buffer_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::allocated_buffer_test();
+}

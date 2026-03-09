@@ -60,7 +60,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"lock_test"> lock_test = []() {
+void lock_test()
+{
   using namespace boost::ut;
 
   "lock"_test = []() {
@@ -287,3 +288,8 @@ boost::ut::suite<"lock_test"> lock_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::lock_test();
+}

@@ -189,7 +189,8 @@ struct mock_usb_bulk_out_endpoint : public mock_usb_out_endpoint
 {};
 }  // namespace
 // Test for usb_endpoint_info methods
-boost::ut::suite<"usb_endpoint_info_test"> endpoint_info_test = []() {
+void endpoint_info_test()
+{
   using namespace boost::ut;
 
   "endpoint info in_direction test"_test = []() {
@@ -220,7 +221,8 @@ boost::ut::suite<"usb_endpoint_info_test"> endpoint_info_test = []() {
 };
 
 // Test for endpoint interface
-boost::ut::suite<"endpoint_test"> endpoint_test = []() {
+void endpoint_test()
+{
   using namespace boost::ut;
 
   "endpoint info test"_test = []() {
@@ -259,7 +261,8 @@ boost::ut::suite<"endpoint_test"> endpoint_test = []() {
 };
 
 // Test for usb_control_endpoint interface
-boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
+void control_endpoint_test()
+{
   using namespace boost::ut;
 
   "usb_control_endpoint connect test"_test = []() {
@@ -369,7 +372,8 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
 };
 
 // Test for usb_in_endpoint interface
-boost::ut::suite<"usb_in_endpoint_test"> in_endpoint_test = []() {
+void in_endpoint_test()
+{
   using namespace boost::ut;
 
   "usb_in_endpoint write test"_test = []() {
@@ -400,7 +404,8 @@ boost::ut::suite<"usb_in_endpoint_test"> in_endpoint_test = []() {
 };
 
 // Test for usb_out_endpoint interface
-boost::ut::suite<"usb_out_endpoint_test"> out_endpoint_test = []() {
+void out_endpoint_test()
+{
   using namespace boost::ut;
 
   "usb_out_endpoint on_receive test"_test = []() {
@@ -450,7 +455,8 @@ boost::ut::suite<"usb_out_endpoint_test"> out_endpoint_test = []() {
 };
 
 // Test for specific endpoint types
-boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
+void specific_endpoint_test()
+{
   using namespace boost::ut;
 
   "usb_interrupt_in_endpoint test"_test = []() {
@@ -756,7 +762,8 @@ struct mock : public interface
 }  // namespace
 
 // Test the usb highlevel interface (interface descriptor level)
-boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
+void req_bitmap_test()
+{
   using namespace boost::ut;
 
   "req bitmap construction from byte test"_test = []() {
@@ -777,7 +784,8 @@ boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
 };
 
 // Test the usb highlevel interface (interface descriptor level)
-boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
+void usb_interface_test()
+{
   using namespace boost::ut;
   using descriptor_count = interface::descriptor_count;
 
@@ -817,3 +825,15 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
   };
 };
 }  // namespace hal::usb
+
+int main()
+{
+  hal::usb::endpoint_info_test();
+  hal::usb::endpoint_test();
+  hal::usb::control_endpoint_test();
+  hal::usb::in_endpoint_test();
+  hal::usb::out_endpoint_test();
+  hal::usb::specific_endpoint_test();
+  hal::usb::req_bitmap_test();
+  hal::usb::usb_interface_test();
+}

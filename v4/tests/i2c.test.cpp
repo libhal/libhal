@@ -100,7 +100,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"i2c_test_v1"> i2c_test = []() {
+void i2c_test()
+{
   using namespace boost::ut;
   "::configure()"_test = []() {
     // Setup
@@ -162,7 +163,8 @@ boost::ut::suite<"i2c_test_v1"> i2c_test = []() {
   };
 };
 
-boost::ut::suite<"i2c_test_v2"> i2c_test_v2 = []() {
+void i2c_test_v2()
+{
   using namespace boost::ut;
   "::configure()"_test = []() {
     // Setup
@@ -228,3 +230,9 @@ boost::ut::suite<"i2c_test_v2"> i2c_test_v2 = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::i2c_test();
+  hal::i2c_test_v2();
+}

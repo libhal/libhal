@@ -33,16 +33,20 @@ private:
 };
 }  // namespace
 
-boost::ut::suite current_sensor_test = []() {
-  {
-    using namespace boost::ut;
-    "current sensor interface test"_test = []() {
-      test_current_sensor test;
+void current_sensor_test()
+{
+  using namespace boost::ut;
+  "current sensor interface test"_test = []() {
+    test_current_sensor test;
 
-      auto sample = test.read();
+    auto sample = test.read();
 
-      expect(expected_value == sample);
-    };
-  }
-};
+    expect(expected_value == sample);
+  };
+}
 }  // namespace hal
+
+int main()
+{
+  hal::current_sensor_test();
+}

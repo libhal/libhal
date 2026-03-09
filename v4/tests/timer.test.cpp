@@ -51,7 +51,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite timer_test = []() {
+void timer_test()
+{
   {
     using namespace boost::ut;
     "timer interface test"_test = []() {
@@ -83,3 +84,8 @@ boost::ut::suite timer_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::timer_test();
+}

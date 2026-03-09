@@ -31,7 +31,8 @@ struct multi_buffer
 };
 }  // namespace
 
-boost::ut::suite<"scatter_api_test"> scatter_api_test = []() {
+void scatter_api_test()
+{
   using namespace boost::ut;
 
   "make_scatter_array - generic"_test = [] {
@@ -190,3 +191,8 @@ boost::ut::suite<"scatter_api_test"> scatter_api_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::scatter_api_test();
+}

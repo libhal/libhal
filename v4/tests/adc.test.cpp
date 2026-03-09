@@ -34,7 +34,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"hal::adc"> adc_test = []() {
+void adc_test()
+{
   using namespace boost::ut;
   "::read()"_test = []() {
     // Setup
@@ -61,7 +62,8 @@ private:
   }
 };
 
-boost::ut::suite<"hal::adc16"> adc16_test = []() {
+void adc16_test()
+{
   using namespace boost::ut;
   "::read()"_test = []() {
     // Setup
@@ -88,7 +90,8 @@ private:
   }
 };
 
-boost::ut::suite<"hal::adc24"> adc24_test = []() {
+void adc24_test()
+{
   using namespace boost::ut;
   "::read()"_test = []() {
     // Setup
@@ -102,3 +105,9 @@ boost::ut::suite<"hal::adc24"> adc24_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::adc16_test();
+  hal::adc24_test();
+}

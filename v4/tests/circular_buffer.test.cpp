@@ -29,7 +29,8 @@ std::pmr::polymorphic_allocator<byte> test_allocator{ &test_buffer };
 }  // namespace
 
 // Circular buffer test suite
-boost::ut::suite<"circular_buffer_test"> circular_buffer_test = []() {
+void circular_buffer_test()
+{
   using namespace boost::ut;
 
   "construction"_test = [&] {
@@ -261,3 +262,8 @@ boost::ut::suite<"circular_buffer_test"> circular_buffer_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::circular_buffer_test();
+}

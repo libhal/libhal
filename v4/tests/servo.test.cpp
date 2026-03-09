@@ -36,7 +36,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"servo_test"> servo_test = []() {
+void servo_test()
+{
   using namespace boost::ut;
   // Setup
   test_servo test;
@@ -48,3 +49,8 @@ boost::ut::suite<"servo_test"> servo_test = []() {
   expect(that % expected_value == test.m_position);
 };
 }  // namespace hal
+
+int main()
+{
+  hal::servo_test();
+}

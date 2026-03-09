@@ -60,7 +60,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"serial_test"> serial_test = []() {
+void serial_test()
+{
   using namespace boost::ut;
   // Setup
   test_serial test;
@@ -83,3 +84,8 @@ boost::ut::suite<"serial_test"> serial_test = []() {
   expect(true == test.m_flush_called);
 };
 }  // namespace hal
+
+int main()
+{
+  hal::serial_test();
+}

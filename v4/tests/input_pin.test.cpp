@@ -41,7 +41,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"input_pin_test"> input_pin_test = []() {
+void input_pin_test()
+{
   using namespace boost::ut;
   "input_pin interface test"_test = []() {
     // Setup
@@ -57,3 +58,8 @@ boost::ut::suite<"input_pin_test"> input_pin_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::input_pin_test();
+}

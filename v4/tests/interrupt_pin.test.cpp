@@ -45,7 +45,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"interrupt_pin_test"> interrupt_pin_test = []() {
+void interrupt_pin_test()
+{
   using namespace boost::ut;
   "interrupt_pin interface test"_test = []() {
     // Setup
@@ -65,3 +66,8 @@ boost::ut::suite<"interrupt_pin_test"> interrupt_pin_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::interrupt_pin_test();
+}

@@ -20,7 +20,8 @@
 
 namespace hal {
 
-boost::ut::suite<"lengths_test"> lengths_test = []() {
+void lengths_test()
+{
   using namespace hal::literals;
   using namespace boost::ut;
   constexpr float meters_in_inches = 0.0254f;
@@ -179,3 +180,8 @@ boost::ut::suite<"lengths_test"> lengths_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::lengths_test();
+}

@@ -13,3 +13,7 @@
 // limitations under the License.
 
 #include <libhal/distance_sensor.hpp>
+
+int main()
+{
+}

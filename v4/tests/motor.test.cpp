@@ -36,7 +36,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"motor_test"> motor_test = []() {
+void motor_test()
+{
   using namespace boost::ut;
   "motor interface test"_test = []() {
     // Setup
@@ -50,3 +51,8 @@ boost::ut::suite<"motor_test"> motor_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::motor_test();
+}

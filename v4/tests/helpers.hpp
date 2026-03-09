@@ -30,7 +30,11 @@ struct compare_float_t
  * @param p_error_margin How precise the error of an error should be checked.
  * @return true if the two floats are equal within a margin of error
  */
-bool compare_floats(compare_float_t p_compare);
+constexpr bool compare_floats(compare_float_t p_compare)
+{
+  float difference = std::abs(p_compare.a - p_compare.b);
+  return difference < p_compare.margin;
+}
 
 // Create a test class to use with smart pointers
 class test_class

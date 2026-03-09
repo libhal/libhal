@@ -35,23 +35,22 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"dac16_test"> dac16_test = []() {
-  {
+void dac16_test()
+{
+  using namespace boost::ut;
+
+  "dac interface test"_test = []() {
     using namespace boost::ut;
+    // Setup
+    test_dac16 test;
 
-    "dac interface test"_test = []() {
-      using namespace boost::ut;
-      // Setup
-      test_dac16 test;
+    // Exercise
+    test.write(test_dac16::expected_value);
 
-      // Exercise
-      test.write(test_dac16::expected_value);
-
-      // Verify
-      expect(that % test_dac16::expected_value == test.m_passed_value);
-    };
+    // Verify
+    expect(that % test_dac16::expected_value == test.m_passed_value);
   };
-};
+}
 }  // namespace hal
 
 namespace hal {
@@ -71,21 +70,26 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"dac_test"> dac_test = []() {
-  {
+void dac_test()
+{
+  using namespace boost::ut;
+
+  "dac interface test"_test = []() {
     using namespace boost::ut;
+    // Setup
+    test_dac test;
 
-    "dac interface test"_test = []() {
-      using namespace boost::ut;
-      // Setup
-      test_dac test;
+    // Exercise
+    test.write(test_dac::expected_value);
 
-      // Exercise
-      test.write(test_dac::expected_value);
-
-      // Verify
-      expect(that % test_dac::expected_value == test.m_passed_value);
-    };
+    // Verify
+    expect(that % test_dac::expected_value == test.m_passed_value);
   };
-};
+}
 }  // namespace hal
+
+int main()
+{
+  hal::dac16_test();
+  hal::dac_test();
+}

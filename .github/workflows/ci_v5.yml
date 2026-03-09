@@ -12,23 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: ✅ CI
+name: ✅ CI (v5)
 
 on:
   workflow_dispatch:
   pull_request:
+    paths:
+      - "v5/**"
   push:
     branches:
       - main
+    paths:
+      - "v5/**"
 
 jobs:
-  pre-commit:
-    name: 🧹 Lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: sudo apt-get install -y doxygen
-      - uses: pre-commit/action@v3.0.1
+  deploy_v5_check:
+    uses: libhal/ci/.github/workflows/package_and_upload_all.yml@5.x.y
+    with:
+      modules_support_needed: true
+      coroutine_support_needed: true
+      dir: v5
+    secrets: inherit

@@ -60,7 +60,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"can_test"> can_test = []() {
+void can_test()
+{
   using namespace boost::ut;
 
   "::configure()"_test = []() {
@@ -124,7 +125,7 @@ boost::ut::suite<"can_test"> can_test = []() {
     // Verify
     expect(that % callback_called);
   };
-};
+}
 
 namespace {
 
@@ -175,7 +176,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"can_transceiver"> can_transceiver_test = []() {
+void can_transceiver_test()
+{
   using namespace boost::ut;
 
   std::array<can_message, 8> receive_buffer{};
@@ -224,7 +226,7 @@ boost::ut::suite<"can_transceiver"> can_transceiver_test = []() {
     expect(that % 3 == test.receive_cursor());
     expect(that % 4 == test.receive_cursor());
   };
-};
+}
 
 namespace {
 struct test_can_interrupt : public hal::can_interrupt
@@ -240,7 +242,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"can_interrupt"> can_interrupt_test = []() {
+void can_interrupt_test()
+{
   using namespace boost::ut;
 
   "::on_receive()"_test = [&]() {
@@ -264,7 +267,7 @@ boost::ut::suite<"can_interrupt"> can_interrupt_test = []() {
                          expected_can_message);
     expect(that % 1 == call_count);
   };
-};
+}
 
 namespace {
 struct test_can_bus_manager : public hal::can_bus_manager
@@ -296,7 +299,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"can_bus_manager"> can_bus_manager_test = []() {
+void can_bus_manager_test()
+{
   using namespace boost::ut;
 
   "::baud_rate()"_test = [&]() {
@@ -360,7 +364,7 @@ boost::ut::suite<"can_bus_manager"> can_bus_manager_test = []() {
     // Verify
     expect(that % 1 == test.bus_on_call_count);
   };
-};
+}
 
 namespace {
 struct test_can_identifier_filter : public hal::can_identifier_filter
@@ -437,7 +441,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"can_identifier_filter"> can_identifier_filter_test = []() {
+void can_identifier_filter_test()
+{
   using namespace boost::ut;
 
   "hal::can_identifier_filter::allow()"_test = [&]() {
@@ -547,5 +552,14 @@ boost::ut::suite<"can_identifier_filter"> can_identifier_filter_test = []() {
     // Verify
     expect(expected_pair == test.id.value());
   };
-};
+}
 }  // namespace hal
+
+int main()
+{
+  hal::can_test();
+  hal::can_transceiver_test();
+  hal::can_interrupt_test();
+  hal::can_bus_manager_test();
+  hal::can_identifier_filter_test();
+}

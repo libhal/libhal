@@ -40,7 +40,8 @@ struct test_class_allocator
 };
 }  // namespace
 
-boost::ut::suite<"initializers_test"> initializers_test = []() {
+void initializers_test()
+{
   {
     using namespace boost::ut;
     "create_unique_static_buffer()"_test = []() {
@@ -119,3 +120,8 @@ boost::ut::suite<"initializers_test"> initializers_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::initializers_test();
+}

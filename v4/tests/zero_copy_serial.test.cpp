@@ -71,7 +71,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"zero_copy_serial_test"> zero_copy_serial_test = []() {
+void zero_copy_serial_test()
+{
   using namespace boost::ut;
 
   "::configure()"_test = []() {
@@ -132,3 +133,7 @@ boost::ut::suite<"zero_copy_serial_test"> zero_copy_serial_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+}

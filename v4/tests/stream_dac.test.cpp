@@ -35,7 +35,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"stream_dac_test"> stream_dac_test = []() {
+void stream_dac_test()
+{
   using namespace boost::ut;
   // Setup
   test_stream_dac test;
@@ -51,3 +52,8 @@ boost::ut::suite<"stream_dac_test"> stream_dac_test = []() {
   expect(that % expected_out.size() == test.actual_samples.data.size());
 };
 }  // namespace hal
+
+int main()
+{
+  hal::stream_dac_test();
+}

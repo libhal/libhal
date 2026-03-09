@@ -41,7 +41,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"steady_clock_test"> steady_clock_test = []() {
+void steady_clock_test()
+{
   using namespace boost::ut;
   // Setup
   test_steady_clock test;
@@ -55,3 +56,8 @@ boost::ut::suite<"steady_clock_test"> steady_clock_test = []() {
   expect(that % test.m_uptime == uptime);
 };
 }  // namespace hal
+
+int main()
+{
+  hal::steady_clock_test();
+}

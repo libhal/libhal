@@ -41,7 +41,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"pwm16_channel_test"> pwm16_channel_test = []() {
+void pwm16_channel_test()
+{
   using namespace boost::ut;
   "pwm interface test"_test = []() {
     // Setup
@@ -73,7 +74,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"pwm_group_manager_test"> pwm_group_manager_test = []() {
+void pwm_group_manager_test()
+{
   using namespace boost::ut;
   "pwm interface test"_test = []() {
     // Setup
@@ -113,7 +115,8 @@ private:
 };
 }  // namespace
 
-boost::ut::suite<"pwm_test"> pwm_test = []() {
+void pwm_test()
+{
   using namespace boost::ut;
   "pwm interface test"_test = []() {
     // Setup
@@ -129,3 +132,10 @@ boost::ut::suite<"pwm_test"> pwm_test = []() {
   };
 };
 }  // namespace hal
+
+int main()
+{
+  hal::pwm_test();
+  hal::pwm16_channel_test();
+  hal::pwm_group_manager_test();
+}
