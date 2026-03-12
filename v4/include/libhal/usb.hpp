@@ -858,7 +858,10 @@ enum class standard_request_types : hal::byte
  * @throws hal::operation_not_permitted - If a new setup packet is received
  * before the current control transfer completes, this exception is thrown to
  * interrupt the data phase. Only the enumerator should handle this exception;
- * it must catch it and evaluate the new setup packet.
+ * it must catch it and evaluate the new setup packet. If the underlying
+ * control endpoint implementation does not support setup_packet detection,
+ * this should not be thrown and the enumerator will have to make assumptions
+ * about which packets are setup packets and which are not.
  */
 class endpoint_io
 {
