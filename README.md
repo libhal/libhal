@@ -26,6 +26,24 @@ Following the
 [🚀 Getting Started](https://libhal.github.io/getting_started/)
 instructions.
 
+## 🐳 Using Docker for application development
+
+Libhal provides a Docker image for development.
+
+1. Clone this repo and install [Docker](https://docs.docker.com/get-docker/) (or Podman).
+2. Build the image: `docker build . -t libhal:latest`
+3. Run a container and mount your project into `/code`:
+```sh
+docker run -it --name my-libhal-app -v /path/to/app:/code libhal:latest
+
+# Example, if in app directory
+docker run -it --name my-libhal-app -v $(pwd):/code libhal:latest
+```
+
+> [!NOTE]
+> This image works for developing libhal itself and other libraries in the libhal ecosystem —
+> just mount the relevant codebase to `/code` via a volume.
+
 ## 📥 Adding `libhal` to your conan project
 
 This section assumes you are using the
