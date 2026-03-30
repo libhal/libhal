@@ -1,5 +1,10 @@
 FROM ubuntu:24.04
 
+# NOTE: Some Conan Center packages implicitly depend on system-installed 
+# toolchain tools (CMake, LLVM, GCC, etc.) rather than declaring them as 
+# tool requirements. The following packages are installed to satisfy 
+# these implicit dependencies.
+
 RUN apt update --fix-missing && apt upgrade -y
 RUN apt install gcc g++ valgrind neofetch git wget python3-pip clang-format software-properties-common locales htop pipx -y
 
@@ -13,13 +18,14 @@ RUN apt install -y build-essential g++-14
 RUN wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | apt-key add -
 RUN add-apt-repository "deb http://apt.llvm.org/noble/ llvm-toolchain-noble-21 main"
 RUN apt-get install clang-tidy-21 -y
-RUN pipx install "conan>=2.18.0" cmake
+RUN pipx install "conan>=2.22.0" cmake
 ENV PATH=$PATH:/root/.local/bin
 RUN echo "export PATH=$PATH:/root/.local/bin" >> /root/.bashrc
 
 # Configure conan for libhal
 RUN conan config install https://github.com/libhal/conan-config2.git
 RUN conan hal setup
+
 # Test by building demos
 RUN mkdir /test_libhal
 WORKDIR /test_libhal
