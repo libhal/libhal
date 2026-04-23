@@ -21,6 +21,21 @@
 
 #include <boost/ut.hpp>
 
+#if defined(__clang__)
+#define SUPPRESS_DEPRECATED_START                                              \
+  _Pragma("clang diagnostic push")                                             \
+    _Pragma("clang diagnostic ignored \"-Wdeprecated-declarations\"")
+#define SUPPRESS_DEPRECATED_END _Pragma("clang diagnostic pop")
+#elif defined(__GNUC__)
+#define SUPPRESS_DEPRECATED_START                                              \
+  _Pragma("GCC diagnostic push")                                               \
+    _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"")
+#define SUPPRESS_DEPRECATED_END _Pragma("GCC diagnostic pop")
+#else
+#define SUPPRESS_DEPRECATED_START
+#define SUPPRESS_DEPRECATED_END
+#endif
+
 namespace hal::usb {
 
 namespace {
@@ -55,6 +70,8 @@ protected:
 class mock_usb_control_endpoint : public control_endpoint
 {
 public:
+  using host_event = hal::v5::usb::host_event;
+
   mock_usb_endpoint m_endpoint;
   bool m_should_connect{ false };
   u8 m_address{ 0 };
@@ -64,6 +81,12 @@ public:
   callback<void(on_receive_tag)> m_receive_callback{};
   bool m_on_receive_called{ false };
   std::optional<bool> m_has_setup_state{};
+  callback<void(host_event)> m_host_event_callback{};
+  bool m_on_host_event_called{ false };
+  bool m_remote_wakeup_enabled{ false };
+  bool m_acknowledge_sleep_accept{ false };
+  bool m_acknowledge_sleep_called{ false };
+  bool m_supports_lpm_result{ false };
 
 private:
   [[nodiscard]] endpoint_info driver_info() const override
@@ -112,6 +135,29 @@ private:
   std::optional<bool> driver_has_setup() const noexcept override
   {
     return m_has_setup_state;
+  }
+
+  void driver_on_host_event(
+    hal::callback<void(host_event)> const& p_callback) override
+  {
+    m_host_event_callback = p_callback;
+    m_on_host_event_called = true;
+  }
+
+  void driver_set_remote_wakeup_enabled(bool p_enabled) override
+  {
+    m_remote_wakeup_enabled = p_enabled;
+  }
+
+  void driver_acknowledge_sleep(bool p_accept) override
+  {
+    m_acknowledge_sleep_accept = p_accept;
+    m_acknowledge_sleep_called = true;
+  }
+
+  bool driver_supports_lpm() override
+  {
+    return m_supports_lpm_result;
   }
 };
 
@@ -374,6 +420,8 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     expect(that % endpoint.m_endpoint.m_reset_called);
   };
 
+  SUPPRESS_DEPRECATED_START
+
   "mock_usb_control_endpoint has_setup test"_test = []() {
     mock_usb_control_endpoint endpoint;
     endpoint.m_has_setup_state = std::nullopt;
@@ -388,6 +436,8 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     auto const val3 = endpoint.has_setup();
     expect(that % false == *val3);
   };
+
+  SUPPRESS_DEPRECATED_END
 
   "mock_usb_control_endpoint default has_setup test"_test = []() {
     struct test_ctrl_ep : public hal::usb::control_endpoint
@@ -421,8 +471,95 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
       // driver_has_setup skipped!
     } endpoint;
 
+    SUPPRESS_DEPRECATED_START
+
     auto const val1 = endpoint.has_setup();
+
+    SUPPRESS_DEPRECATED_END
+
     expect(std::nullopt == val1);
+  };
+
+  "mock_usb_control_endpoint on_host_event test"_test = []() {
+    using host_event = hal::v5::usb::host_event;
+    mock_usb_control_endpoint endpoint;
+    host_event received_event{};
+
+    auto cb = [&received_event](host_event e) { received_event = e; };
+    endpoint.on_host_event(cb);
+
+    expect(that % endpoint.m_on_host_event_called);
+
+    endpoint.m_host_event_callback(host_event::reset);
+    expect(host_event::reset == received_event);
+
+    endpoint.m_host_event_callback(host_event::enumerated);
+    expect(host_event::enumerated == received_event);
+  };
+
+  "mock_usb_control_endpoint set_remote_wakeup_enabled test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+
+    endpoint.set_remote_wakeup_enabled(true);
+    expect(that % true == endpoint.m_remote_wakeup_enabled);
+
+    endpoint.set_remote_wakeup_enabled(false);
+    expect(that % false == endpoint.m_remote_wakeup_enabled);
+  };
+
+  "mock_usb_control_endpoint acknowledge_sleep test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+
+    endpoint.acknowledge_sleep(true);
+    expect(that % endpoint.m_acknowledge_sleep_called);
+    expect(that % true == endpoint.m_acknowledge_sleep_accept);
+
+    endpoint.acknowledge_sleep(false);
+    expect(that % false == endpoint.m_acknowledge_sleep_accept);
+  };
+
+  "mock_usb_control_endpoint supports_lpm test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+
+    endpoint.m_supports_lpm_result = false;
+    expect(that % false == endpoint.supports_lpm());
+
+    endpoint.m_supports_lpm_result = true;
+    expect(that % true == endpoint.supports_lpm());
+  };
+
+  "control_endpoint default supports_lpm returns false"_test = []() {
+    struct test_ctrl_ep : public hal::usb::control_endpoint
+    {
+      void driver_connect(bool) override
+      {
+      }
+      void driver_set_address(u8) override
+      {
+      }
+      void driver_write(scatter_span<byte const>) override
+      {
+      }
+      usize driver_read(scatter_span<byte>) override
+      {
+        return 0;
+      }
+      void driver_on_receive(callback<void(on_receive_tag)> const&) override
+      {
+      }
+      [[nodiscard]] endpoint_info driver_info() const override
+      {
+        return {};
+      }
+      void driver_stall(bool) override
+      {
+      }
+      void driver_reset() override
+      {
+      }
+    } endpoint;
+
+    expect(that % false == endpoint.supports_lpm());
   };
 };
 
@@ -762,6 +899,8 @@ constexpr u8 iface_desc_type = 0x4;
 
 struct mock : public interface
 {
+  using host_event = hal::v5::usb::host_event;
+
   constexpr static std::array<u8, 9> expected_descriptor = {
     iface_desc_length,
     iface_desc_type,
@@ -807,9 +946,17 @@ struct mock : public interface
     return bytes_read == data.size();
   }
 
+  void driver_handle_host_event(host_event p_event) override
+  {
+    last_host_event = p_event;
+    handle_host_event_called = true;
+  }
+
   descriptor_start write_descriptors_start{};
   setup_packet handle_request_setup{};
   u8 write_string_descriptor_string_index{};
+  host_event last_host_event{};
+  bool handle_host_event_called{ false };
 };
 }  // namespace
 
@@ -872,6 +1019,47 @@ boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {
     expect(that % actual_res);
     expect(that % eio.read_called);
     expect(command == iface.handle_request_setup);
+  };
+
+  "interface::handle_host_event"_test = []() mutable {
+    using host_event = hal::v5::usb::host_event;
+    mock iface;
+
+    iface.handle_host_event(host_event::reset);
+    expect(that % iface.handle_host_event_called);
+    expect(host_event::reset == iface.last_host_event);
+
+    iface.handle_host_event(host_event::suspend_with_wakeup);
+    expect(host_event::suspend_with_wakeup == iface.last_host_event);
+
+    iface.handle_host_event(host_event::resume);
+    expect(host_event::resume == iface.last_host_event);
+  };
+
+  "interface default handle_host_event is no-op"_test = []() mutable {
+    using host_event = hal::v5::usb::host_event;
+    struct noop_iface : public interface
+    {
+      [[nodiscard]] descriptor_count driver_write_descriptors(
+        descriptor_start,
+        endpoint_io&) override
+      {
+        return {};
+      }
+      [[nodiscard]] bool driver_write_string_descriptor(u8,
+                                                        endpoint_io&) override
+      {
+        return false;
+      }
+      bool driver_handle_request(setup_packet const&, endpoint_io&) override
+      {
+        return false;
+      }
+      // driver_handle_host_event not overridden — default is no-op
+    } iface;
+
+    expect(nothrow([&] { iface.handle_host_event(host_event::reset); }));
+    expect(nothrow([&] { iface.handle_host_event(host_event::sleep); }));
   };
 };
 }  // namespace hal::usb

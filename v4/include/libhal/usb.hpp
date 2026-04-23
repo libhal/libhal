@@ -75,6 +75,103 @@ struct endpoint_info
 };
 
 /**
+ * @brief USB bus-level events forwarded to @ref interface implementations.
+ *
+ * This is the subset of @ref host_event that is relevant to interface
+ * drivers. The enumerator translates @ref host_event values and forwards
+ * the appropriate host_event to all active interfaces via
+ * @ref interface::on_host_event.
+ *
+ * Interface implementations use these events to manage their own state,
+ * such as enabling or disabling hardware, stopping or resuming data
+ * queuing, or resetting internal transfer state.
+ */
+enum class host_event : hal::u8
+{
+
+  /// @brief The host has driven SE0 for >10ms, triggering re-enumeration,
+  ///        or the application has called @ref control_endpoint::connect
+  ///        to force a reconnect.
+  ///
+  /// All endpoint state has been cleared by hardware. Interfaces should
+  /// discard any pending transfer state and reset internal state machines.
+  /// The enumerator will re-run the full enumeration sequence and deliver
+  /// @ref enumerated again when complete.
+  reset,
+
+  /// @brief A SETUP packet is available in the control endpoint buffer.
+  ///
+  /// The enumerator should call @ref control_endpoint::read to retrieve
+  /// the 8-byte setup packet and process the request.
+  setup_packet,
+
+  /// @brief A data OUT packet is available in the control endpoint buffer.
+  ///
+  /// Delivered during the data phase of a host-to-device control transfer,
+  /// after a setup packet with wLength > 0 has been processed. The
+  /// enumerator or active interface should call @ref control_endpoint::read
+  /// to retrieve the data.
+  data_packet,
+
+  /// @brief Enumeration is complete. The host has issued SET_CONFIGURATION
+  ///        and the device is now fully operational.
+  ///
+  /// Interfaces should begin normal operation and may start queuing data
+  /// to their endpoints. Devices start in a suspended state and must
+  /// wait for this event before transmitting.
+  enumerated,
+
+  /// @brief The bus has resumed from any sleep or suspend state.
+  ///
+  /// Covers exit from L1, L2, U1, U2, and U3. Interfaces may resume
+  /// normal endpoint operation. Any endpoint writes that were blocked
+  /// during suspend will now complete.
+  resume,
+
+  /// @brief The host has suspended the bus and has granted the device
+  ///        permission to initiate remote wakeup (L2/U3).
+  ///
+  /// Interfaces should monitor for new data. When new data arrives,
+  /// calling write() on an endpoint will automatically assert resume
+  /// signaling to wake the host before completing the transfer.
+  ///
+  /// The device must reduce bus current draw to <= 2.5mA within 7ms.
+  suspend_with_wakeup,
+
+  /// @brief The host has suspended the bus without granting remote wakeup
+  ///        permission (L2/U3).
+  ///
+  /// Interfaces should cease all activity and queue no data to endpoints.
+  /// Any endpoint writes attempted while in this state will block
+  /// indefinitely until the host resumes the bus on its own.
+  ///
+  /// The device must reduce bus current draw to <= 2.5mA within 7ms.
+  suspend_without_wakeup,
+
+  /// @brief The host has requested a fast sleep (L1/LPM) transition.
+  ///
+  /// Exit latency is in the range of microseconds. There are no strict
+  /// power draw requirements in this state. Interfaces may choose to
+  /// remain operational or reduce activity. The endpoint write path will
+  /// automatically handle resume signaling if remote wakeup is enabled.
+  ///
+  /// Only fired on hardware with USB 2.0 LPM support.
+  sleep,
+
+  /// @brief The USB 3.0+ link has entered U1 standby.
+  ///
+  /// Very fast exit (~microseconds). Hardware-managed transition.
+  /// Interfaces typically need not respond to this event.
+  u1_sleep,
+
+  /// @brief The USB 3.0+ link has entered U2 standby.
+  ///
+  /// Fast exit (~milliseconds). Hardware-managed transition.
+  /// Interfaces may optionally reduce activity in response.
+  u2_sleep,
+};
+
+/**
  * @brief Generic usb endpoint interface
  *
  * This interface exists to mandate specific generic APIs for all usb endpoints.
@@ -264,6 +361,9 @@ public:
    * @brief Returns whether the endpoint's receive buffer contains a setup
    * packet.
    *
+   * @deprecated Use on_host_event and the host_event type to detect if a setup
+   * command has arrived.
+   *
    * Returns `true` until all 8 bytes of the setup packet have been extracted
    * via `read()`. Returns `false` once the setup packet has been fully consumed
    * or if the last received packet was not a setup packet.
@@ -280,9 +380,109 @@ public:
    * @return `true` if the receive buffer contains an unconsumed setup packet.
    * @return `false` otherwise.
    */
-  [[nodiscard]] std::optional<bool> has_setup() const noexcept
+  [[deprecated("This API is deprecated in favor of on_host_event() with "
+               "callback. To determine if the event means there is a new setup "
+               "packet, check the host_event and see if it equals "
+               "host_event::setup_packet.")]] [[nodiscard]] std::optional<bool>
+  has_setup() const noexcept
   {
     return driver_has_setup();
+  }
+
+  /**
+   * @brief Register a callback for control endpoint and bus-level events.
+   *
+   * The registered callback is invoked from interrupt context when any
+   * @ref host_event occurs. The callback must not perform any blocking
+   * operations.
+   *
+   * Replaces the @ref on_receive callbacks. Only one callback may be registered
+   * at a time. Calling this function again replaces the previously registered
+   * callback.
+   *
+   * The enumerator registers this callback internally. Applications should
+   * not call this directly.
+   *
+   * This API does nothing if not implemented
+   *
+   * @param p_callback - callback to invoke when an event occurs, receives
+   *                     the @ref host_event indicating which event fired.
+   * @throws hal::operation_not_supported - if not implemented by driver
+   */
+  void on_host_event(hal::callback<void(host_event)> const& p_callback)
+  {
+    driver_on_host_event(p_callback);
+  }
+
+  /**
+   * @brief Grant or revoke the device's permission to initiate remote wakeup.
+   *
+   * Called by the enumerator in response to SET_FEATURE(DEVICE_REMOTE_WAKEUP)
+   * and CLEAR_FEATURE(DEVICE_REMOTE_WAKEUP) setup packets from the host.
+   *
+   * When enabled, IN endpoint writes issued while the bus is suspended will
+   * automatically assert resume signaling before completing the transfer,
+   * waking the host if it is suspended.
+   *
+   * When disabled, IN endpoint writes while suspended will block until the
+   * host resumes the bus on its own.
+   *
+   * This API does nothing if not implemented
+   *
+   * @param p_enabled - true if the host has granted remote wakeup permission,
+   *                    false if the host has revoked it.
+   */
+  void set_remote_wakeup_enabled(bool p_enabled)
+  {
+    return driver_set_remote_wakeup_enabled(p_enabled);
+  }
+
+  /**
+   * @brief Accept or reject an incoming L1 LPM sleep request from the host.
+   *
+   * Called by the enumerator when an LPM token is received from the host
+   * requesting the device enter the L1 (sleep) power state. The implementation
+   * must respond to the host by either acknowledging or rejecting the
+   * transition.
+   *
+   * Accepting the request causes the hardware to enter L1 sleep, after which
+   * the enumerator dispatches `host_event::sleep` to all registered interfaces.
+   * Rejecting the request keeps the device in L0 (active) state and no event
+   * is dispatched.
+   *
+   * This function is invoked exclusively by the enumerator and must not be
+   * called directly by interface implementors or application code.
+   *
+   * This API does nothing if not implemented
+   *
+   * @param p_accept `true` to acknowledge the L1 sleep request and allow the
+   *   device to enter L1; `false` to reject it and remain in L0.
+   */
+  void acknowledge_sleep(bool p_accept)
+  {
+    return driver_acknowledge_sleep(p_accept);
+  }
+
+  /**
+   * @brief Query whether the hardware supports USB 2.0 L1 Link Power
+   * Management.
+   *
+   * The enumerator calls this during enumeration to determine whether to
+   * include a Binary Object Store (BOS) descriptor advertising LPM capability.
+   * If this returns `false`, the BOS descriptor is omitted and the host will
+   * never issue LPM tokens, meaning `acknowledge_sleep()` will never be called.
+   *
+   * Implementations should return a compile-time or hardware-register-derived
+   * constant. The result must remain stable for the lifetime of the
+   * `control_endpoint` object.
+   *
+   * @return `true` if the hardware supports L1 LPM and the enumerator should
+   *   advertise BOS/LPM capability to the host; `false` otherwise. If not
+   *   implemented by driver, then defaults to return false.
+   */
+  [[nodiscard]] bool supports_lpm()
+  {
+    return driver_supports_lpm();
   }
 
 private:
@@ -295,6 +495,19 @@ private:
   [[nodiscard]] virtual std::optional<bool> driver_has_setup() const noexcept
   {
     return {};
+  }
+  virtual void driver_on_host_event(callback<void(host_event)> const&)
+  {
+  }
+  virtual void driver_set_remote_wakeup_enabled(bool)
+  {
+  }
+  virtual void driver_acknowledge_sleep(bool)
+  {
+  }
+  virtual bool driver_supports_lpm()
+  {
+    return false;
   }
 };
 
@@ -324,6 +537,8 @@ public:
    *
    * @param p_data - a scatter span of bytes to be written to the endpoint
    * memory and sent over USB.
+   * @throws hal::operation_not_permitted - if the USB is suspended and a write
+   * is attempted.
    */
   void write(scatter_span<byte const> p_data)
   {
@@ -1052,6 +1267,60 @@ public:
   {
     return driver_handle_request(p_setup, p_endpoint);
   }
+  /**
+   * @brief Respond to bus-level host events dispatched by the enumerator.
+   *
+   * Called by the enumerator after it has processed a @ref host_event and
+   * updated its own state. Implementations that need to react to power
+   * transitions, suspend/resume, or bus reset should override this method.
+   *
+   * `host_event::setup_packet` and `host_event::data_packet` are consumed
+   * internally by the enumerator and are never forwarded here.
+   *
+   * This method is called from the enumerator's main context, not from
+   * interrupt context.
+   *
+   * **Event-specific guidance:**
+   *
+   * - @ref host_event::reset — Discard all pending transfer state. The
+   *   enumerator will re-run enumeration and re-initialize all descriptors
+   *   before normal operation resumes.
+   *
+   * - @ref host_event::enumerated — The device has completed enumeration and
+   *   is ready for normal operation. Interfaces may begin queuing data to
+   *   their endpoints.
+   *
+   * - @ref host_event::sleep — The host has granted an L1 LPM sleep request.
+   *   Cease queuing data to endpoints. Any pending IN writes will block until
+   *   the bus resumes.
+   *
+   * - @ref host_event::u1_sleep / @ref host_event::u2_sleep — USB 3.0+ U1/U2
+   *   link power states entered. Behavior mirrors `sleep` for interface
+   *   purposes.
+   *
+   * - @ref host_event::suspend_with_wakeup — The bus has entered L2/U3
+   *   suspend and the host has granted remote wakeup capability. The interface
+   *   may trigger a wakeup by writing to any IN endpoint; the endpoint driver
+   *   handles remote wakeup signaling internally.
+   *
+   * - @ref host_event::suspend_without_wakeup — The bus has entered L2/U3
+   *   suspend without remote wakeup capability. The interface must not attempt
+   *   to initiate wakeup. Any IN endpoint write attempted during this state
+   *   will throw hal::operation_not_permitted, as the device has no means to
+   *   deliver data or signal the host to resume.
+   *
+   * - @ref host_event::resume — The bus has returned to L0/U0 active state
+   *   from any sleep or suspend condition. Normal endpoint operation may
+   *   resume.
+   *
+   * The default implementation is a no-op.
+   *
+   * @param p_event The host event that occurred.
+   */
+  void handle_host_event(host_event p_event)
+  {
+    return driver_handle_host_event(p_event);
+  }
 
   virtual ~interface() = default;
 
@@ -1063,6 +1332,9 @@ private:
                                               endpoint_io& p_endpoint) = 0;
   virtual bool driver_handle_request(setup_packet const& p_setup,
                                      endpoint_io& p_endpoint) = 0;
+  virtual void driver_handle_host_event(host_event)
+  {
+  }
 };
 }  // namespace hal::v5::usb
 
