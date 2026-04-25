@@ -130,7 +130,7 @@ public:
    * modifying the PWM frequency while pwm channels are active can cause their
    * duty cycle to be disrupted for a few cycles.
    *
-   * @param p_frequency - the frequency to apply to the pwm hardware.
+   * @param p_frequency - the frequency to apply to the pwm hardware in hertz.
    */
   void frequency(u32 p_frequency)
   {
