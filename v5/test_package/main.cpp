@@ -67,11 +67,11 @@ int main()
 {
   int status = 0;
   try {
-    async::basic_context<1024> context;
+    async::inplace_context<1024> context;
     auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
     auto app = app_main(context, pwm);
 
-    context->sync_wait(
+    context.sync_wait(
       [](async::sleep_duration p_sleep) { last_sleep = p_sleep; });
 
     return app.value();

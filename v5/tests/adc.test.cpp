@@ -43,7 +43,7 @@ void adc16_test() noexcept
 
   "::read()"_test = [&]() {
     // Setup
-    async::basic_context<1024> ctx;
+    async::inplace_context<1024> ctx;
     test_adc16 test;
 
     // Exercise
@@ -74,7 +74,7 @@ void adc24_test() noexcept
 
   "::read()"_test = [&]() {
     // Setup
-    async::basic_context<1024> context;
+    async::inplace_context<1024> context;
     test_adc24 test;
 
     // Exercise
