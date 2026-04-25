@@ -1,8 +1,8 @@
 FROM ubuntu:24.04
 
-# NOTE: Some Conan Center packages implicitly depend on system-installed 
-# toolchain tools (CMake, LLVM, GCC, etc.) rather than declaring them as 
-# tool requirements. The following packages are installed to satisfy 
+# NOTE: Some Conan Center packages implicitly depend on system-installed
+# toolchain tools (CMake, LLVM, GCC, etc.) rather than declaring them as
+# tool requirements. The following packages are installed to satisfy
 # these implicit dependencies.
 
 RUN apt update --fix-missing && apt upgrade -y

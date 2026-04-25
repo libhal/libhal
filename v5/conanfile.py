@@ -106,7 +106,7 @@ class libhal_conan(ConanFile):
 
     def requirements(self):
         self.requires("strong_ptr/[^0.1.8]")
-        self.requires("async_context/[^0.0.8]")
+        self.requires("async_context/[^0.0.10]")
         self.requires("mp-units/2.5.1@libhal",
                       options={
                           "freestanding": True,
