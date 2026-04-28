@@ -41,6 +41,7 @@ libhal_add_library(libhal
         modules/interrupts.cppm
         modules/scatter_span.cppm
         modules/i2c.cppm
+        modules/spi.cppm
 )
 
 target_link_libraries(libhal
@@ -58,4 +59,5 @@ libhal_add_tests(libhal
         interrupts
         scatter_span
         i2c
+        spi
 )

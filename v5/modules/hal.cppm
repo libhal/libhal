@@ -26,6 +26,7 @@ export import :power_sensors;
 export import :interrupts;
 export import :scatter_span;
 export import :i2c;
+export import :spi;
 
 export import strong_ptr;
 export import async_context;
