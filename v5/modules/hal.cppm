@@ -22,6 +22,7 @@ export import :motion_sensors;
 export import :power_sensors;
 export import :error;
 export import :interrupts;
+export import :scatter_span;
 
 export import strong_ptr;
 export import async_context;
