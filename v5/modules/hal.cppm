@@ -14,15 +14,18 @@
 
 export module hal;
 
-export import :analog;
 export import :units;
+export import :scatter_span;
+export import :error;
+
+export import :analog;
 export import :pwm;
 export import :gpio;
 export import :motion_sensors;
 export import :power_sensors;
-export import :error;
 export import :interrupts;
 export import :scatter_span;
+export import :i2c;
 
 export import strong_ptr;
 export import async_context;
