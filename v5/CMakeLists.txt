@@ -42,6 +42,8 @@ libhal_add_library(libhal
         modules/scatter_span.cppm
         modules/i2c.cppm
         modules/spi.cppm
+        modules/serial.cppm
+        modules/containers.cppm
 )
 
 target_link_libraries(libhal
@@ -60,4 +62,6 @@ libhal_add_tests(libhal
         scatter_span
         i2c
         spi
+        serial
+        containers
 )
