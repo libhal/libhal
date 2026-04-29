@@ -14,6 +14,7 @@
 
 export module hal:power_sensors;
 
+export import async_context;
 export import :units;
 
 namespace hal::inline v5 {
@@ -27,18 +28,19 @@ public:
   /**
    * @brief Reads the most up to date current from the sensor
    *
-   * @return ampere - amount of current, in ampere's, read
-   * from the current sensor.
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<amperes> - amount of current, in amperes, read from
+   * the current sensor.
    */
-  [[nodiscard]] amperes read()
+  [[nodiscard]] async::future<amperes> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~current_sensor() = default;
 
 private:
-  virtual amperes driver_read() = 0;
+  virtual async::future<amperes> driver_read(async::context& p_context) = 0;
 };
 
 /**
@@ -51,17 +53,19 @@ public:
   /**
    * @brief Reads the most up to date voltage measured from the sensor
    *
-   * @return volts - amount of volts read from the voltage sensor.
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<volts> - amount of volts read from the voltage
+   * sensor.
    */
-  [[nodiscard]] volts read()
+  [[nodiscard]] async::future<volts> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~volt_sensor() = default;
 
 private:
-  virtual volts driver_read() = 0;
+  virtual async::future<volts> driver_read(async::context& p_context) = 0;
 };
 
 }  // namespace hal::inline v5

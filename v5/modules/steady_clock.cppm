@@ -9,10 +9,10 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
 
 export module hal:steady_clock;
 
+export import async_context;
 export import :units;
 
 export namespace hal {
@@ -43,29 +43,31 @@ public:
   /**
    * @brief Get the operating frequency of the steady clock
    *
-   * @return hertz - operating frequency of the steady clock. Guaranteed to be
-   * a positive value by the implementing driver.
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<hertz> - operating frequency of the steady clock.
+   * Guaranteed to be a positive value by the implementing driver.
    */
-  [[nodiscard]] hertz frequency()
+  [[nodiscard]] async::future<hertz> frequency(async::context& p_context)
   {
-    return driver_frequency();
+    return driver_frequency(p_context);
   }
 
   /**
    * @brief Get the current value of the steady clock
    *
-   * @return u64 - Number of counts that the steady clock has counted
-   * since it started.
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<u64> - Number of counts that the steady clock has
+   * counted since it started.
    */
-  [[nodiscard]] u64 uptime()
+  [[nodiscard]] async::future<u64> uptime(async::context& p_context)
   {
-    return driver_uptime();
+    return driver_uptime(p_context);
   }
 
   virtual ~steady_clock() = default;
 
 private:
-  virtual hertz driver_frequency() = 0;
-  virtual u64 driver_uptime() = 0;
+  virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;
+  virtual async::future<u64> driver_uptime(async::context& p_context) = 0;
 };
 }  // namespace hal

@@ -201,8 +201,8 @@ public:
    * @throws hal::operation_not_supported - if the mode cannot be accommodated
    * by the spi bus hardware or implementation of spi.
    */
-  async::future<void> configure(async::context& p_context,
-                                settings const& p_settings)
+  [[nodiscard]] async::future<void> configure(async::context& p_context,
+                                              settings const& p_settings)
   {
     return driver_configure(p_context, p_settings);
   }
@@ -225,7 +225,7 @@ public:
    * @return u32 - the approximate clock rate of this spi channel when
    * `chip_select(true)` is called.
    */
-  async::future<hertz> clock_rate(async::context& p_context)
+  [[nodiscard]] async::future<hertz> clock_rate(async::context& p_context)
   {
     return driver_clock_rate(p_context);
   }
@@ -284,7 +284,8 @@ public:
    * this. When set to false, releases exclusive control over the bus and
    * de-asserts chip select.
    */
-  async::future<void> chip_select(async::context& p_context, bool p_select)
+  [[nodiscard]] async::future<void> chip_select(async::context& p_context,
+                                                bool p_select)
   {
     return driver_chip_select(p_context, p_select);
   }
@@ -325,10 +326,11 @@ public:
    * @param p_filler - filler data placed on the bus in place of actual write
    * data when p_data_out has been exhausted.
    */
-  async::future<void> transfer(async::context& p_context,
-                               scatter_span<byte const> p_data_out,
-                               scatter_span<byte> p_data_in = {},
-                               byte p_filler = default_filler)
+  [[nodiscard]] async::future<void> transfer(
+    async::context& p_context,
+    scatter_span<byte const> p_data_out,
+    scatter_span<byte> p_data_in = {},
+    byte p_filler = default_filler)
   {
     return driver_transfer(p_context, p_data_out, p_data_in, p_filler);
   }
@@ -340,7 +342,7 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    */
-  async::future<void> lock(async::context& p_context)
+  [[nodiscard]] async::future<void> lock(async::context& p_context)
   {
     return chip_select(p_context, true);
   }
@@ -352,7 +354,7 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    */
-  async::future<void> unlock(async::context& p_context)
+  [[nodiscard]] async::future<void> unlock(async::context& p_context)
   {
     return chip_select(p_context, false);
   }
