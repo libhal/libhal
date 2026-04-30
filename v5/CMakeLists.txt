@@ -31,8 +31,7 @@ libhal_add_library(libhal
         modules/analog.cppm
         modules/units.cppm
         modules/gpio.cppm
-        modules/power_sensors.cppm
-        modules/motion_sensors.cppm
+        modules/sensors.cppm
         modules/motor.cppm
         modules/error.cppm
         modules/pwm.cppm
@@ -64,4 +63,5 @@ libhal_add_tests(libhal
         spi
         serial
         containers
+        sensors
 )
