@@ -56,7 +56,7 @@ public:
    *
    * @returns hertz - frequency in hertz as an unsigned integer
    */
-  async::future<hertz> frequency(async::context& p_context)
+  [[nodiscard]] async::future<hertz> frequency(async::context& p_context)
   {
     return driver_frequency(p_context);
   }
@@ -77,7 +77,8 @@ public:
    * @param p_duty_cycle - a value from 0 to 65535 representing the duty
    * cycle percentage.
    */
-  async::future<void> duty_cycle(async::context& p_context, u16 p_duty_cycle)
+  [[nodiscard]] async::future<void> duty_cycle(async::context& p_context,
+                                               u16 p_duty_cycle)
   {
     return driver_duty_cycle(p_context, p_duty_cycle);
   }
@@ -132,7 +133,8 @@ public:
    *
    * @param p_frequency - the frequency to apply to the pwm hardware.
    */
-  async::future<void> frequency(async::context& p_context, hertz p_frequency)
+  [[nodiscard]] async::future<void> frequency(async::context& p_context,
+                                              hertz p_frequency)
   {
     return driver_frequency(p_context, p_frequency);
   }

@@ -9,10 +9,10 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
 
 export module hal:temperature_sensor;
 
+export import async_context;
 export import mp_units;
 
 using namespace mp_units;
@@ -28,16 +28,17 @@ public:
   /**
    * @brief Read the current temperature measured by the device
    *
-   * @return celsius - Measured temperature
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<kelvin> - Measured temperature
    */
-  [[nodiscard]] quantity<si::kelvin, float> read()
+  [[nodiscard]] async::future<kelvin> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~temperature_sensor() = default;
 
 private:
-  virtual quantity<si::kelvin, float> driver_read() = 0;
+  virtual async::future<kelvin> driver_read(async::context& p_context) = 0;
 };
 }  // namespace hal::inline v5

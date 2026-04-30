@@ -70,7 +70,7 @@ public:
    * @param p_context - async context for the operation
    * @return async::future<u16> - the sampled adc value upscaled to u16
    */
-  async::future<u16> read(async::context& p_context)
+  [[nodiscard]] async::future<u16> read(async::context& p_context)
   {
     return driver_read(p_context);
   }
@@ -115,7 +115,7 @@ public:
    * @param p_context - async context for the operation
    * @return async::future<u32> - the sampled adc value upscaled to 24-bits
    */
-  async::future<u32> read(async::context& p_context)
+  [[nodiscard]] async::future<u32> read(async::context& p_context)
   {
     return driver_read(p_context);
   }
@@ -163,7 +163,8 @@ public:
    * @param p_percentage - value from 0 (0x0000) to 65535 (0xFFFF) representing
    * the proportion of the output voltage from the Vss to Vcc.
    */
-  async::future<void> write(async::context& p_context, u16 p_percentage)
+  [[nodiscard]] async::future<void> write(async::context& p_context,
+                                          u16 p_percentage)
   {
     return driver_write(p_context, p_percentage);
   }

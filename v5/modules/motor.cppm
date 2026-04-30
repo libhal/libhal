@@ -14,6 +14,7 @@
 
 export module hal:motor;
 
+export import async_context;
 export import :units;
 
 export namespace hal::inline v5 {
@@ -57,17 +58,20 @@ public:
    *   only go in one direction, this function should clamp the power applied to
    *   0%.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_power - Percentage of power to apply to the motor from -32768 to
    * 32767 which is -100% to 100% power, respectively.
    */
-  void power(i16 p_power)
+  [[nodiscard]] async::future<void> power(async::context& p_context,
+                                          i16 p_power)
   {
-    return driver_power(p_power);
+    return driver_power(p_context, p_power);
   }
 
   virtual ~motor() = default;
 
 private:
-  virtual void driver_power(i16 p_power) = 0;
+  virtual async::future<void> driver_power(async::context& p_context,
+                                           i16 p_power) = 0;
 };
 }  // namespace hal::inline v5

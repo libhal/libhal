@@ -100,7 +100,7 @@ void i2c_configure_test() noexcept
     hal::i2c::settings default_settings{};
 
     // Exercise
-    test.configure(ctx, default_settings);
+    std::ignore = test.configure(ctx, default_settings);
 
     // Verify
     expect((100 * kHz) == test.configured_settings.clock_rate);
@@ -121,7 +121,7 @@ void i2c_transaction_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transaction(ctx, address, write_data, read_spans);
+    std::ignore = test.transaction(ctx, address, write_data, read_spans);
 
     // Verify
     expect(that % address == test.last_address);
@@ -139,7 +139,7 @@ void i2c_transaction_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes(read_data);
 
     // Exercise
-    test.transaction(ctx, address, write_spans, read_spans);
+    std::ignore = test.transaction(ctx, address, write_spans, read_spans);
 
     // Verify
     expect(that % address == test.last_address);
@@ -158,7 +158,7 @@ void i2c_transaction_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes(read_data);
 
     // Exercise
-    test.transaction(ctx, address, write_data, read_spans);
+    std::ignore = test.transaction(ctx, address, write_data, read_spans);
 
     // Verify
     expect(that % address == test.last_address);
@@ -175,7 +175,7 @@ void i2c_transaction_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transaction(ctx, address, write_spans, read_spans);
+    std::ignore = test.transaction(ctx, address, write_spans, read_spans);
 
     // Verify
     expect(that % address == test.last_address);

@@ -103,7 +103,7 @@ void spi_configure_test() noexcept
     };
 
     // Exercise
-    test.configure(ctx, expected_settings);
+    std::ignore = test.configure(ctx, expected_settings);
 
     // Verify
     expect(expected_settings == test.configured_settings);
@@ -116,7 +116,7 @@ void spi_configure_test() noexcept
     hal::spi_channel::settings default_settings{};
 
     // Exercise
-    test.configure(ctx, default_settings);
+    std::ignore = test.configure(ctx, default_settings);
 
     // Verify
     expect((100 * kHz) == test.configured_settings.clock_rate);
@@ -153,7 +153,7 @@ void spi_chip_select_test() noexcept
     test_spi test;
 
     // Exercise
-    test.chip_select(ctx, true);
+    std::ignore = test.chip_select(ctx, true);
 
     // Verify
     expect(test.chip_selected);
@@ -163,10 +163,10 @@ void spi_chip_select_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    test.chip_select(ctx, true);
+    std::ignore = test.chip_select(ctx, true);
 
     // Exercise
-    test.chip_select(ctx, false);
+    std::ignore = test.chip_select(ctx, false);
 
     // Verify
     expect(not test.chip_selected);
@@ -183,7 +183,7 @@ void spi_lock_unlock_test() noexcept
     test_spi test;
 
     // Exercise
-    test.lock(ctx);
+    std::ignore = test.lock(ctx);
 
     // Verify
     expect(test.chip_selected);
@@ -193,10 +193,10 @@ void spi_lock_unlock_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    test.lock(ctx);
+    std::ignore = test.lock(ctx);
 
     // Exercise
-    test.unlock(ctx);
+    std::ignore = test.unlock(ctx);
 
     // Verify
     expect(not test.chip_selected);
@@ -216,7 +216,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(that % 4 == test.last_data_out_size);
@@ -232,7 +232,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes(read_buffer);
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -249,7 +249,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes(read_buffer);
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(that % 3 == test.last_data_out_size);
@@ -264,7 +264,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -279,7 +279,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(hal::spi_channel::default_filler == test.last_filler);
@@ -294,7 +294,7 @@ void spi_transfer_test() noexcept
     hal::byte custom_filler{ 0x00 };
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans, custom_filler);
+    std::ignore = test.transfer(ctx, write_data, read_spans, custom_filler);
 
     // Verify
     expect(custom_filler == test.last_filler);
@@ -311,7 +311,7 @@ void spi_transfer_test() noexcept
     auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, write_data, read_spans);
 
     // Verify
     expect(hal::byte{ 0x11 } == test.last_data_out[0]);

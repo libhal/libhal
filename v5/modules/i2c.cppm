@@ -64,8 +64,8 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  async::future<void> configure(async::context& p_context,
-                                settings const& p_settings)
+  [[nodiscard]] async::future<void> configure(async::context& p_context,
+                                              settings const& p_settings)
   {
     return driver_configure(p_context, p_settings);
   }
@@ -129,10 +129,11 @@ public:
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
    */
-  async::future<void> transaction(async::context& p_context,
-                                  hal::byte p_address,
-                                  scatter_span<hal::byte const> p_data_out,
-                                  scatter_span<hal::byte> p_data_in)
+  [[nodiscard]] async::future<void> transaction(
+    async::context& p_context,
+    hal::byte p_address,
+    scatter_span<hal::byte const> p_data_out,
+    scatter_span<hal::byte> p_data_in)
   {
     return driver_transaction(p_context, p_address, p_data_out, p_data_in);
   }

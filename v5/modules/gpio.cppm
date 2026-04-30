@@ -9,10 +9,10 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
 
 export module hal:gpio;
 
+export import async_context;
 export import :units;
 
 namespace hal::inline v5 {
@@ -41,31 +41,35 @@ public:
   /**
    * @brief Configure the input pin to match the settings supplied
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - settings to apply to input pin
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(settings const& p_settings)
+  [[nodiscard]] async::future<void> configure(async::context& p_context,
+                                              settings const& p_settings)
   {
-    driver_configure(p_settings);
+    return driver_configure(p_context, p_settings);
   }
 
   /**
    * @brief Read the state of the input pin
    *
-   * @return bool - true indicates HIGH voltage level and false
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<bool> - true indicates HIGH voltage level and false
    * indicates LOW voltage level
    */
-  [[nodiscard]] bool level()
+  [[nodiscard]] async::future<bool> level(async::context& p_context)
   {
-    return driver_level();
+    return driver_level(p_context);
   }
 
   virtual ~input_pin() = default;
 
 private:
-  virtual void driver_configure(settings const& p_settings) = 0;
-  virtual bool driver_level() = 0;
+  virtual async::future<void> driver_configure(async::context& p_context,
+                                               settings const& p_settings) = 0;
+  virtual async::future<bool> driver_level(async::context& p_context) = 0;
 };
 
 /**
@@ -102,28 +106,32 @@ public:
   /**
    * @brief Configure the output pin to match the settings supplied
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - settings to apply to output pin
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  void configure(settings const& p_settings)
+  [[nodiscard]] async::future<void> configure(async::context& p_context,
+                                              settings const& p_settings)
   {
-    driver_configure(p_settings);
+    return driver_configure(p_context, p_settings);
   }
 
   /**
    * @brief Set the state of the pin
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_high - if true then the pin state is set to HIGH voltage. If
    * false, the pin state is set to LOW voltage.
    */
-  void level(bool p_high)
+  [[nodiscard]] async::future<void> level(async::context& p_context,
+                                          bool p_high)
   {
-    driver_level(p_high);
+    return driver_level(p_context, p_high);
   }
 
   /**
-   * @brief
+   * @brief Read the current state of the output pin from hardware
    *
    * Implementations must read the pin state from hardware and will not simply
    * cache the results from the execution of `level(bool)`.
@@ -131,19 +139,22 @@ public:
    * This pin may not equal the state set by `level(bool)` when the pin is
    * configured as open-drain.
    *
-   * @return true - if the level of the pin is HIGH
-   * @return false - if the level of the pin is LOW
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<bool> - true if the level of the pin is HIGH, false
+   * if LOW
    */
-  [[nodiscard]] bool level()
+  [[nodiscard]] async::future<bool> level(async::context& p_context)
   {
-    return driver_level();
+    return driver_level(p_context);
   }
 
   virtual ~output_pin() = default;
 
 private:
-  virtual void driver_configure(settings const& p_settings) = 0;
-  virtual void driver_level(bool p_high) = 0;
-  virtual bool driver_level() = 0;
+  virtual async::future<void> driver_configure(async::context& p_context,
+                                               settings const& p_settings) = 0;
+  virtual async::future<void> driver_level(async::context& p_context,
+                                           bool p_high) = 0;
+  virtual async::future<bool> driver_level(async::context& p_context) = 0;
 };
 }  // namespace hal::inline v5

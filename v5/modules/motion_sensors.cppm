@@ -9,10 +9,10 @@
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
 
 export module hal:motion_sensors;
 
+export import async_context;
 export import :units;
 
 namespace hal::inline v5 {
@@ -82,18 +82,18 @@ public:
   /**
    * @brief Read the current distance measured by the device
    *
-   * @return hal::meters - distance in meters sampled from the
-   * device
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<meters> - distance in meters sampled from the device
    */
-  [[nodiscard]] meters read()
+  [[nodiscard]] async::future<meters> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~distance_sensor() = default;
 
 private:
-  virtual meters driver_read() = 0;
+  virtual async::future<meters> driver_read(async::context& p_context) = 0;
 };
 
 /**
@@ -106,17 +106,20 @@ public:
   /**
    * @brief Reads the most up to date angular velocity from the sensor
    *
-   * @return angular_velocity - angular velocity in degrees / second
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<angular_velocity> - angular velocity in degrees /
+   * second
    */
-  [[nodiscard]] angular_velocity read()
+  [[nodiscard]] async::future<angular_velocity> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~angular_velocity_sensor() = default;
 
 private:
-  virtual angular_velocity driver_read() = 0;
+  virtual async::future<angular_velocity> driver_read(
+    async::context& p_context) = 0;
 };
 
 /**
@@ -182,17 +185,18 @@ public:
   /**
    * @brief Read the current angle measured by the device
    *
-   * @return read_t - rotation data
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<degrees> - rotation data
    */
-  [[nodiscard]] degrees read()
+  [[nodiscard]] async::future<degrees> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~rotation_sensor() = default;
 
 private:
-  virtual degrees driver_read() = 0;
+  virtual async::future<degrees> driver_read(async::context& p_context) = 0;
 };
 
 /**
@@ -230,17 +234,18 @@ public:
   /**
    * @brief Read the latest acceleration sensed by the device
    *
-   * @return read_t - acceleration data
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<read_t> - acceleration data
    */
-  [[nodiscard]] read_t read()
+  [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~accelerometer() = default;
 
 private:
-  virtual read_t driver_read() = 0;
+  virtual async::future<read_t> driver_read(async::context& p_context) = 0;
 };
 
 /**
@@ -256,7 +261,7 @@ export class magnetometer
 {
 public:
   /**
-   * @brief Result from reading the accelerometer.
+   * @brief Result from reading the magnetometer.
    *
    */
   struct read_t
@@ -286,18 +291,20 @@ public:
   /**
    * @brief Read the latest magnetic field strength sensed by the device
    *
-   * @return read_t - magnetic field strength data
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<read_t> - magnetic field strength data
    */
-  [[nodiscard]] read_t read()
+  [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~magnetometer() = default;
 
 private:
-  virtual read_t driver_read() = 0;
+  virtual async::future<read_t> driver_read(async::context& p_context) = 0;
 };
+
 /**
  * @brief Angular velocity sensing hardware abstraction interface.
  */
@@ -332,17 +339,18 @@ public:
   /**
    * @brief Read the latest angular velocity sensed by the device
    *
-   * @return read_t - angular velocity data
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<read_t> - angular velocity data
    */
-  [[nodiscard]] read_t read()
+  [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
-    return driver_read();
+    return driver_read(p_context);
   }
 
   virtual ~gyroscope() = default;
 
 private:
-  virtual read_t driver_read() = 0;
+  virtual async::future<read_t> driver_read(async::context& p_context) = 0;
 };
 
 }  // namespace hal::inline v5
