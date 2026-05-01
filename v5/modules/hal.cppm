@@ -1,4 +1,4 @@
-// Copyright 2024 - 2025 Khalil Estell and the libhal contributors
+// Copyright 2026 Khalil Estell and the libhal contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ export import :error;
 export import :analog;
 export import :pwm;
 export import :gpio;
-export import :motion_sensors;
-export import :power_sensors;
+export import :sensors;
 export import :interrupts;
 export import :scatter_span;
 export import :i2c;
