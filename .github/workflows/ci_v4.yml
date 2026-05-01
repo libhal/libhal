@@ -25,6 +25,10 @@ on:
     paths:
       - "v4/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-v4
+  cancel-in-progress: true
+
 jobs:
   deploy_check_v4:
     uses: libhal/ci/.github/workflows/deploy.yml@5.x.y

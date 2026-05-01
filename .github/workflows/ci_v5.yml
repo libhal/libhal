@@ -25,6 +25,10 @@ on:
     paths:
       - "v5/**"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-v5
+  cancel-in-progress: true
+
 jobs:
   deploy_v5_check:
     uses: libhal/ci/.github/workflows/package_and_upload_all.yml@5.x.y
