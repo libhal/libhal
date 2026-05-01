@@ -29,8 +29,7 @@ public:
    * @brief Reads the most up to date current from the sensor
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<amperes> - amount of current, in amperes, read from
-   * the current sensor.
+   * @return async::future<amperes> - measured current in amps
    */
   [[nodiscard]] async::future<amperes> read(async::context& p_context)
   {
@@ -54,8 +53,7 @@ public:
    * @brief Reads the most up to date voltage measured from the sensor
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<volts> - amount of volts read from the voltage
-   * sensor.
+   * @return async::future<volts> - measured voltage in volts
    */
   [[nodiscard]] async::future<volts> read(async::context& p_context)
   {
@@ -134,7 +132,7 @@ public:
    * @brief Read the current distance measured by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<meters> - distance in meters sampled from the device
+   * @return async::future<meters> - measured distance in meters
    */
   [[nodiscard]] async::future<meters> read(async::context& p_context)
   {
@@ -158,8 +156,8 @@ public:
    * @brief Reads the most up to date angular velocity from the sensor
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<angular_velocity> - angular velocity in degrees /
-   * second
+   * @return async::future<angular_velocity> - angular velocity measured in
+   * degrees / second
    */
   [[nodiscard]] async::future<angular_velocity> read(async::context& p_context)
   {
@@ -237,7 +235,7 @@ public:
    * @brief Read the current angle measured by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<degrees> - rotation data
+   * @return async::future<degrees> - measured rotation angle
    */
   [[nodiscard]] async::future<degrees> read(async::context& p_context)
   {
@@ -286,7 +284,7 @@ public:
    * @brief Read the latest acceleration sensed by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<read_t> - acceleration data
+   * @return async::future<read_t> - measured acceleration data
    */
   [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
@@ -343,7 +341,7 @@ public:
    * @brief Read the latest magnetic field strength sensed by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<read_t> - magnetic field strength data
+   * @return async::future<read_t> - measured magnetic field strength data
    */
   [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
@@ -391,7 +389,7 @@ public:
    * @brief Read the latest angular velocity sensed by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<read_t> - angular velocity data
+   * @return async::future<read_t> - measured angular velocity data
    */
   [[nodiscard]] async::future<read_t> read(async::context& p_context)
   {
@@ -415,7 +413,7 @@ public:
    * @brief Read the current temperature measured by the device
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<kelvin> - Measured temperature
+   * @return async::future<kelvin> - measured temperature
    */
   [[nodiscard]] async::future<kelvin> read(async::context& p_context)
   {
