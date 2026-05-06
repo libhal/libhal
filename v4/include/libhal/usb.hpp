@@ -21,6 +21,7 @@
 #include <span>
 
 #include "functional.hpp"
+#include "libhal/error.hpp"
 #include "scatter_span.hpp"
 #include "units.hpp"
 
@@ -250,6 +251,144 @@ private:
 };
 
 /**
+ * @brief Bitmask descriptor of USB Link Power Management (LPM) states
+ *        supported by a device or host.
+ *
+ * USB LPM allows the host and device to negotiate low-power states during
+ * periods of inactivity without requiring a full disconnect/reconnect cycle.
+ * USB 2.0 LPM defines the L1 sleep state; USB 3.x SuperSpeed defines the
+ * U1 and U2 link states.
+ *
+ * Use the setter overloads (which return `*this`) to build a value with
+ * method chaining:
+ *
+ * @code
+ * lpm_support capabilities{};
+ * capabilities.l1_supported(true).u1_supported(true);
+ * @endcode
+ */
+struct lpm_support
+{
+  /// @brief Bitmask for the USB 2.0 L1 (sleep) LPM state.
+  static constexpr hal::u8 l1_mask = 1 << 0;
+
+  /// @brief Bitmask for the USB 3.x U1 link state.
+  static constexpr hal::u8 u1_mask = 1 << 1;
+
+  /// @brief Bitmask for the USB 3.x U2 link state.
+  static constexpr hal::u8 u2_mask = 1 << 2;
+
+  /**
+   * @brief Returns whether the USB 2.0 L1 sleep state is supported.
+   *
+   * @return true - L1 LPM is supported
+   * @return false - L1 LPM is not supported
+   */
+  [[nodiscard]] constexpr bool l1_supported() const noexcept
+  {
+    return bits & l1_mask;
+  }
+
+  /**
+   * @brief Returns whether the USB 3.x U1 link state is supported.
+   *
+   * @return true - U1 is supported
+   * @return false - U1 is not supported
+   */
+  [[nodiscard]] constexpr bool u1_supported() const noexcept
+  {
+    return bits & u1_mask;
+  }
+
+  /**
+   * @brief Returns whether the USB 3.x U2 link state is supported.
+   *
+   * @return true - U2 is supported
+   * @return false - U2 is not supported
+   */
+  [[nodiscard]] constexpr bool u2_supported() const noexcept
+  {
+    return bits & u2_mask;
+  }
+
+  /**
+   * @brief Enables or disables L1 support in the bitmask.
+   *
+   * @param p_enable - true to mark L1 as supported, false to clear it
+   * @return lpm_support& - reference to this object for method chaining
+   */
+  constexpr lpm_support& l1_supported(bool p_enable) noexcept
+  {
+    set(l1_mask, p_enable);
+    return *this;
+  }
+
+  /**
+   * @brief Enables or disables U1 support in the bitmask.
+   *
+   * @param p_enable - true to mark U1 as supported, false to clear it
+   * @return lpm_support& - reference to this object for method chaining
+   */
+  constexpr lpm_support& u1_supported(bool p_enable) noexcept
+  {
+    set(u1_mask, p_enable);
+    return *this;
+  }
+
+  /**
+   * @brief Enables or disables U2 support in the bitmask.
+   *
+   * @param p_enable - true to mark U2 as supported, false to clear it
+   * @return lpm_support& - reference to this object for method chaining
+   */
+  constexpr lpm_support& u2_supported(bool p_enable) noexcept
+  {
+    set(u2_mask, p_enable);
+    return *this;
+  }
+
+  /**
+   * @brief Returns whether any LPM state is supported.
+   *
+   * @return true - at least one LPM state bit is set
+   * @return false - no LPM states are supported
+   */
+  [[nodiscard]] constexpr bool any() const noexcept
+  {
+    return bits != 0;
+  }
+
+  /**
+   * @brief Returns whether no LPM states are supported.
+   *
+   * @return true - no LPM state bits are set
+   * @return false - at least one LPM state is supported
+   */
+  [[nodiscard]] constexpr bool none() const noexcept
+  {
+    return bits == 0;
+  }
+
+  /**
+   * @brief Sets or clears a single LPM state bit.
+   *
+   * @param p_mask - bitmask of the state to modify (e.g. `l1_mask`)
+   * @param p_enable - true to set the bit, false to clear it
+   */
+  constexpr void set(hal::u8 p_mask, bool p_enable) noexcept
+  {
+    if (p_enable) {
+      bits |= p_mask;
+    } else {
+      bits &= ~p_mask;
+    }
+  }
+
+  /// @brief Raw bitmask of supported LPM states; zero means none supported.
+  hal::u8 bits = 0;
+};
+
+/**
  * @brief USB Control Endpoint Interface
  *
  * This class represents the control endpoint of a USB device. The control
@@ -464,23 +603,24 @@ public:
   }
 
   /**
-   * @brief Query whether the hardware supports USB 2.0 L1 Link Power
-   * Management.
+   * @brief Query which USB Link Power Management states the hardware supports.
    *
-   * The enumerator calls this during enumeration to determine whether to
-   * include a Binary Object Store (BOS) descriptor advertising LPM capability.
-   * If this returns `false`, the BOS descriptor is omitted and the host will
-   * never issue LPM tokens, meaning `acknowledge_sleep()` will never be called.
+   * The enumerator calls this during enumeration to determine which LPM
+   * capability descriptors to include. For USB 2.0, a Binary Object Store
+   * (BOS) descriptor advertising L1 support is included only when
+   * `lpm_support::l1_supported()` is true. For USB 3.x, U1/U2 capability
+   * descriptors follow the same pattern. If no bits are set the relevant
+   * descriptors are omitted and the host will never enter those link states,
+   * meaning `acknowledge_sleep()` will never be called.
    *
    * Implementations should return a compile-time or hardware-register-derived
    * constant. The result must remain stable for the lifetime of the
    * `control_endpoint` object.
    *
-   * @return `true` if the hardware supports L1 LPM and the enumerator should
-   *   advertise BOS/LPM capability to the host; `false` otherwise. If not
-   *   implemented by driver, then defaults to return false.
+   * @return lpm_support - bitmask of supported LPM states; defaults to an
+   *   all-zero value (no LPM support) if not overridden by the driver.
    */
-  [[nodiscard]] bool supports_lpm()
+  [[nodiscard]] lpm_support supports_lpm()
   {
     return driver_supports_lpm();
   }
@@ -505,9 +645,9 @@ private:
   virtual void driver_acknowledge_sleep(bool)
   {
   }
-  virtual bool driver_supports_lpm()
+  virtual lpm_support driver_supports_lpm()
   {
-    return false;
+    return {};
   }
 };
 
