@@ -81,7 +81,7 @@ public:
   bool m_on_receive_called{ false };
   std::optional<bool> m_has_setup_state{};
   callback<void(bus_event)> m_host_event_callback{};
-  bool m_on_host_event_called{ false };
+  bool m_on_bus_event_called{ false };
   bool m_remote_wakeup_enabled{ false };
   bool m_acknowledge_sleep_accept{ false };
   bool m_acknowledge_sleep_called{ false };
@@ -136,11 +136,11 @@ private:
     return m_has_setup_state;
   }
 
-  void driver_on_host_event(
+  void driver_on_bus_event(
     hal::callback<void(bus_event)> const& p_callback) override
   {
     m_host_event_callback = p_callback;
-    m_on_host_event_called = true;
+    m_on_bus_event_called = true;
   }
 
   void driver_remote_wakeup_enable(bool p_enabled) override
@@ -484,15 +484,15 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
     expect(std::nullopt == val1);
   };
 
-  "mock_usb_control_endpoint on_host_event test"_test = []() {
+  "mock_usb_control_endpoint on_bus_event test"_test = []() {
     using bus_event = hal::v5::usb::bus_event;
     mock_usb_control_endpoint endpoint;
     bus_event received_event{};
 
     auto cb = [&received_event](bus_event e) { received_event = e; };
-    endpoint.on_host_event(cb);
+    endpoint.on_bus_event(cb);
 
-    expect(that % endpoint.m_on_host_event_called);
+    expect(that % endpoint.m_on_bus_event_called);
 
     endpoint.m_host_event_callback(bus_event::reset);
     expect(bus_event::reset == received_event);
@@ -509,6 +509,50 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
 
     endpoint.remote_wakeup_enable(false);
     expect(that % false == endpoint.m_remote_wakeup_enabled);
+  };
+
+  "mock_usb_control_endpoint remote_wakeup_granted test"_test = []() {
+    mock_usb_control_endpoint endpoint;
+
+    endpoint.remote_wakeup_enable(true);
+    expect(that % true == endpoint.remote_wakeup_granted());
+
+    endpoint.remote_wakeup_enable(false);
+    expect(that % false == endpoint.remote_wakeup_granted());
+  };
+
+  "control_endpoint default remote_wakeup_granted returns false"_test = []() {
+    struct test_ctrl_ep : public hal::usb::control_endpoint
+    {
+      void driver_connect(bool) override
+      {
+      }
+      void driver_set_address(u8) override
+      {
+      }
+      void driver_write(scatter_span<byte const>) override
+      {
+      }
+      usize driver_read(scatter_span<byte>) override
+      {
+        return 0;
+      }
+      void driver_on_receive(callback<void(on_receive_tag)> const&) override
+      {
+      }
+      [[nodiscard]] endpoint_info driver_info() const override
+      {
+        return {};
+      }
+      void driver_stall(bool) override
+      {
+      }
+      void driver_reset() override
+      {
+      }
+    } endpoint;
+
+    expect(that % false == endpoint.remote_wakeup_granted());
   };
 
   "mock_usb_control_endpoint acknowledge_sleep test"_test = []() {
@@ -875,6 +919,89 @@ boost::ut::suite<"usb_specific_endpoint_test"> specific_endpoint_test = []() {
 
 namespace hal::usb {
 
+boost::ut::suite<"lpm_support_test"> lpm_support_test = []() {
+  using namespace boost::ut;
+  using hal::v5::usb::lpm_support;
+
+  "lpm_support default is all zeros"_test = []() {
+    lpm_support s{};
+    expect(that % false == s.remote_wakeup_supported());
+    expect(that % false == s.l1_supported());
+    expect(that % false == s.u1_supported());
+    expect(that % false == s.u2_supported());
+    expect(that % s.none());
+    expect(that % not s.any());
+  };
+
+  "lpm_support setters enable individual bits"_test = []() {
+    lpm_support s{};
+
+    s.remote_wakeup_supported(true);
+    expect(that % s.remote_wakeup_supported());
+    expect(that % not s.l1_supported());
+    expect(that % not s.u1_supported());
+    expect(that % not s.u2_supported());
+    expect(that % s.any());
+    expect(that % not s.none());
+
+    s.remote_wakeup_supported(false);
+    expect(that % not s.remote_wakeup_supported());
+
+    s.l1_supported(true);
+    expect(that % s.l1_supported());
+    s.l1_supported(false);
+    expect(that % not s.l1_supported());
+
+    s.u1_supported(true);
+    expect(that % s.u1_supported());
+    s.u1_supported(false);
+    expect(that % not s.u1_supported());
+
+    s.u2_supported(true);
+    expect(that % s.u2_supported());
+    s.u2_supported(false);
+    expect(that % not s.u2_supported());
+  };
+
+  "lpm_support method chaining"_test = []() {
+    auto s = lpm_support{}
+               .remote_wakeup_supported(true)
+               .l1_supported(true)
+               .u1_supported(true)
+               .u2_supported(true);
+
+    expect(that % s.remote_wakeup_supported());
+    expect(that % s.l1_supported());
+    expect(that % s.u1_supported());
+    expect(that % s.u2_supported());
+    expect(that % s.any());
+    expect(that % not s.none());
+  };
+
+  "lpm_support set() directly"_test = []() {
+    lpm_support s{};
+    s.set(lpm_support::l1_mask, true);
+    expect(that % s.l1_supported());
+    expect(that % not s.u1_supported());
+
+    s.set(lpm_support::l1_mask, false);
+    expect(that % not s.l1_supported());
+  };
+
+  "lpm_support operator<=>"_test = []() {
+    auto a = lpm_support{}.l1_supported(true);
+    auto b = lpm_support{}.l1_supported(true);
+    auto c = lpm_support{}.u1_supported(true);
+
+    expect(a == b);
+    expect(a != c);
+  };
+};
+
+}  // namespace hal::usb
+
+namespace hal::usb {
+
 namespace {
 
 template<typename T>
@@ -992,6 +1119,269 @@ boost::ut::suite<"usb_iterface_req_bitmap_test"> req_bitmap_test = []() {
     expect(that % true == bm.is_device_to_host());
   };
 };
+
+boost::ut::suite<"setup_packet_test"> setup_packet_test = []() {
+  using namespace boost::ut;
+
+  "setup_packet default constructor"_test = []() {
+    setup_packet pkt{};
+    expect(that % 0 == pkt.bm_request_type());
+    expect(that % 0 == pkt.request());
+    expect(that % 0 == pkt.value());
+    expect(that % 0 == pkt.index());
+    expect(that % 0 == pkt.length());
+  };
+
+  "setup_packet construction from args"_test = []() {
+    setup_packet pkt(setup_packet::args{
+      .device_to_host = true,
+      .type = setup_packet::request_type::class_t,
+      .recipient = setup_packet::request_recipient::interface,
+      .request = 0x09,
+      .value = 0x0301,
+      .index = 0x0002,
+      .length = 0x0008,
+    });
+
+    expect(that % true == pkt.is_device_to_host());
+    expect(setup_packet::request_type::class_t == pkt.get_type());
+    expect(setup_packet::request_recipient::interface == pkt.get_recipient());
+    expect(that % u8{ 0x09 } == pkt.request());
+    expect(that % u16{ 0x0301 } == pkt.value());
+    expect(that % u16{ 0x0002 } == pkt.index());
+    expect(that % u16{ 0x0008 } == pkt.length());
+  };
+
+  "setup_packet bm_request_type and request fields"_test = []() {
+    // device-to-host | vendor | endpoint recipient
+    std::array<byte, 8> raw{
+      byte{ 0b11000010 }, byte{ 0x42 }, 0, 0, 0, 0, 0, 0
+    };
+    setup_packet pkt(raw);
+
+    expect(that % byte{ 0b11000010 } == byte{ pkt.bm_request_type() });
+    expect(that % byte{ 0x42 } == byte{ pkt.request() });
+    expect(setup_packet::request_type::vendor == pkt.get_type());
+    expect(setup_packet::request_recipient::endpoint == pkt.get_recipient());
+    expect(that % true == pkt.is_device_to_host());
+  };
+
+  "setup_packet value getter and setter"_test = []() {
+    setup_packet pkt{};
+    pkt.value(0x1234);
+    expect(that % u16{ 0x1234 } == pkt.value());
+
+    auto vb = pkt.value_bytes();
+    expect(that % 2 == vb.size());
+    expect(that % byte{ 0x34 } == vb[0]);
+    expect(that % byte{ 0x12 } == vb[1]);
+  };
+
+  "setup_packet index getter and setter"_test = []() {
+    setup_packet pkt{};
+    pkt.index(0xABCD);
+    expect(that % u16{ 0xABCD } == pkt.index());
+
+    auto ib = pkt.index_bytes();
+    expect(that % 2 == ib.size());
+    expect(that % byte{ 0xCD } == ib[0]);
+    expect(that % byte{ 0xAB } == ib[1]);
+  };
+
+  "setup_packet length getter and setter"_test = []() {
+    setup_packet pkt{};
+    pkt.length(0x0040);
+    expect(that % u16{ 0x0040 } == pkt.length());
+
+    auto lb = pkt.length_bytes();
+    expect(that % 2 == lb.size());
+    expect(that % byte{ 0x40 } == lb[0]);
+    expect(that % byte{ 0x00 } == lb[1]);
+  };
+
+  "setup_packet operator=="_test = []() {
+    std::array<byte, 8> raw{ byte{ 0x80 }, byte{ 0x06 }, byte{ 0x00 },
+                             byte{ 0x01 }, byte{ 0x00 }, byte{ 0x00 },
+                             byte{ 0x12 }, byte{ 0x00 } };
+    setup_packet a(raw);
+    setup_packet b(raw);
+    setup_packet c{};
+
+    expect(a == b);
+    expect(a != c);
+  };
+
+  "setup_packet get_type invalid"_test = []() {
+    // bits 6-5 = 0b11 (value 3) is reserved/invalid
+    std::array<byte, 8> raw{ byte{ 0b01100000 }, 0, 0, 0, 0, 0, 0, 0 };
+    setup_packet pkt(raw);
+    expect(setup_packet::request_type::invalid == pkt.get_type());
+  };
+
+  "setup_packet get_recipient invalid"_test = []() {
+    // bits 4-0 = 3 is reserved/invalid
+    std::array<byte, 8> raw{ byte{ 0x03 }, 0, 0, 0, 0, 0, 0, 0 };
+    setup_packet pkt(raw);
+    expect(setup_packet::request_recipient::invalid == pkt.get_recipient());
+  };
+
+  "setup_packet from_le_bytes"_test = []() {
+    auto result = setup_packet::from_le_bytes(byte{ 0x34 }, byte{ 0x12 });
+    expect(that % u16{ 0x1234 } == result);
+  };
+
+  "setup_packet to_le_u16"_test = []() {
+    auto arr = setup_packet::to_le_u16(0xABCD);
+    expect(that % byte{ 0xCD } == arr[0]);
+    expect(that % byte{ 0xAB } == arr[1]);
+  };
+};
+
+boost::ut::suite<"determine_standard_request_test"> std_request_test = []() {
+  using namespace boost::ut;
+
+  "determine_standard_request valid standard requests"_test = []() {
+    auto make = [](u8 req) {
+      return setup_packet(setup_packet::args{
+        .device_to_host = false,
+        .type = setup_packet::request_type::standard,
+        .recipient = setup_packet::request_recipient::device,
+        .request = req,
+        .value = 0,
+        .index = 0,
+        .length = 0,
+      });
+    };
+
+    expect(standard_request_types::get_status ==
+           determine_standard_request(make(0x00)));
+    expect(standard_request_types::clear_feature ==
+           determine_standard_request(make(0x01)));
+    expect(standard_request_types::set_feature ==
+           determine_standard_request(make(0x03)));
+    expect(standard_request_types::set_address ==
+           determine_standard_request(make(0x05)));
+    expect(standard_request_types::get_descriptor ==
+           determine_standard_request(make(0x06)));
+    expect(standard_request_types::set_descriptor ==
+           determine_standard_request(make(0x07)));
+    expect(standard_request_types::get_configuration ==
+           determine_standard_request(make(0x08)));
+    expect(standard_request_types::set_configuration ==
+           determine_standard_request(make(0x09)));
+    expect(standard_request_types::get_interface ==
+           determine_standard_request(make(0x0A)));
+    expect(standard_request_types::set_interface ==
+           determine_standard_request(make(0x11)));
+    expect(standard_request_types::synch_frame ==
+           determine_standard_request(make(0x12)));
+  };
+
+  "determine_standard_request returns invalid for non-standard type"_test =
+    []() {
+      setup_packet pkt(setup_packet::args{
+        .device_to_host = false,
+        .type = setup_packet::request_type::class_t,
+        .recipient = setup_packet::request_recipient::device,
+        .request = 0x06,
+        .value = 0,
+        .index = 0,
+        .length = 0,
+      });
+      expect(standard_request_types::invalid ==
+             determine_standard_request(pkt));
+    };
+
+  "determine_standard_request returns invalid for reserved request 0x04"_test =
+    []() {
+      setup_packet pkt(setup_packet::args{
+        .device_to_host = false,
+        .type = setup_packet::request_type::standard,
+        .recipient = setup_packet::request_recipient::device,
+        .request = 0x04,
+        .value = 0,
+        .index = 0,
+        .length = 0,
+      });
+      expect(standard_request_types::invalid ==
+             determine_standard_request(pkt));
+    };
+
+  "determine_standard_request returns invalid for out-of-range request"_test =
+    []() {
+      setup_packet pkt(setup_packet::args{
+        .device_to_host = false,
+        .type = setup_packet::request_type::standard,
+        .recipient = setup_packet::request_recipient::device,
+        .request = 0x13,
+        .value = 0,
+        .index = 0,
+        .length = 0,
+      });
+      expect(standard_request_types::invalid ==
+             determine_standard_request(pkt));
+    };
+};
+
+boost::ut::suite<"endpoint_io_test"> endpoint_io_test = []() {
+  using namespace boost::ut;
+
+  "endpoint_io read"_test = []() {
+    mock_endpoint_io eio;
+    std::array<byte, 4> buf{};
+    auto ss = make_writable_scatter_bytes(buf);
+
+    expect(that % not eio.read_called);
+    auto n = eio.read(ss);
+    expect(that % eio.read_called);
+    expect(that % usize{ 4 } == n);
+  };
+
+  "endpoint_io write"_test = []() {
+    mock_endpoint_io eio;
+    std::array<byte, 3> data{ byte{ 1 }, byte{ 2 }, byte{ 3 } };
+    auto ss = make_scatter_bytes(data);
+
+    expect(that % not eio.write_called);
+    auto n = eio.write(ss);
+    expect(that % eio.write_called);
+    expect(that % usize{ 3 } == n);
+  };
+};
+
+boost::ut::suite<"interface_descriptor_types_test"> descriptor_types_test =
+  []() {
+    using namespace boost::ut;
+    using descriptor_count = interface::descriptor_count;
+    using descriptor_start = interface::descriptor_start;
+
+    "descriptor_count operator<=>"_test = []() {
+      descriptor_count a{ 1, 2 };
+      descriptor_count b{ 1, 2 };
+      descriptor_count c{ 2, 1 };
+
+      expect(a == b);
+      expect(a != c);
+    };
+
+    "descriptor_start operator<=>"_test = []() {
+      descriptor_start a{ .interface = 0, .string = 1 };
+      descriptor_start b{ .interface = 0, .string = 1 };
+      descriptor_start c{ .interface = 1, .string = 0 };
+
+      expect(a == b);
+      expect(a != c);
+    };
+
+    "descriptor_start with nullopt"_test = []() {
+      descriptor_start a{ .interface = std::nullopt, .string = std::nullopt };
+      descriptor_start b{ .interface = std::nullopt, .string = std::nullopt };
+      descriptor_start c{ .interface = 0, .string = std::nullopt };
+
+      expect(a == b);
+      expect(a != c);
+    };
+  };
 
 // Test the usb highlevel interface (interface descriptor level)
 boost::ut::suite<"usb_interface_test"> usb_interface_test = []() {

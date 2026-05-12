@@ -577,6 +577,11 @@ public:
   /**
    * @brief Set a callback function for when USB requests are received
    *
+   * @deprecated Use @ref on_bus_event instead. That API provides the full set
+   * of bus-level events (reset, setup packet, data packet, suspend, resume,
+   * sleep) in a single callback, superseding this one. Calling @ref
+   * on_bus_event may clear any previously registered `on_receive` callback.
+   *
    * @param p_callback The callback function to be called when a USB request
    * command is received on the control endpoint.
    */
@@ -1207,10 +1212,10 @@ struct setup_packet
   @tparam offset - The offset into the setup packet array (Array after the
   offset needs to be at least two bytes)
 
-  @param n - 16-bit value to emplace
+  @param p_value - 16-bit value to emplace
    */
   template<usize offset>
-  constexpr void set_le_u16(u16 n)
+  constexpr void set_le_u16(u16 p_value)
   {
     static_assert(offset < 7,
                   "Offset greater than size of setup bytes, need at least two "
@@ -1218,8 +1223,9 @@ struct setup_packet
     static_assert(0 == (offset & 0b1),
                   "Offset must be even number (2-byte/16-bit aligned)");
 
-    raw_request_bytes[offset + 0] = static_cast<hal::byte>(n & 0xFF);
-    raw_request_bytes[offset + 1] = static_cast<hal::byte>((n >> 8) & 0xFF);
+    raw_request_bytes[offset + 0] = static_cast<hal::byte>(p_value & 0xFF);
+    raw_request_bytes[offset + 1] =
+      static_cast<hal::byte>((p_value >> 8) & 0xFF);
   }
 
   /**
@@ -1229,13 +1235,13 @@ struct setup_packet
    * value in host byte order. Used internally for parsing multi-byte fields
    * from raw USB data.
    *
-   * @param first Low byte (least significant)
-   * @param second High byte (most significant)
+   * @param p_first Low byte (least significant)
+   * @param p_second High byte (most significant)
    * @return u16 Combined 16-bit value in host byte order
    */
-  constexpr static u16 from_le_bytes(hal::byte first, hal::byte second)
+  constexpr static u16 from_le_bytes(hal::byte p_first, hal::byte p_second)
   {
-    return static_cast<u16>(second) << 8 | first;
+    return static_cast<u16>(p_second) << 8 | p_first;
   }
 
   /**
@@ -1244,14 +1250,14 @@ struct setup_packet
    * Helper function to convert a 16-bit value into two bytes in little-endian
    * format. Used when constructing USB descriptor data or response packets.
    *
-   * @param n 16-bit value to convert
+   * @param p_value 16-bit value to convert
    * @return std::array<hal::byte, 2> Array with low byte first, high byte
    * second
    */
-  [[nodiscard]] constexpr static std::array<hal::byte, 2> to_le_u16(u16 n)
+  [[nodiscard]] constexpr static std::array<hal::byte, 2> to_le_u16(u16 p_value)
   {
-    return { static_cast<hal::byte>(n & 0xFF),
-             static_cast<hal::byte>((n >> 8) & 0xFF) };
+    return { static_cast<hal::byte>(p_value & 0xFF),
+             static_cast<hal::byte>((p_value >> 8) & 0xFF) };
   }
 
   std::array<byte, 8> raw_request_bytes;
