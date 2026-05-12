@@ -70,8 +70,7 @@ protected:
 class mock_usb_control_endpoint : public control_endpoint
 {
 public:
-  using host_event = hal::v5::usb::host_event;
-
+  using bus_event = v5::usb::bus_event;
   mock_usb_endpoint m_endpoint;
   bool m_should_connect{ false };
   u8 m_address{ 0 };
@@ -81,12 +80,12 @@ public:
   callback<void(on_receive_tag)> m_receive_callback{};
   bool m_on_receive_called{ false };
   std::optional<bool> m_has_setup_state{};
-  callback<void(host_event)> m_host_event_callback{};
+  callback<void(bus_event)> m_host_event_callback{};
   bool m_on_host_event_called{ false };
   bool m_remote_wakeup_enabled{ false };
   bool m_acknowledge_sleep_accept{ false };
   bool m_acknowledge_sleep_called{ false };
-  bool m_supports_lpm_result{ false };
+  v5::usb::lpm_support m_supports_lpm_result{};
 
 private:
   [[nodiscard]] endpoint_info driver_info() const override
@@ -138,15 +137,20 @@ private:
   }
 
   void driver_on_host_event(
-    hal::callback<void(host_event)> const& p_callback) override
+    hal::callback<void(bus_event)> const& p_callback) override
   {
     m_host_event_callback = p_callback;
     m_on_host_event_called = true;
   }
 
-  void driver_set_remote_wakeup_enabled(bool p_enabled) override
+  void driver_remote_wakeup_enable(bool p_enabled) override
   {
     m_remote_wakeup_enabled = p_enabled;
+  }
+
+  bool driver_remote_wakeup_granted() override
+  {
+    return m_remote_wakeup_enabled;
   }
 
   void driver_acknowledge_sleep(bool p_accept) override
@@ -155,7 +159,7 @@ private:
     m_acknowledge_sleep_called = true;
   }
 
-  bool driver_supports_lpm() override
+  v5::usb::lpm_support driver_supports_lpm() override
   {
     return m_supports_lpm_result;
   }
@@ -481,29 +485,29 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
   };
 
   "mock_usb_control_endpoint on_host_event test"_test = []() {
-    using host_event = hal::v5::usb::host_event;
+    using bus_event = hal::v5::usb::bus_event;
     mock_usb_control_endpoint endpoint;
-    host_event received_event{};
+    bus_event received_event{};
 
-    auto cb = [&received_event](host_event e) { received_event = e; };
+    auto cb = [&received_event](bus_event e) { received_event = e; };
     endpoint.on_host_event(cb);
 
     expect(that % endpoint.m_on_host_event_called);
 
-    endpoint.m_host_event_callback(host_event::reset);
-    expect(host_event::reset == received_event);
+    endpoint.m_host_event_callback(bus_event::reset);
+    expect(bus_event::reset == received_event);
 
-    endpoint.m_host_event_callback(host_event::enumerated);
-    expect(host_event::enumerated == received_event);
+    endpoint.m_host_event_callback(bus_event::suspend);
+    expect(bus_event::suspend == received_event);
   };
 
-  "mock_usb_control_endpoint set_remote_wakeup_enabled test"_test = []() {
+  "mock_usb_control_endpoint remote_wakeup_enabled test"_test = []() {
     mock_usb_control_endpoint endpoint;
 
-    endpoint.set_remote_wakeup_enabled(true);
+    endpoint.remote_wakeup_enable(true);
     expect(that % true == endpoint.m_remote_wakeup_enabled);
 
-    endpoint.set_remote_wakeup_enabled(false);
+    endpoint.remote_wakeup_enable(false);
     expect(that % false == endpoint.m_remote_wakeup_enabled);
   };
 
@@ -520,12 +524,20 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
 
   "mock_usb_control_endpoint supports_lpm test"_test = []() {
     mock_usb_control_endpoint endpoint;
+    auto constexpr expected1 = hal::v5::usb::lpm_support()
+                                 .remote_wakeup_supported(true)
+                                 .l1_supported(true)
+                                 .u1_supported(true);
 
-    endpoint.m_supports_lpm_result = false;
-    expect(that % false == endpoint.supports_lpm());
+    endpoint.m_supports_lpm_result = expected1;
+    expect(expected1 == endpoint.supports_lpm());
 
-    endpoint.m_supports_lpm_result = true;
-    expect(that % true == endpoint.supports_lpm());
+    auto constexpr expected2 = hal::v5::usb::lpm_support()
+                                 .l1_supported(true)
+                                 .u1_supported(true)
+                                 .u2_supported(true);
+    endpoint.m_supports_lpm_result = expected2;
+    expect(expected2 == endpoint.supports_lpm());
   };
 
   "control_endpoint default supports_lpm returns false"_test = []() {
@@ -559,7 +571,7 @@ boost::ut::suite<"usb_control_endpoint_test"> control_endpoint_test = []() {
       }
     } endpoint;
 
-    expect(that % false == endpoint.supports_lpm());
+    expect(v5::usb::lpm_support{} == endpoint.supports_lpm());
   };
 };
 
