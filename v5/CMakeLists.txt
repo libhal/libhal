@@ -29,6 +29,7 @@ libhal_add_library(libhal
     MODULES
         modules/hal.cppm
         modules/analog.cppm
+        modules/can.cppm
         modules/units.cppm
         modules/gpio.cppm
         modules/sensors.cppm
