@@ -244,31 +244,40 @@ private:
 };
 
 /**
- * @brief CAN Bus message reception hardware abstraction interface
+ * @brief Extension of can_transceiver with interrupt-driven RX notification.
  *
- * Implementations of this interface are NOT sharable across multiple device or
- * applications drivers. If shared, only the last handler set will be the one
- * that will execute on message reception.
+ * Extends the can_transceiver interface with the ability to suspend a coroutine
+ * until a new message is written into the receive buffer. Use this interface
+ * when the underlying hardware can signal RX activity via interrupt.
  *
- * Implementations of this interface allow interrupts to be fired when a new
- * message is received. If message filtering is enabled, then the callback will
- * only be for messages received through the filter.
+ * Drivers that cannot natively signal RX events should not implement this
+ * interface. Use the cursor-based polling API via `receive_buffer()` and
+ * `receive_cursor()` on the base `can_transceiver` interface instead.
  */
-export class can_interrupt
+export class awaitable_can_transceiver : public can_transceiver
 {
 public:
   /**
-   * @brief Wait for a new message reception event
+   * @brief Suspend until the next CAN message is received
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<void> - completes when a message is received
+   * Multiple coroutines may concurrently await this function. All registered
+   * waiters are unblocked when the next message arrives in the receive buffer.
+   * If the implementation's internal waiter capacity is exceeded, the caller
+   * will block by sync until a slot becomes available. Starvation under this
+   * condition is possible depending on the scheduling algorithm in use;
+   * developers with strict fairness requirements should account for this when
+   * selecting or implementing a scheduler.
+   *
+   * @param p_context - async context for coroutine suspension and resumption
+   * @return async::future<void> - completes when a message has been written
+   *         into the receive buffer
    */
   async::future<void> on_receive(async::context& p_context)
   {
     return driver_on_receive(p_context);
   }
 
-  virtual ~can_interrupt() = default;
+  ~awaitable_can_transceiver() override = default;
 
 private:
   virtual async::future<void> driver_on_receive(async::context& p_context) = 0;

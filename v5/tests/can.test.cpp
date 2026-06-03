@@ -26,7 +26,7 @@ using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
 
 namespace {
-class test_can_transceiver : public hal::can_transceiver
+class test_can_transceiver : public hal::awaitable_can_transceiver
 {
 public:
   hal::can_message last_sent_message{};
@@ -34,6 +34,7 @@ public:
   hal::usize rx_cursor{ 0 };
   hal::hertz baud_rate_hz{ 500'000 * Hz };
 
+  bool on_receive_called{ false };
   ~test_can_transceiver() override = default;
 
 private:
@@ -57,6 +58,11 @@ private:
   hal::usize driver_receive_cursor() override
   {
     return rx_cursor;
+  }
+  async::future<void> driver_on_receive(async::context&) override
+  {
+    on_receive_called = true;
+    return {};
   }
 };
 
@@ -95,21 +101,6 @@ private:
   async::future<void> driver_bus_on(async::context&) override
   {
     bus_on_called = true;
-    return {};
-  }
-};
-
-class test_can_interrupt : public hal::can_interrupt
-{
-public:
-  bool on_receive_called{ false };
-
-  ~test_can_interrupt() override = default;
-
-private:
-  async::future<void> driver_on_receive(async::context&) override
-  {
-    on_receive_called = true;
     return {};
   }
 };
@@ -428,7 +419,7 @@ void can_interrupt_test() noexcept
 
   "on_receive() calls driver"_test = [&]() {
     async::inplace_context<1024> ctx;
-    test_can_interrupt test;
+    test_can_transceiver test;
 
     test.on_receive(ctx);
 
