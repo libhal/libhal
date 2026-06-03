@@ -20,6 +20,7 @@ module;
 
 export module hal:can;
 
+export import async_context;
 import :units;
 
 namespace hal::inline v5 {
@@ -156,6 +157,7 @@ public:
   /**
    * @brief Send a can message over the can network
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_message - a message to be sent over the can network
    * @throws hal::operation_not_permitted - or a derivative of this class, if
    *         the can device has entered the "bus-off" state. This can happen if
@@ -167,7 +169,7 @@ public:
   async::future<void> send(async::context& p_context,
                            can_message const& p_message)
   {
-    driver_send(p_message);
+    return driver_send(p_context, p_message);
   }
 
   /**
@@ -234,8 +236,9 @@ public:
   virtual ~can_transceiver() = default;
 
 private:
-  virtual u32 driver_baud_rate() = 0;
-  virtual void driver_send(can_message const& p_message) = 0;
+  virtual async::future<u32> driver_baud_rate(async::context& p_context) = 0;
+  virtual async::future<void> driver_send(async::context& p_context,
+                                          can_message const& p_message) = 0;
   virtual std::span<can_message const> driver_receive_buffer() = 0;
   virtual usize driver_receive_cursor() = 0;
 };
@@ -257,10 +260,11 @@ public:
   /**
    * @brief Set a callback to occur when a new message has been received
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    */
   async::future<void> on_receive(async::context& p_context)
   {
-    driver_on_receive(p_context);
+    return driver_on_receive(p_context);
   }
 
   virtual ~can_interrupt() = default;
@@ -308,24 +312,26 @@ public:
    * This API should be called before passing a `hal::can_transceiver`,
    * corrsponding to this can bus to a device driver for usage.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_hertz - baud rate in hertz
    * @throws hal::operation_not_supported if the baud rate is above or below
    * what the device can support.
    */
   async::future<void> baud_rate(async::context& p_context, hal::u32 p_hertz)
   {
-    driver_baud_rate(p_context, p_hertz);
+    return driver_baud_rate(p_context, p_hertz);
   }
 
   /**
    * @brief Set the filter mode for the can bus
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_accept - defines the set of messages that will be accepted. See
    * the `accept` enum class for details about each option and what they do.
    */
   async::future<void> filter_mode(async::context& p_context, accept p_accept)
   {
-    driver_filter_mode(p_context, p_accept);
+    return driver_filter_mode(p_context, p_accept);
   }
 
   /**
@@ -343,10 +349,12 @@ public:
    *
    * Care should be taken when writing the callback, as it will most likely be
    * executed in an interrupt context.
+   *
+   * @param p_context - async context for coroutine suspension and resumption.
    */
   async::future<void> on_bus_off(async::context& p_context)
   {
-    driver_on_bus_off(p_context);
+    return driver_on_bus_off(p_context);
   }
 
   /**
@@ -368,10 +376,11 @@ public:
    * `hal::operation_not_permitted`. If this occurs, this function must be
    * called to re-enable bus communication.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    */
   async::future<void> bus_on(async::context& p_context)
   {
-    driver_bus_on(p_context);
+    return driver_bus_on(p_context);
   }
 
   virtual ~can_bus_manager() = default;
@@ -404,19 +413,21 @@ public:
    * frames. Frames of either type will be allowed so long as the message
    * identifier matches.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_id - Allow messages with this ID through to the can message
    * filter. To stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
    */
-  void allow(std::optional<u16> p_id)
+  async::future<void> allow(async::context& p_context, std::optional<u16> p_id)
   {
-    driver_allow(p_id);
+    return driver_allow(p_context, p_id);
   }
 
   virtual ~can_identifier_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<u16> p_id) = 0;
+  virtual async::future<void> driver_allow(async::context& p_context,
+                                           std::optional<u16> p_id) = 0;
 };
 
 /**
@@ -438,19 +449,21 @@ public:
    * frames. Frames of either type will be allowed so long as the message
    * identifier matches.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_id - Allow messages with this ID through to the can message
    * filter. To stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
    */
-  void allow(std::optional<u32> p_id)
+  async::future<void> allow(async::context& p_context, std::optional<u32> p_id)
   {
-    driver_allow(p_id);
+    return driver_allow(p_context, p_id);
   }
 
   virtual ~can_extended_identifier_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<u32> p_id) = 0;
+  virtual async::future<void> driver_allow(async::context& p_context,
+                                           std::optional<u32> p_id) = 0;
 };
 
 /**
@@ -503,19 +516,23 @@ public:
    * frames. Frames of either type will be allowed so long as the message
    * identifier matches.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_filter_pair - mask filter used to filter incoming messages. To
    * stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
    */
-  void allow(std::optional<pair> p_filter_pair)
+  async::future<void> allow(async::context& p_context,
+                            std::optional<pair> p_filter_pair)
   {
-    driver_allow(p_filter_pair);
+    return driver_allow(p_context, p_filter_pair);
   }
 
   virtual ~can_mask_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+  virtual async::future<void> driver_allow(
+    async::context& p_context,
+    std::optional<pair> p_filter_pair) = 0;
 };
 
 /**
@@ -573,18 +590,22 @@ public:
    * Implements should disregard the IDE bit if their platforms support
    * filtering based on this bit.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_filter_pair - mask filter used to filter incoming messages. Set
    * this to `std::nullopt` to disengage this filter.
    */
-  void allow(std::optional<pair> p_filter_pair)
+  async::future<void> allow(async::context& p_context,
+                            std::optional<pair> p_filter_pair)
   {
-    driver_allow(p_filter_pair);
+    return driver_allow(p_context, p_filter_pair);
   }
 
   virtual ~can_extended_mask_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+  virtual async::future<void> driver_allow(
+    async::context& p_context,
+    std::optional<pair> p_filter_pair) = 0;
 };
 
 /**
@@ -629,19 +650,23 @@ public:
   /**
    * @brief Allow messages within this id range to pass the can bus filter
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_filter_pair - allow this range of IDs through the can filter. To
    * stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
    */
-  void allow(std::optional<pair> p_filter_pair)
+  async::future<void> allow(async::context& p_context,
+                            std::optional<pair> p_filter_pair)
   {
-    driver_allow(p_filter_pair);
+    return driver_allow(p_context, p_filter_pair);
   }
 
   virtual ~can_range_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+  virtual async::future<void> driver_allow(
+    async::context& p_context,
+    std::optional<pair> p_filter_pair) = 0;
 };
 
 /**
@@ -686,18 +711,22 @@ public:
   /**
    * @brief Set the allowed messages through a range filter.
    *
+   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_filter_pair - allow this range of IDs through the can filter. To
    * stop allowing messages from this filter, set this parameter to
    * `std::nullopt`.
    */
-  void allow(std::optional<pair> p_filter_pair)
+  async::future<void> allow(async::context& p_context,
+                            std::optional<pair> p_filter_pair)
   {
-    driver_allow(p_filter_pair);
+    return driver_allow(p_context, p_filter_pair);
   }
 
   virtual ~can_extended_range_filter() = default;
 
 private:
-  virtual void driver_allow(std::optional<pair> p_filter_pair) = 0;
+  virtual async::future<void> driver_allow(
+    async::context& p_context,
+    std::optional<pair> p_filter_pair) = 0;
 };
 }  // namespace hal::inline v5
