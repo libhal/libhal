@@ -36,6 +36,10 @@ export import :steady_clock;
 export import :i2c;
 export import :spi;
 export import :serial;
+export import :servo;
+export import :motor;
+export import :memory;
+export import :containers;
 export import :usb;
 
 export namespace hal::inline v5 {
