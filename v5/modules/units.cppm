@@ -53,8 +53,8 @@ using i8 = std::int8_t;
 using i16 = std::int16_t;
 using i32 = std::int32_t;
 using i64 = std::int64_t;
-using isize = std::uintptr_t;
-using iptr = std::uintptr_t;
+using isize = std::intptr_t;
+using iptr = std::intptr_t;
 
 using common_rep_t = float;
 

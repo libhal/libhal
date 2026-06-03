@@ -37,6 +37,6 @@ export using task = async::task;
 export template<typename T>
 using future_ptr = async::future<mem::strong_ptr<T>>;
 
-/// Shorthand for the allocator type accepted by ptr<T> factory functions.
+/// Shorthand for the allocator type
 export using allocator = std::pmr::polymorphic_allocator<>;
 }  // namespace hal::inline v5
