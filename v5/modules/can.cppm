@@ -1,4 +1,4 @@
-// Copyright 2024 - 2025 Khalil Estell and the libhal contributors
+// Copyright 2026 Khalil Estell and the libhal contributors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +16,12 @@ module;
 
 #include <array>
 #include <optional>
-#include <span>
 
 export module hal:can;
 
 export import async_context;
 import :units;
+import :containers;
 
 namespace hal::inline v5 {
 /**
@@ -149,7 +149,7 @@ public:
   /**
    * @return the device's operating baud rate in hertz
    */
-  async::future<u32> baud_rate(async::context& p_context)
+  async::future<hertz> baud_rate(async::context& p_context)
   {
     return driver_baud_rate(p_context);
   }
@@ -159,6 +159,7 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    * @param p_message - a message to be sent over the can network
+   * @return async::future<void> - completes when the message is sent
    * @throws hal::operation_not_permitted - or a derivative of this class, if
    *         the can device has entered the "bus-off" state. This can happen if
    *         a critical fault in the bus has occurred. A call to `bus_on()`
@@ -181,13 +182,12 @@ public:
    *
    * This API will work even if the CAN peripheral is "bus-off".
    *
-   * @return std::span<message const> - constant span to the message receive
-   *         buffer used by this driver. Assume the lifetime of the buffer is
-   *         the same as the class's lifetime. When the memory of the owning
-   *         object is invalidated, so is this span. Calling `size()` on the
-   *         span will always return a value of at least 1.
+   * @return circular_span<can_message const> - a const span to the
+   * receive buffer used by the transceiver. Calling `size()` on the span will
+   * always return a value of at least 1. Holds messages accepted by the can
+   * message filter that were seen on the can bus.
    */
-  std::span<can_message const> receive_buffer()
+  circular_span<can_message const> receive_buffer()
   {
     return driver_receive_buffer();
   }
@@ -236,10 +236,10 @@ public:
   virtual ~can_transceiver() = default;
 
 private:
-  virtual async::future<u32> driver_baud_rate(async::context& p_context) = 0;
+  virtual async::future<hertz> driver_baud_rate(async::context& p_context) = 0;
   virtual async::future<void> driver_send(async::context& p_context,
                                           can_message const& p_message) = 0;
-  virtual std::span<can_message const> driver_receive_buffer() = 0;
+  virtual circular_span<can_message const> driver_receive_buffer() = 0;
   virtual usize driver_receive_cursor() = 0;
 };
 
@@ -254,13 +254,14 @@ private:
  * message is received. If message filtering is enabled, then the callback will
  * only be for messages received through the filter.
  */
-class can_interrupt
+export class can_interrupt
 {
 public:
   /**
-   * @brief Set a callback to occur when a new message has been received
+   * @brief Wait for a new message reception event
    *
    * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<void> - completes when a message is received
    */
   async::future<void> on_receive(async::context& p_context)
   {
@@ -274,6 +275,20 @@ private:
 };
 
 /**
+ * @brief Message acceptance mode for the can bus
+ *
+ */
+export enum class can_message_acceptance : u8 {
+  /// Accept no messages over the bus
+  none,
+  /// Accept all messages, ignore all filters
+  all,
+  /// Only accept messages that pass through filters. If no filters have been
+  /// setup, then no messages will be received.
+  filtered,
+};
+
+/**
  * @brief CAN Bus configuration & control hardware abstraction interface
  *
  * Implementations of this interface are NOT sharable across multiple device or
@@ -281,24 +296,9 @@ private:
  * control the CAN bus.
  *
  */
-class can_bus_manager
+export class can_bus_manager
 {
 public:
-  /**
-   * @brief Message acceptance mode for the can bus
-   *
-   */
-  enum class accept : u8
-  {
-    /// Accept no messages over the bus
-    none,
-    /// Accept all messages, ignore all filters
-    all,
-    /// Only accept messages that pass through filters. If no filters have been
-    /// setup, then no messages will be received.
-    filtered,
-  };
-
   /**
    * @brief Set the can bus baud rate
    *
@@ -314,6 +314,7 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    * @param p_hertz - baud rate in hertz
+   * @return async::future<void> - completes when the baud rate is set
    * @throws hal::operation_not_supported if the baud rate is above or below
    * what the device can support.
    */
@@ -327,30 +328,35 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    * @param p_accept - defines the set of messages that will be accepted. See
-   * the `accept` enum class for details about each option and what they do.
+   * the `can_message_acceptance` enum class for details about each option and
+   * what they do.
+   * @return async::future<void> - completes when the filter mode is set
    */
-  async::future<void> filter_mode(async::context& p_context, accept p_accept)
+  async::future<void> filter_mode(async::context& p_context,
+                                  can_message_acceptance p_accept)
   {
     return driver_filter_mode(p_context, p_accept);
   }
 
   /**
-   * @brief Set a callback for when the CAN device goes bus-off
+   * @brief Wait for a bus-off event
    *
    * The BUS-OFF state for CAN is denoted by the occurrence of too many
    * transmission errors (TEC > 255) causing the CAN controller to disconnect
    * from the bus to prevent further network disruption. During bus-off,
    * the node cannot transmit or receive any messages.
    *
-   * On construction of the can driver, the default callback for the bus-off
-   * event is to do nothing. The `send()` API throw the
+   * On construction of the can driver, the device starts in the "bus-on" state.
+   * When this event completes, the `send()` API will throw the
    * `hal::operation_not_permitted` exception and the `receive_cursor()` API
    * will not update.
    *
-   * Care should be taken when writing the callback, as it will most likely be
-   * executed in an interrupt context.
+   * Care should be taken when awaiting this event, as it will most likely be
+   * triggered from an interrupt context.
    *
    * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<void> - completes when the device enters bus-off
+   * state
    */
   async::future<void> on_bus_off(async::context& p_context)
   {
@@ -377,6 +383,8 @@ public:
    * called to re-enable bus communication.
    *
    * @param p_context - async context for coroutine suspension and resumption.
+   * @return async::future<void> - completes when the device transitions to
+   * bus-on
    */
   async::future<void> bus_on(async::context& p_context)
   {
@@ -388,345 +396,152 @@ public:
 private:
   virtual async::future<void> driver_baud_rate(async::context& p_context,
                                                hal::u32 p_hertz) = 0;
-  virtual async::future<void> driver_filter_mode(async::context& p_context,
-                                                 accept p_accept) = 0;
+  virtual async::future<void> driver_filter_mode(
+    async::context& p_context,
+    can_message_acceptance p_accept) = 0;
   virtual async::future<void> driver_on_bus_off(async::context& p_context) = 0;
   virtual async::future<void> driver_bus_on(async::context& p_context) = 0;
 };
 
 /**
- * @brief CAN message ID filter hardware abstraction interface
+ * @brief Base interface for CAN message filtering
  *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
+ * Provides a generic mechanism for implementing CAN message filters that can
+ * accept or reject messages based on a template parameter type. Implementations
+ * must override the driver_allow method to handle the actual filtering logic.
+ *
+ * @tparam Allowed - The type of filtering criteria (e.g., u16 for ID, can_mask
+ *                   for mask-based filtering, can_range for range-based
+ *                   filtering)
  */
-class can_identifier_filter
+export template<typename Allowed>
+class can_filter
 {
 public:
   /**
-   * @brief Allow messages with this identifier to pass the can bus filter
+   * @brief Configure the filter acceptance criteria
    *
-   * This filter does not distinguish between remote request frames and data
-   * frames. Frames of either type will be allowed so long as the message
-   * identifier matches.
+   * Asynchronously updates the filter to accept messages matching the specified
+   * criteria. If p_allowed is nullopt, the filter may be cleared or disabled
+   * depending on the implementation.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_id - Allow messages with this ID through to the can message
-   * filter. To stop allowing messages from this filter, set this parameter to
-   * `std::nullopt`.
-   */
-  async::future<void> allow(async::context& p_context, std::optional<u16> p_id)
-  {
-    return driver_allow(p_context, p_id);
-  }
-
-  virtual ~can_identifier_filter() = default;
-
-private:
-  virtual async::future<void> driver_allow(async::context& p_context,
-                                           std::optional<u16> p_id) = 0;
-};
-
-/**
- * @brief CAN message extended ID filter hardware abstraction interface
- *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
- */
-class can_extended_identifier_filter
-{
-public:
-  /**
-   * @brief Allow messages with this identifier to pass the can bus filter
-   *
-   * This filter does not distinguish between remote request frames and data
-   * frames. Frames of either type will be allowed so long as the message
-   * identifier matches.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_id - Allow messages with this ID through to the can message
-   * filter. To stop allowing messages from this filter, set this parameter to
-   * `std::nullopt`.
-   */
-  async::future<void> allow(async::context& p_context, std::optional<u32> p_id)
-  {
-    return driver_allow(p_context, p_id);
-  }
-
-  virtual ~can_extended_identifier_filter() = default;
-
-private:
-  virtual async::future<void> driver_allow(async::context& p_context,
-                                           std::optional<u32> p_id) = 0;
-};
-
-/**
- * @brief CAN message mask filter hardware abstraction interface
- *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
- */
-class can_mask_filter
-{
-public:
-  /**
-   * @brief Mask filter
-   *
-   * The following equation must be true in order for the message to pass the
-   * can bus filter.
-   *
-   *     received_message_id & mask == id & mask
-   */
-  struct pair
-  {
-    /**
-     * @brief Specifies an ID to match against
-     *
-     */
-    u16 id = 0;
-    /**
-     * @brief Specifies which bits of the ID to consider.
-     *
-     * For example, a mask of 0x7FF would match all bits in a 11-bit ID since
-     * all 11 bits are set. A mask of 0x7F0, would allow messages with the most
-     * significant 7 bits of the ID and the lower 4 bits can be any value.
-     *
-     */
-    u16 mask = 0;
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    constexpr bool operator<=>(pair const&) const = default;
-  };
-
-  /**
-   * @brief Allow messages that correspond to this mask pass the can bus filter
-   *
-   * This filter does not distinguish between remote request frames and data
-   * frames. Frames of either type will be allowed so long as the message
-   * identifier matches.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_filter_pair - mask filter used to filter incoming messages. To
-   * stop allowing messages from this filter, set this parameter to
-   * `std::nullopt`.
+   * @param p_context - The async execution context for this operation
+   * @param p_allowed - The filtering criteria; nullopt to clear the filter
+   * @return async::future<void> - Completes when the filter is configured
    */
   async::future<void> allow(async::context& p_context,
-                            std::optional<pair> p_filter_pair)
+                            std::optional<Allowed> p_allowed)
   {
-    return driver_allow(p_context, p_filter_pair);
+    return driver_allow(p_context, p_allowed);
   }
-
-  virtual ~can_mask_filter() = default;
+  virtual ~can_filter() = default;
 
 private:
-  virtual async::future<void> driver_allow(
-    async::context& p_context,
-    std::optional<pair> p_filter_pair) = 0;
+  virtual async::future<void> driver_allow(async::context&,
+                                           std::optional<Allowed>) = 0;
 };
 
 /**
- * @brief CAN message extended mask filter hardware abstraction interface
+ * @brief Standard CAN ID mask filter configuration
  *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
+ * Defines a mask-based filter for standard (11-bit) CAN message IDs using
+ * an id value and a bit mask. A message matches the filter if:
+ * (message_id & mask) == id
+ *
  */
-class can_extended_mask_filter
+export struct can_mask
 {
-public:
-  /**
-   * @brief Extended mask filter
-   *
-   * The following equation must be true in order for the message to pass the
-   * can bus filter.
-   *
-   *     received_message_id & mask == id & mask
-   */
-  struct pair
-  {
-    /**
-     * @brief Specifies an ID to match against
-     *
-     */
-    u32 id = 0;
-    /**
-     * @brief Specifies which bits of the ID to consider.
-     *
-     * For example, a mask of 0x1FFFFFFF would match all bits in a 29-bit ID
-     * since all 29 bits are set. A mask of 0x1FFFFFF0, would allow messages
-     * with the most significant 25 bits of the ID and the lower 4 bits can be
-     * any value.
-     *
-     */
-    u32 mask = 0;
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    constexpr bool operator<=>(pair const&) const = default;
-  };
-
-  /**
-   * @brief Set the allowed messages through a mask filter.
-   *
-   * This filter does not distinguish between remote request frames and data
-   * frames. Frames of either type will be allowed so long as the message
-   * identifier matches.
-   *
-   * This filter can be used to both standard and extended identifier frames.
-   * Implements should disregard the IDE bit if their platforms support
-   * filtering based on this bit.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_filter_pair - mask filter used to filter incoming messages. Set
-   * this to `std::nullopt` to disengage this filter.
-   */
-  async::future<void> allow(async::context& p_context,
-                            std::optional<pair> p_filter_pair)
-  {
-    return driver_allow(p_context, p_filter_pair);
-  }
-
-  virtual ~can_extended_mask_filter() = default;
-
-private:
-  virtual async::future<void> driver_allow(
-    async::context& p_context,
-    std::optional<pair> p_filter_pair) = 0;
+  u16 id = 0;
+  u16 mask = 0;
+  constexpr auto operator<=>(can_mask const&) const = default;
 };
 
 /**
- * @brief CAN message range filter hardware abstraction interface
+ * @brief Extended CAN ID mask filter configuration
  *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
+ * Defines a mask-based filter for extended (29-bit) CAN message IDs using
+ * an id value and a bit mask. A message matches the filter if:
+ * (message_id & mask) == id
+ *
  */
-class can_range_filter
+export struct can_mask_ext
 {
-public:
-  /**
-   * @brief filter pair information
-   *
-   * id_1 and id_2 constitute a range of allowed IDs. They do NOT need to be
-   * ordered relative to each other. Meaning id_1 < id_2 is not required or
-   * necessary. Setting id_1 and id_2 to the same value allowed and will act
-   * like can_identifier_mask.
-   */
-  struct pair
-  {
-    /**
-     * @brief Specifies one end of the id range bounds.
-     *
-     */
-    u16 id_1 = 0;
-    /**
-     * @brief Specifies the other end of the id range bounds
-     *
-     */
-    u16 id_2 = 0;
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    constexpr bool operator<=>(pair const&) const = default;
-  };
-
-  /**
-   * @brief Allow messages within this id range to pass the can bus filter
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_filter_pair - allow this range of IDs through the can filter. To
-   * stop allowing messages from this filter, set this parameter to
-   * `std::nullopt`.
-   */
-  async::future<void> allow(async::context& p_context,
-                            std::optional<pair> p_filter_pair)
-  {
-    return driver_allow(p_context, p_filter_pair);
-  }
-
-  virtual ~can_range_filter() = default;
-
-private:
-  virtual async::future<void> driver_allow(
-    async::context& p_context,
-    std::optional<pair> p_filter_pair) = 0;
+  u32 id = 0;
+  u32 mask = 0;
+  constexpr auto operator<=>(can_mask_ext const&) const = default;
 };
 
 /**
- * @brief CAN message extended range filter hardware abstraction interface
+ * @brief Standard CAN ID range filter configuration
  *
- * On construction, implementations acquire/reserve resources for filtering the
- * message passed to the `allow()` API. On destruction, those resources should
- * be freed such that another can_identifier_filter can claim them. In general,
- * filters of all sorts are limited in the number and type of filters they
- * support.
+ * Defines a range-based filter for standard (11-bit) CAN message IDs using
+ * lower and upper ID bounds (id_1 and id_2). A message matches the filter if:
+ * id_1 <= message_id <= id_2
+ *
  */
-class can_extended_range_filter
+export struct can_range
 {
-public:
-  /**
-   * @brief Range filter
-   *
-   * id_1 and id_2 constitute a range of allowed IDs. They do NOT need to be
-   * ordered relative to each other. Meaning id_1 < id_2 is not required or
-   * necessary. Setting id_1 and id_2 to the same value allowed and will act
-   * like can_identifier_mask.
-   */
-  struct pair
-  {
-    /**
-     * @brief Specifies one end of the id range bounds.
-     *
-     */
-    u32 id_1 = 0;
-    /**
-     * @brief Specifies the other end of the id range bounds
-     *
-     */
-    u32 id_2 = 0;
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    constexpr bool operator<=>(pair const&) const = default;
-  };
-
-  /**
-   * @brief Set the allowed messages through a range filter.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_filter_pair - allow this range of IDs through the can filter. To
-   * stop allowing messages from this filter, set this parameter to
-   * `std::nullopt`.
-   */
-  async::future<void> allow(async::context& p_context,
-                            std::optional<pair> p_filter_pair)
-  {
-    return driver_allow(p_context, p_filter_pair);
-  }
-
-  virtual ~can_extended_range_filter() = default;
-
-private:
-  virtual async::future<void> driver_allow(
-    async::context& p_context,
-    std::optional<pair> p_filter_pair) = 0;
+  u16 id_1 = 0;
+  u16 id_2 = 0;
+  constexpr auto operator<=>(can_range const&) const = default;
 };
+
+/**
+ * @brief Extended CAN ID range filter configuration
+ *
+ * Defines a range-based filter for extended (29-bit) CAN message IDs using
+ * lower and upper ID bounds (id_1 and id_2). A message matches the filter if:
+ * id_1 <= message_id <= id_2
+ *
+ */
+export struct can_range_ext
+{
+  u32 id_1 = 0;
+  u32 id_2 = 0;
+  constexpr auto operator<=>(can_range_ext const&) const = default;
+};
+
+/**
+ * @brief Filter accepting standard CAN message IDs
+ *
+ * Filters messages by single 11-bit CAN identifier values.
+ */
+export using can_id_filter = can_filter<u16>;
+
+/**
+ * @brief Filter accepting extended CAN message IDs
+ *
+ * Filters messages by single 29-bit extended CAN identifier values.
+ */
+export using can_id_ext_filter = can_filter<u32>;
+
+/**
+ * @brief Filter accepting standard CAN IDs using mask-based matching
+ *
+ * Filters messages by applying a bitwise mask to standard (11-bit) IDs.
+ */
+export using can_mask_filter = can_filter<can_mask>;
+
+/**
+ * @brief Filter accepting extended CAN IDs using mask-based matching
+ *
+ * Filters messages by applying a bitwise mask to extended (29-bit) IDs.
+ */
+export using can_mask_ext_filter = can_filter<can_mask_ext>;
+
+/**
+ * @brief Filter accepting standard CAN IDs within a range
+ *
+ * Filters messages by accepting those with standard (11-bit) IDs falling
+ * within a specified range.
+ */
+export using can_range_filter = can_filter<can_range>;
+
+/**
+ * @brief Filter accepting extended CAN IDs within a range
+ *
+ * Filters messages by accepting those with extended (29-bit) IDs falling
+ * within a specified range.
+ */
+export using can_range_ext_filter = can_filter<can_range_ext>;
 }  // namespace hal::inline v5

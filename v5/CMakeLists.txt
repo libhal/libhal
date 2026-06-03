@@ -65,4 +65,5 @@ libhal_add_tests(libhal
         serial
         containers
         sensors
+        can
 )
