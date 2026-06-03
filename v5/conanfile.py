@@ -105,7 +105,7 @@ class libhal_conan(ConanFile):
         self.tool_requires("libhal-cmake-util/[^5.0.5]")
 
     def requirements(self):
-        self.requires("strong_ptr/[^0.1.8]")
+        self.requires("strong_ptr/[^0.2.1]")
         self.requires("async_context/[^0.0.10]")
         self.requires("mp-units/2.5.1@libhal",
                       options={

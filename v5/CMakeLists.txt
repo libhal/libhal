@@ -42,6 +42,7 @@ libhal_add_library(libhal
         modules/i2c.cppm
         modules/spi.cppm
         modules/serial.cppm
+        modules/memory.cppm
         modules/containers.cppm
 )
 
@@ -64,4 +65,5 @@ libhal_add_tests(libhal
         serial
         containers
         sensors
+        new_scheme
 )
