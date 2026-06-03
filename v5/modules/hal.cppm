@@ -19,6 +19,7 @@ export import :scatter_span;
 export import :error;
 
 export import :analog;
+export import :can;
 export import :pwm;
 export import :gpio;
 export import :sensors;

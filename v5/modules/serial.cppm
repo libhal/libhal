@@ -255,7 +255,7 @@ public:
     return driver_wait_for(p_context, p_event);
   }
 
-  virtual ~awaitable_serial() = default;
+  ~awaitable_serial() override = default;
 
 private:
   virtual async::future<void> driver_wait_for(async::context& p_context,
