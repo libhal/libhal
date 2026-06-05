@@ -29,6 +29,7 @@ export import :i2c;
 export import :spi;
 export import :serial;
 export import :containers;
+export import :usb;
 
 export import strong_ptr;
 export import async_context;
