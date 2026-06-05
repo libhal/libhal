@@ -31,7 +31,7 @@ namespace hal::inline v5::usb {
  * @brief Basic information about an usb endpoint
  *
  */
-struct endpoint_info
+export struct endpoint_info
 {
   /**
    * @brief The max number of bytes the endpoint can work with
@@ -88,8 +88,7 @@ struct endpoint_info
  * such as enabling or disabling hardware, stopping or resuming data
  * queuing, or resetting internal transfer state.
  */
-enum class host_event : hal::u8
-{
+export enum class host_event : hal::u8 {
   /// @brief The host has driven SE0 for >10ms, triggering re-enumeration,
   ///        or the application has called @ref control_endpoint::connect
   ///        to force a reconnect.
@@ -168,8 +167,7 @@ enum class host_event : hal::u8
  * permission, etc.), and translates them into the richer @ref host_event
  * vocabulary before forwarding to interface implementations.
  */
-enum class bus_event : u8
-{
+export enum class bus_event : u8 {
   /// @brief The host has driven SE0 for >2.5ms, or the application has
   ///        called @ref control_endpoint::connect to force a reconnect.
   ///
@@ -337,7 +335,7 @@ private:
  *             .u1_supported(true);
  * @endcode
  */
-struct lpm_support
+export struct lpm_support
 {
   /// @brief Bitmask for USB 2.0 remote wakeup capability.
   static constexpr hal::u8 remote_wakeup_mask = 1 << 0;
@@ -503,7 +501,7 @@ struct lpm_support
  * - Sending and receiving control data
  *
  */
-class control_endpoint : public endpoint
+export class control_endpoint : public endpoint
 {
 public:
   /**
@@ -593,29 +591,9 @@ public:
   }
 
   /**
-   * @brief Suspend until the next setup or data packet is received
-   *
-   * Multiple coroutines may concurrently await this function. All registered
-   * waiters are unblocked when the next packet arrives. If the implementation's
-   * internal waiter capacity is exceeded, the caller will block by sync until a
-   * slot becomes available.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<void> - completes when a setup or data packet has
-   *         been received on the control endpoint
-   */
-  async::future<void> on_receive(async::context& p_context)
-  {
-    return driver_on_receive(p_context);
-  }
-
-  /**
    * @brief Suspend until the next bus-level event occurs
    *
-   * Multiple coroutines may concurrently await this function. All registered
-   * waiters are unblocked when the next bus event arrives. If the
-   * implementation's internal waiter capacity is exceeded, the caller will
-   * block by sync until a slot becomes available.
+   * Used by the enumerator to wait until a USB bus event occurs.
    *
    * @param p_context - async context for coroutine suspension and resumption.
    * @return async::future<bus_event> - completes with the @ref bus_event that
@@ -644,9 +622,10 @@ public:
    * @param p_enabled - true if the host has granted remote wakeup permission,
    *                    false if the host has revoked it.
    */
-  void remote_wakeup_enable(bool p_enabled)
+  async::future<void> remote_wakeup_enable(async::context& p_context,
+                                           bool p_enabled)
   {
-    return driver_remote_wakeup_enable(p_enabled);
+    return driver_remote_wakeup_enable(p_context, p_enabled);
   }
 
   /**
@@ -661,9 +640,10 @@ public:
    * revoked, or the hardware isn't capable of performing a wake K-state on the
    * bus.
    */
-  [[nodiscard]] bool remote_wakeup_granted()
+  [[nodiscard]] async::future<bool> remote_wakeup_granted(
+    async::context& p_context)
   {
-    return driver_remote_wakeup_granted();
+    return driver_remote_wakeup_granted(p_context);
   }
 
   /**
@@ -687,9 +667,10 @@ public:
    * @param p_accept - `true` to acknowledge the L1 sleep request and allow the
    *                 device to enter L1; `false` to reject it and remain in L0.
    */
-  void acknowledge_sleep(bool p_accept)
+  async::future<void> acknowledge_sleep(async::context& p_context,
+                                        bool p_accept)
   {
-    return driver_acknowledge_sleep(p_accept);
+    return driver_acknowledge_sleep(p_context, p_accept);
   }
 
   /**
@@ -724,27 +705,15 @@ private:
                                            scatter_span<byte const> p_data) = 0;
   virtual async::future<usize> driver_read(async::context& p_context,
                                            scatter_span<byte> p_buffer) = 0;
-  virtual async::future<void> driver_on_receive(async::context& p_context) = 0;
-  [[nodiscard]] virtual std::optional<bool> driver_has_setup() const noexcept
-  {
-    return {};
-  }
   virtual async::future<bus_event> driver_on_bus_event(
     async::context& p_context) = 0;
-  virtual void driver_remote_wakeup_enable(bool)
-  {
-  }
-  virtual bool driver_remote_wakeup_granted()
-  {
-    return false;
-  }
-  virtual void driver_acknowledge_sleep(bool)
-  {
-  }
-  virtual lpm_support driver_supports_lpm()
-  {
-    return {};
-  }
+  virtual async::future<void> driver_remote_wakeup_enable(async::context&,
+                                                          bool) = 0;
+  virtual async::future<bool> driver_remote_wakeup_granted(async::context&) = 0;
+
+  virtual async::future<void> driver_acknowledge_sleep(async::context&,
+                                                       bool) = 0;
+  virtual lpm_support driver_supports_lpm() = 0;
 };
 
 /**
@@ -755,7 +724,7 @@ private:
  * common APIs. It is not meant to be used directly by drivers. Use the
  * interfaces that inherit from this interface.
  */
-class in_endpoint : public endpoint
+export class in_endpoint : public endpoint
 {
 public:
   /**
@@ -798,23 +767,22 @@ private:
  * common APIs. It is not meant to be used directly by drivers. Use the
  * interfaces that inherit from this interface.
  */
-class out_endpoint : public endpoint
+export class out_endpoint : public endpoint
 {
 public:
   /**
    * @brief Suspend until data is available on the endpoint
    *
-   * Multiple coroutines may concurrently await this function. All registered
-   * waiters are unblocked when the next data packet arrives. If the
-   * implementation's internal waiter capacity is exceeded, the caller will
-   * block by sync until a slot becomes available.
+   * Implementations are only required to support unblocking a single context
+   * and if a 2nd context attempt to await this function, it will be blocked by
+   * sync.
    *
    * After this function completes, the endpoint shall be set to NAK all
    * requests from the HOST until the contents are read via the read() API. Once
    * all data has been read from the endpoint, the endpoint will become valid
    * once again and can ACK the host if it wants to transmit more data.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
+   * @param p_context - async context to be unblocked when the bus event occurs.
    * @return async::future<void> - completes when data is available in the
    *         endpoint
    */
@@ -867,7 +835,7 @@ private:
  * - Transmitting small amounts of data with guaranteed latency
  * - Ideal for devices like keyboards, mice, or game controllers
  */
-struct interrupt_in_endpoint : public in_endpoint
+export struct interrupt_in_endpoint : public in_endpoint
 {};
 
 /**
@@ -882,7 +850,7 @@ struct interrupt_in_endpoint : public in_endpoint
  * - Handling small amounts of data with guaranteed latency
  * - Ideal for devices that need quick responses to host commands
  */
-struct interrupt_out_endpoint : public out_endpoint
+export struct interrupt_out_endpoint : public out_endpoint
 {};
 
 /**
@@ -897,7 +865,7 @@ struct interrupt_out_endpoint : public out_endpoint
  * - Sending data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-struct bulk_in_endpoint : public in_endpoint
+export struct bulk_in_endpoint : public in_endpoint
 {};
 
 /**
@@ -912,16 +880,16 @@ struct bulk_in_endpoint : public in_endpoint
  * - Handling data when timing is not critical
  * - Ideal for devices like printers, scanners, or external storage
  */
-struct bulk_out_endpoint : public out_endpoint
+export struct bulk_out_endpoint : public out_endpoint
 {};
 
-template<class T>
+export template<class T>
 concept out_endpoint_type = std::is_base_of_v<out_endpoint, T> ||
                             std::is_base_of_v<control_endpoint, T> ||
                             std::is_base_of_v<bulk_out_endpoint, T> ||
                             std::is_base_of_v<interrupt_out_endpoint, T>;
 
-template<class T>
+export template<class T>
 concept in_endpoint_type =
   std::is_base_of_v<in_endpoint, T> || std::is_base_of_v<control_endpoint, T> ||
   std::is_base_of_v<bulk_in_endpoint, T> ||
@@ -942,7 +910,7 @@ concept in_endpoint_type =
  * - Bytes 4-5: wIndex (request-specific index, little-endian)
  * - Bytes 6-7: wLength (data phase length, little-endian)
  */
-struct setup_packet
+export struct setup_packet
 {
   constexpr static usize value_offset = 2;
   constexpr static usize index_offset = 4;
@@ -1227,7 +1195,8 @@ struct setup_packet
    * @param p_second High byte (most significant)
    * @return u16 Combined 16-bit value in host byte order
    */
-  constexpr static u16 from_le_bytes(hal::byte p_first, hal::byte p_second)
+  [[nodiscard]] constexpr static u16 from_le_bytes(hal::byte p_first,
+                                                   hal::byte p_second)
   {
     return static_cast<u16>(p_second) << 8 | p_first;
   }
@@ -1258,8 +1227,7 @@ struct setup_packet
  * operations during device enumeration and configuration. Each request type
  * corresponds to a specific USB operation that all USB devices must support.
  */
-enum class standard_request_types : hal::byte
-{
+export enum class standard_request_types : hal::byte {
   get_status = 0x00,
   clear_feature = 0x01,
   set_feature = 0x03,
@@ -1293,8 +1261,8 @@ enum class standard_request_types : hal::byte
  *         a valid standard request
  *
  */
-[[nodiscard]] constexpr standard_request_types determine_standard_request(
-  setup_packet p_packet)
+export [[nodiscard]] constexpr standard_request_types
+determine_standard_request(setup_packet p_packet)
 {
   if (p_packet.get_type() != setup_packet::request_type::standard ||
       p_packet.request() == 0x04 || p_packet.request() > 0x12) {
@@ -1325,7 +1293,7 @@ enum class standard_request_types : hal::byte
  * this should not be thrown and the enumerator will have to make assumptions
  * about which packets are setup packets and which are not.
  */
-class endpoint_io
+export class endpoint_io
 {
 public:
   /**
@@ -1396,7 +1364,7 @@ private:
  * - Implementing the specific protocol or behavior of the interface type
  *
  */
-class interface
+export class interface
 {
 public:
   /**
@@ -1536,19 +1504,13 @@ public:
   {
     return driver_handle_request(p_context, p_setup, p_endpoint);
   }
+
   /**
-   * @brief Suspend until the next host event is dispatched by the enumerator.
+   * @brief Respond to bus-level host events dispatched by the enumerator.
    *
-   * Multiple coroutines may concurrently await this function. All registered
-   * waiters are unblocked when the next host event arrives. If the
-   * implementation's internal waiter capacity is exceeded, the caller will
-   * block by sync until a slot becomes available.
-   *
-   * Implementations that need to react to power transitions, suspend/resume, or
-   * bus reset should await this method in a loop.
-   *
-   * `host_event::setup_packet` and `host_event::data_packet` are consumed
-   * internally by the enumerator and are never forwarded here.
+   * Called by the enumerator after it has processed a @ref bus_event and
+   * updated its own state. This method is called from the enumerator's main
+   * context, not from an interrupt context.
    *
    * **Event-specific guidance:**
    *
@@ -1587,9 +1549,10 @@ public:
    * @return async::future<host_event> - completes with the @ref host_event
    *         that occurred
    */
-  async::future<host_event> on_host_event(async::context& p_context)
+  async::future<void> handle_host_event(async::context& p_context,
+                                        host_event p_event)
   {
-    return driver_on_host_event(p_context);
+    return driver_handle_host_event(p_context, p_event);
   }
 
   virtual ~interface() = default;
@@ -1607,25 +1570,8 @@ private:
     async::context& p_context,
     setup_packet const& p_setup,
     endpoint_io& p_endpoint) = 0;
-  virtual async::future<host_event> driver_on_host_event(
-    async::context& p_context) = 0;
+  virtual async::future<void> driver_handle_host_event(
+    async::context& p_context,
+    host_event p_event) = 0;
 };
 }  // namespace hal::inline v5::usb
-
-namespace hal::usb {
-using hal::usb::bulk_in_endpoint;
-using hal::usb::bulk_out_endpoint;
-using hal::usb::control_endpoint;
-using hal::usb::endpoint;
-using hal::usb::endpoint_info;
-using hal::usb::endpoint_io;
-using hal::usb::in_endpoint;
-using hal::usb::in_endpoint_type;
-using hal::usb::interface;
-using hal::usb::interrupt_in_endpoint;
-using hal::usb::interrupt_out_endpoint;
-using hal::usb::out_endpoint;
-using hal::usb::out_endpoint_type;
-using hal::usb::setup_packet;
-using hal::usb::standard_request_types;
-}  // namespace hal::usb
