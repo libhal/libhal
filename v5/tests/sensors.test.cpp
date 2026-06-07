@@ -24,6 +24,7 @@ import async_context;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
+using angular::unit_symbols::rev;
 
 namespace {
 
@@ -142,7 +143,8 @@ void distance_sensor_test() noexcept
 class test_angular_velocity_sensor : public hal::angular_velocity_sensor
 {
 public:
-  hal::angular_velocity returned_value = 90.0f * (deg / s);
+  hal::angular_velocity returned_value = 90.0f * (rev / s);
+  // hal::angular_velocity returned_value = hal::angular_velocity(90.0f);
   ~test_angular_velocity_sensor() override = default;
 
 private:
@@ -160,14 +162,14 @@ void angular_velocity_sensor_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_angular_velocity_sensor test;
-    test.returned_value = 180.0f * (deg / s);
+    test.returned_value = 180.0f * (angular::unit_symbols::rev / s);
 
     // Exercise
     auto result = test.read(ctx);
 
     // Verify
     expect(result.has_value());
-    expect((180.0f * (deg / s)) == result.value());
+    expect((180.0f * (angular::unit_symbols::rev / s)) == result.value());
   };
 }
 
@@ -178,11 +180,11 @@ void angular_velocity_sensor_test() noexcept
 class test_rotation_sensor : public hal::rotation_sensor
 {
 public:
-  hal::degrees returned_value = 45.0f * deg;
+  hal::revolutions returned_value = 45.0f * rev;
   ~test_rotation_sensor() override = default;
 
 private:
-  async::future<hal::degrees> driver_read(async::context&) override
+  async::future<hal::revolutions> driver_read(async::context&) override
   {
     return returned_value;
   }
@@ -196,14 +198,14 @@ void rotation_sensor_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_rotation_sensor test;
-    test.returned_value = 270.0f * deg;
+    test.returned_value = 0.75f * rev;
 
     // Exercise
     auto result = test.read(ctx);
 
     // Verify
     expect(result.has_value());
-    expect((270.0f * deg) == result.value());
+    expect((0.75f * rev) == result.value());
   };
 }
 
@@ -308,9 +310,9 @@ class test_gyroscope : public hal::gyroscope
 {
 public:
   hal::gyroscope::read_t returned_value{
-    .x = 0.0f * (deg / s),
-    .y = 0.0f * (deg / s),
-    .z = 0.0f * (deg / s),
+    .x = 0.0f * (rev / s),
+    .y = 0.0f * (rev / s),
+    .z = 0.0f * (rev / s),
   };
   ~test_gyroscope() override = default;
 
@@ -330,9 +332,9 @@ void gyroscope_test() noexcept
     async::inplace_context<1024> ctx;
     test_gyroscope test;
     test.returned_value = {
-      .x = 10.0f * (deg / s),
-      .y = 20.0f * (deg / s),
-      .z = 30.0f * (deg / s),
+      .x = 10.0f * (rev / s),
+      .y = 20.0f * (rev / s),
+      .z = 30.0f * (rev / s),
     };
 
     // Exercise
@@ -340,9 +342,9 @@ void gyroscope_test() noexcept
 
     // Verify
     expect(result.has_value());
-    expect((10.0f * (deg / s)) == result.value().x);
-    expect((20.0f * (deg / s)) == result.value().y);
-    expect((30.0f * (deg / s)) == result.value().z);
+    expect((10.0f * (rev / s)) == result.value().x);
+    expect((20.0f * (rev / s)) == result.value().y);
+    expect((30.0f * (rev / s)) == result.value().z);
   };
 }
 

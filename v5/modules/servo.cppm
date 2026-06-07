@@ -33,8 +33,8 @@ public:
    */
   struct position_range_t
   {
-    degrees min;  ///< Minimum position in degrees
-    degrees max;  ///< Maximum position in degrees
+    revolutions min;  ///< Minimum position in degrees
+    revolutions max;  ///< Maximum position in degrees
   };
 
   virtual ~basic_servo() = default;
@@ -65,7 +65,7 @@ public:
    * @param p_target_position - The position in degrees to move to
    */
   [[nodiscard]] async::future<void> position(async::context& p_context,
-                                             degrees p_target_position)
+                                             revolutions p_target_position)
   {
     return driver_position(p_context, p_target_position);
   }
@@ -86,8 +86,9 @@ public:
 private:
   virtual async::future<void> driver_enable(async::context& p_context,
                                             bool p_state) = 0;
-  virtual async::future<void> driver_position(async::context& p_context,
-                                              degrees p_target_position) = 0;
+  virtual async::future<void> driver_position(
+    async::context& p_context,
+    revolutions p_target_position) = 0;
   virtual async::future<position_range_t> driver_position_range(
     async::context& p_context) = 0;
 };
@@ -107,7 +108,7 @@ public:
    * @param p_context - async context for coroutine suspension and resumption.
    * @return async::future<degrees> - The current position in degrees
    */
-  [[nodiscard]] async::future<degrees> position(async::context& p_context)
+  [[nodiscard]] async::future<revolutions> position(async::context& p_context)
   {
     return driver_get_position(p_context);
   }
@@ -125,7 +126,7 @@ public:
   }
 
 private:
-  virtual async::future<degrees> driver_get_position(
+  virtual async::future<revolutions> driver_get_position(
     async::context& p_context) = 0;
   virtual async::future<bool> driver_is_moving(async::context& p_context) = 0;
 };
