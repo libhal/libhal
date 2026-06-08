@@ -22,7 +22,7 @@ export module hal:units;
 export import mp_units;
 
 using namespace mp_units;
-using namespace mp_units::si::unit_symbols;
+// using namespace mp_units::si::unit_symbols;
 
 /**
  * @brief The foundation of libhal containing, interfaces, utilities and soft
@@ -78,17 +78,18 @@ using volts = quantity<si::volt, common_rep_t>;
 /// Type for temperature represented in kelvin.
 using kelvin = quantity<si::kelvin, common_rep_t>;
 
-/// Type for angular velocity represented in degrees per second
-using angular_velocity = quantity<si::degree / si::second, common_rep_t>;
+/// Type for angle represented in proportion of a revolution.
+using revolutions = quantity<angular::revolution, common_rep_t>;
 
-/// Type for rotational velocity represented in RPMs.
-using rpm = quantity<mag<360> * si::degree / si::minute, common_rep_t>;
+/// Type for angular velocity represented in revolutions per second
+using angular_velocity =
+  quantity<angular::revolution / si::second, common_rep_t>;
+
+/// Type for rotational velocity represented in RPMs (revolutions per minute).
+using rpm = quantity<angular::revolution / si::minute, common_rep_t>;
 
 /// Type for length represented in meters.
 using meters = quantity<si::metre, common_rep_t>;
-
-/// Type for angle represented in degrees.
-using degrees = quantity<si::degree, common_rep_t>;
 
 /// Type for magnetic field represented in gauss.
 using teslas = quantity<si::tesla, common_rep_t>;

@@ -237,7 +237,7 @@ public:
    * @param p_context - async context for coroutine suspension and resumption.
    * @return async::future<degrees> - measured rotation angle
    */
-  [[nodiscard]] async::future<degrees> read(async::context& p_context)
+  [[nodiscard]] async::future<revolutions> read(async::context& p_context)
   {
     return driver_read(p_context);
   }
@@ -245,7 +245,7 @@ public:
   virtual ~rotation_sensor() = default;
 
 private:
-  virtual async::future<degrees> driver_read(async::context& p_context) = 0;
+  virtual async::future<revolutions> driver_read(async::context& p_context) = 0;
 };
 
 /**

@@ -48,7 +48,7 @@ public:
      * @brief The serial clock rate in hertz.
      *
      */
-    hertz clock_rate = 100 * kHz;
+    hertz clock_rate = 100 * si::unit_symbols::kHz;
 
     /**
      * @brief Enables default comparison

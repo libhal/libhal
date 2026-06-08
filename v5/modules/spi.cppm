@@ -170,7 +170,7 @@ public:
      * the spi bus can achieve, then the clock rate will be set to the maximum
      * the spi bus can manage.
      */
-    hertz clock_rate = 100 * kHz;
+    hertz clock_rate = 100 * si::unit_symbols::kHz;
 
     /**
      * @brief Bus mode select field
