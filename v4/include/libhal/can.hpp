@@ -430,6 +430,17 @@ public:
     return driver_receive_cursor();
   }
 
+  /**
+   * @brief Returns the number of messages received by the can transceiver
+   *
+   * @return std::optional<std::size_t> - returns the total number of received
+   * messages or std::nullopt if this isn't available.
+   */
+  std::optional<std::size_t> receive_count()
+  {
+    return driver_receive_count();
+  }
+
   virtual ~can_transceiver() = default;
 
 private:
@@ -437,6 +448,10 @@ private:
   virtual void driver_send(can_message const& p_message) = 0;
   virtual std::span<can_message const> driver_receive_buffer() = 0;
   virtual std::size_t driver_receive_cursor() = 0;
+  virtual std::optional<std::size_t> driver_receive_count()
+  {
+    return std::nullopt;
+  }
 };
 
 /**
