@@ -4,7 +4,7 @@
 import hal;
 import strong_ptr;
 
-class smart_motor : public hal::enable_pimpl<smart_motor>
+class smart_motor : public hal::pimpl<smart_motor>
 {
 public:
   struct impl;  // forward declaration only
