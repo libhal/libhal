@@ -33,8 +33,8 @@ public:
    */
   struct position_range_t
   {
-    revolutions min;  ///< Minimum position in degrees
-    revolutions max;  ///< Maximum position in degrees
+    revolutions min;  ///< Minimum position in revolutions
+    revolutions max;  ///< Maximum position in revolutions
   };
 
   virtual ~basic_servo() = default;
@@ -62,7 +62,7 @@ public:
    * Position must be within the range returned by position_range().
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @param p_target_position - The position in degrees to move to
+   * @param p_target_position - The position in revolutions to move to
    */
   [[nodiscard]] async::future<void> position(async::context& p_context,
                                              revolutions p_target_position)
@@ -75,7 +75,7 @@ public:
    *
    * @param p_context - async context for coroutine suspension and resumption.
    * @return async::future<position_range_t> - The minimum and maximum position
-   * in degrees
+   * in revolutions
    */
   [[nodiscard]] async::future<position_range_t> position_range(
     async::context& p_context)
@@ -106,7 +106,7 @@ public:
    * @brief Get the current position of the servo
    *
    * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<degrees> - The current position in degrees
+   * @return async::future<revolutions> - The current position in revolutions
    */
   [[nodiscard]] async::future<revolutions> position(async::context& p_context)
   {
