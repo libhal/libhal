@@ -1,5 +1,8 @@
+#include <coroutine>
 #include <memory_resource>
+#include <print>
 #include <span>
+#include <thread>
 
 import hal;
 import strong_ptr;
@@ -10,62 +13,57 @@ public:
   struct impl;  // forward declaration only
 
   // Create Factory Function
-  static async::future<mem::strong_ptr<smart_motor>> create(
+  static async::future<hal::ptr<smart_motor>> create(
     async::context&,
     hal::allocator p_allocator,
-    mem::strong_ptr<hal::awaitable_serial> const& p_serial);
+    hal::ptr<hal::awaitable_serial> const& p_serial);
 
   // Position rotation with velocity + torque control
-  static async::future<mem::strong_ptr<hal::veltor_servo>> acquire_veltor_servo(
+  static async::future<hal::ptr<hal::veltor_servo>> acquire_veltor_servo(
     async::context&,
     hal::allocator);
 
   // Continuous rotation with velocity + torque control
-  static async::future<mem::strong_ptr<hal::motor>> acquire_motor(
-    async::context&,
-    hal::allocator);
+  static async::future<hal::ptr<hal::motor>> acquire_motor(async::context&);
 
   // Must start with `acquire_` and should either be name of interface or
   // something descriptive like `acquire_rear_left_motor`.
 
-  smart_motor(mem::strong_ptr_only_token,
-              private_key,
-              hal::allocator,
-              mem::strong_ptr<hal::awaitable_serial> const& p_serial);
+  smart_motor(private_key,
+              hal::allocator p_allocator,
+              hal::ptr<hal::awaitable_serial> const& p_serial);
 };
 
 // in impl file
 struct smart_motor::impl
 {
-  mem::strong_ptr<hal::awaitable_serial> serial;
+  hal::ptr<hal::awaitable_serial> serial;
   hal::u8 address = 0;
 };
 
-smart_motor::smart_motor(mem::strong_ptr_only_token,
-                         private_key,
+smart_motor::smart_motor(private_key,
                          hal::allocator p_allocator,
-                         mem::strong_ptr<hal::awaitable_serial> const& p_serial)
+                         hal::ptr<hal::awaitable_serial> const& p_serial)
+  : pimpl(p_allocator, smart_motor::impl{ .serial = p_serial, .address = 0 })
 {
-  initialize_pimpl(p_allocator,
-                   smart_motor::impl{ .serial = p_serial, .address = 0 });
+  std::println("Hello, World!");
 }
 
-async::future<mem::strong_ptr<smart_motor>> smart_motor::create(
-  async::context&,
+async::future<hal::ptr<smart_motor>> smart_motor::create(
+  [[maybe_unused]] async::context& p_ctx,
   hal::allocator p_allocator,
-  mem::strong_ptr<hal::awaitable_serial> const& p_serial)
+  hal::ptr<hal::awaitable_serial> const& p_serial)
 {
-  return allocate<smart_motor>(
+  return hal::allocate<smart_motor>(
     p_allocator, private_key{}, p_allocator, p_serial);
 }
 
 class test_awaitable_serial : public hal::awaitable_serial
 {
 public:
-  static async::future<mem::strong_ptr<test_awaitable_serial>> create(
-    hal::allocator p_allocator)
+  static hal::ptr<test_awaitable_serial> create(hal::allocator p_allocator)
   {
-    return mem::make_strong_ptr<test_awaitable_serial>(p_allocator.resource());
+    return mem::make_strong_ptr<test_awaitable_serial>(p_allocator);
   }
 
   hal::serial::settings configured_settings{};
@@ -77,10 +75,6 @@ public:
   bool wait_for_called{ false };
 
   ~test_awaitable_serial() override = default;
-
-  test_awaitable_serial(mem::strong_ptr_only_token)
-  {
-  }
 
 private:
   async::future<void> driver_configure(
@@ -132,5 +126,8 @@ int main()
   mem::monotonic_allocator<1024> alloc;
   auto serial = test_awaitable_serial::create(alloc);
   async::inplace_context<1024> ctx;
-  // auto motor = smart_motor::create(ctx, alloc, serial.value());
+  auto motor = smart_motor::create(ctx, alloc, serial);
+
+  using namespace std::chrono_literals;
+  // std::this_thread::sleep_for(15s);
 }

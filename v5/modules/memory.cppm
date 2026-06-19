@@ -15,10 +15,12 @@
 module;
 
 #include <memory_resource>
+#include <type_traits>
 
 export module hal:memory;
 
 import strong_ptr;
+import async_context;
 
 namespace hal::inline v5 {
 
@@ -44,6 +46,18 @@ using ptr = mem::strong_ptr<T>;
 /// @tparam T The type of object being managed
 export template<class T>
 using opt_ptr = mem::optional_ptr<T>;
+
+export template<class T = void>
+using future = async::future<T>;
+
+/// Async factory result for a managed object
+///
+/// A future that resolves to a strong_ptr. Used for factory functions that
+/// perform async initialization. The caller co_awaits the factory and receives
+/// a strong_ptr to the fully initialized object.
+/// @tparam T The type of object being created asynchronously
+export template<class T>
+using future_ptr = future<hal::ptr<T>>;
 
 /// Create a managed object with a strong pointer
 ///
@@ -92,23 +106,28 @@ mem::strong_ptr<T> static_allocate(Args... p_args)
 export template<typename Derived>
 class pimpl : public mem::enable_strong_from_this<pimpl<Derived>>
 {
+protected:
   using destroy_fn_t = void(void*, allocator) noexcept;
 
-protected:
+  static consteval bool needs_destruction()
+  {
+    return not std::is_trivially_destructible_v<typename Derived::impl>;
+  }
+
   /// Access the mutable implementation object
   ///
   /// Returns a reference to the implementation struct allocated by
   /// initialize_pimpl(). Used in public methods of the derived class
   /// to access hardware state and configuration.
-  [[nodiscard]] auto& impl() noexcept
+  [[nodiscard]] auto& inner() noexcept
   {
     return *static_cast<typename Derived::impl*>(m_impl);
   }
 
   /// Access the immutable implementation object
   ///
-  /// Const version of impl(). Used in const methods of the derived class.
-  [[nodiscard]] auto const& impl() const noexcept
+  /// Const version of inner(). Used in const methods of the derived class.
+  [[nodiscard]] auto const& inner() const noexcept
   {
     return *static_cast<typename Derived::impl const*>(m_impl);
   }
@@ -124,21 +143,35 @@ protected:
   /// @note Call this from the derived class constructor before any
   ///       other operations that access impl()
   template<typename... Args>
-  void initialize_pimpl(allocator p_resource, Args&&... p_args)
+  pimpl(allocator p_allocator, Args&&... p_args)
   {
     using impl_type = typename Derived::impl;
-    m_impl = p_resource.new_object<impl_type>(std::forward<Args>(p_args)...);
-    m_destroy = [](void* p_address, allocator p_resource) noexcept {
-      p_resource.delete_object(static_cast<impl_type*>(p_address));
-    };
+    m_impl = p_allocator.new_object<impl_type>(std::forward<Args>(p_args)...);
+    m_allocator = p_allocator.resource();
+  }
+
+  static void destroy(void* p_address, allocator p_resource) noexcept
+  {
+    using impl_type = typename Derived::impl;
+
+    p_resource.delete_object(static_cast<impl_type*>(p_address));
   }
 
   ~pimpl() noexcept
+  // requires(needs_destruction())
   {
-    if (m_impl != nullptr) {
-      m_destroy(m_impl, this->strong_from_this().get_allocator());
+    // This check exists in the event that `initialize_pimpl` was never called
+    if constexpr (needs_destruction()) {
+      if (m_impl != nullptr) {
+        destroy(m_impl, /* this->strong_from_this().get_allocator()*/
+                m_allocator);
+      }
     }
   }
+
+  // ~pimpl() noexcept
+  //   requires(not needs_destruction())
+  // = default;
 
 private:
   friend Derived;
@@ -151,6 +184,6 @@ private:
   };
   pimpl() = default;
   void* m_impl = nullptr;
-  destroy_fn_t* m_destroy = nullptr;
+  std::pmr::memory_resource* m_allocator;
 };
 }  // namespace hal::inline v5
