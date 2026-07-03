@@ -104,7 +104,7 @@ mem::strong_ptr<T> static_allocate(Args... p_args)
 ///       initialize_pimpl(allocator, ...) in the constructor to allocate
 ///       and initialize the impl object. Use impl() to access it.
 export template<typename Derived>
-class pimpl : public mem::enable_strong_from_this<pimpl<Derived>>
+class pimpl
 {
 protected:
   using destroy_fn_t = void(void*, allocator) noexcept;
@@ -144,34 +144,23 @@ protected:
   ///       other operations that access impl()
   template<typename... Args>
   pimpl(allocator p_allocator, Args&&... p_args)
+    : m_allocator(p_allocator.resource())
   {
     using impl_type = typename Derived::impl;
     m_impl = p_allocator.new_object<impl_type>(std::forward<Args>(p_args)...);
-    m_allocator = p_allocator.resource();
-  }
-
-  static void destroy(void* p_address, allocator p_resource) noexcept
-  {
-    using impl_type = typename Derived::impl;
-
-    p_resource.delete_object(static_cast<impl_type*>(p_address));
   }
 
   ~pimpl() noexcept
-  // requires(needs_destruction())
   {
     // This check exists in the event that `initialize_pimpl` was never called
     if constexpr (needs_destruction()) {
       if (m_impl != nullptr) {
-        destroy(m_impl, /* this->strong_from_this().get_allocator()*/
-                m_allocator);
+        using impl_type = typename Derived::impl;
+        hal::allocator(m_allocator)
+          .delete_object(static_cast<impl_type*>(m_impl));
       }
     }
   }
-
-  // ~pimpl() noexcept
-  //   requires(not needs_destruction())
-  // = default;
 
 private:
   friend Derived;
@@ -182,8 +171,10 @@ private:
   private:
     private_key() = default;
   };
+
   pimpl() = default;
-  void* m_impl = nullptr;
+
   std::pmr::memory_resource* m_allocator;
+  void* m_impl = nullptr;
 };
 }  // namespace hal::inline v5
