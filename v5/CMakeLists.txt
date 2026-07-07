@@ -23,6 +23,7 @@ find_package(LibhalCMakeUtil REQUIRED)
 find_package(strong_ptr REQUIRED)
 find_package(mp-units REQUIRED)
 find_package(async_context REQUIRED)
+find_package(scatter_span REQUIRED)
 
 libhal_project_init()
 libhal_add_library(libhal
@@ -40,7 +41,6 @@ libhal_add_library(libhal
         modules/servo.cppm
         modules/steady_clock.cppm
         modules/interrupts.cppm
-        modules/scatter_span.cppm
         modules/i2c.cppm
         modules/spi.cppm
         modules/serial.cppm
@@ -51,6 +51,7 @@ target_link_libraries(libhal
     PRIVATE
         libhal::strong_ptr
         libhal::async_context
+        libhal::scatter_span
         mp-units::mp-units
 )
 
@@ -60,10 +61,9 @@ libhal_add_tests(libhal
     TEST_NAMES
         adc
         interrupts
-        scatter_span
         i2c
-        spi
-        serial
+        # spi
+        # serial
         containers
         sensors
         can

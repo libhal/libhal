@@ -23,8 +23,9 @@ module;
 export module hal:usb;
 
 export import async_context;
+export import scatter_span;
+
 import :units;
-import :scatter_span;
 
 namespace hal::inline v5::usb {
 /**
@@ -560,7 +561,7 @@ public:
    * @return async::future<void> - completes when the data is written
    */
   async::future<void> write(async::context& p_context,
-                            scatter_span<byte const> p_data)
+                            mem::scatter_span<byte const> p_data)
   {
     return driver_write(p_context, p_data);
   }
@@ -585,7 +586,7 @@ public:
    * the buffers provided by p_buffer.
    */
   [[nodiscard]] async::future<usize> read(async::context& p_context,
-                                          scatter_span<byte> p_buffer)
+                                          mem::scatter_span<byte> p_buffer)
   {
     return driver_read(p_context, p_buffer);
   }
@@ -701,10 +702,12 @@ private:
                                              bool p_should_connect) = 0;
   virtual async::future<void> driver_set_address(async::context& p_context,
                                                  u8 p_address) = 0;
-  virtual async::future<void> driver_write(async::context& p_context,
-                                           scatter_span<byte const> p_data) = 0;
-  virtual async::future<usize> driver_read(async::context& p_context,
-                                           scatter_span<byte> p_buffer) = 0;
+  virtual async::future<void> driver_write(
+    async::context& p_context,
+    mem::scatter_span<byte const> p_data) = 0;
+  virtual async::future<usize> driver_read(
+    async::context& p_context,
+    mem::scatter_span<byte> p_buffer) = 0;
   virtual async::future<bus_event> driver_on_bus_event(
     async::context& p_context) = 0;
   virtual async::future<void> driver_remote_wakeup_enable(async::context&,
@@ -749,14 +752,15 @@ public:
    * is attempted.
    */
   async::future<void> write(async::context& p_context,
-                            scatter_span<byte const> p_data)
+                            mem::scatter_span<byte const> p_data)
   {
     return driver_write(p_context, p_data);
   }
 
 private:
-  virtual async::future<void> driver_write(async::context& p_context,
-                                           scatter_span<byte const> p_data) = 0;
+  virtual async::future<void> driver_write(
+    async::context& p_context,
+    mem::scatter_span<byte const> p_data) = 0;
 };
 
 /**
@@ -812,15 +816,16 @@ public:
    * endpoint.
    */
   [[nodiscard]] async::future<usize> read(async::context& p_context,
-                                          scatter_span<byte> p_buffer)
+                                          mem::scatter_span<byte> p_buffer)
   {
     return driver_read(p_context, p_buffer);
   }
 
 private:
   virtual async::future<void> driver_on_receive(async::context& p_context) = 0;
-  virtual async::future<usize> driver_read(async::context& p_context,
-                                           scatter_span<byte> p_buffer) = 0;
+  virtual async::future<usize> driver_read(
+    async::context& p_context,
+    mem::scatter_span<byte> p_buffer) = 0;
 };
 
 /**
@@ -1311,7 +1316,7 @@ public:
    * @throws hal::operation_not_permitted - See class documentation.
    */
   async::future<usize> read(async::context& p_context,
-                            scatter_span<byte> p_buffer)
+                            mem::scatter_span<byte> p_buffer)
   {
     return driver_read(p_context, p_buffer);
   }
@@ -1330,7 +1335,7 @@ public:
    * @throws hal::operation_not_permitted - See class documentation.
    */
   async::future<usize> write(async::context& p_context,
-                             scatter_span<byte const> p_buffer)
+                             mem::scatter_span<byte const> p_buffer)
   {
     return driver_write(p_context, p_buffer);
   }
@@ -1338,11 +1343,12 @@ public:
   virtual ~endpoint_io() = default;
 
 private:
-  virtual async::future<usize> driver_read(async::context& p_context,
-                                           scatter_span<byte> p_buffer) = 0;
+  virtual async::future<usize> driver_read(
+    async::context& p_context,
+    mem::scatter_span<byte> p_buffer) = 0;
   virtual async::future<usize> driver_write(
     async::context& p_context,
-    scatter_span<byte const> p_buffer) = 0;
+    mem::scatter_span<byte const> p_buffer) = 0;
 };
 
 /**

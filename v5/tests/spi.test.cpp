@@ -63,8 +63,8 @@ private:
 
   async::future<void> driver_transfer(
     async::context&,
-    hal::scatter_span<hal::byte const> p_data_out,
-    hal::scatter_span<hal::byte> p_data_in,
+    mem::scatter_span<hal::byte const> p_data_out,
+    mem::scatter_span<hal::byte> p_data_in,
     hal::byte p_filler) override
   {
     last_filler = p_filler;

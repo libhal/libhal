@@ -47,7 +47,7 @@ private:
 
   async::future<void> driver_write(
     async::context&,
-    hal::scatter_span<hal::byte const> p_data) override
+    mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {
@@ -97,7 +97,7 @@ private:
 
   async::future<void> driver_write(
     async::context&,
-    hal::scatter_span<hal::byte const> p_data) override
+    mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {

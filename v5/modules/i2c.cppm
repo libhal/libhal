@@ -16,9 +16,9 @@ export module hal:i2c;
 
 export import async_context;
 export import strong_ptr;
+export import scatter_span;
 
 export import :units;
-export import :scatter_span;
 
 namespace hal::inline v5 {
 /**
@@ -132,8 +132,8 @@ public:
   [[nodiscard]] async::future<void> transaction(
     async::context& p_context,
     hal::byte p_address,
-    scatter_span<hal::byte const> p_data_out,
-    scatter_span<hal::byte> p_data_in)
+    mem::scatter_span<hal::byte const> p_data_out,
+    mem::scatter_span<hal::byte> p_data_in)
   {
     return driver_transaction(p_context, p_address, p_data_out, p_data_in);
   }
@@ -150,7 +150,7 @@ private:
   virtual async::future<void> driver_transaction(
     async::context& p_context,
     hal::byte p_address,
-    scatter_span<hal::byte const> p_data_out,
-    scatter_span<hal::byte> p_data_in) = 0;
+    mem::scatter_span<hal::byte const> p_data_out,
+    mem::scatter_span<hal::byte> p_data_in) = 0;
 };
 }  // namespace hal::inline v5

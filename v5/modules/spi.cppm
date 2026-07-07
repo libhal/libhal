@@ -16,9 +16,9 @@ export module hal:spi;
 
 export import async_context;
 export import strong_ptr;
+export import scatter_span;
 
 export import :units;
-export import :scatter_span;
 
 namespace hal::inline v5 {
 /**
@@ -328,8 +328,8 @@ public:
    */
   [[nodiscard]] async::future<void> transfer(
     async::context& p_context,
-    scatter_span<byte const> p_data_out,
-    scatter_span<byte> p_data_in = {},
+    mem::scatter_span<byte const> p_data_out,
+    mem::scatter_span<byte> p_data_in = {},
     byte p_filler = default_filler)
   {
     return driver_transfer(p_context, p_data_out, p_data_in, p_filler);
@@ -369,8 +369,8 @@ private:
                                                  bool p_select) = 0;
   virtual async::future<void> driver_transfer(
     async::context&,
-    scatter_span<byte const> p_data_out,
-    scatter_span<byte> p_data_in,
+    mem::scatter_span<byte const> p_data_out,
+    mem::scatter_span<byte> p_data_in,
     byte p_filler) = 0;
 };
 }  // namespace hal::inline v5

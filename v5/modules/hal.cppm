@@ -14,25 +14,27 @@
 
 export module hal;
 
-export import :units;
-export import :scatter_span;
-export import :error;
+// Core 3rd party libraries
+export import strong_ptr;
+export import async_context;
+export import scatter_span;
 
+// Types, definitions, and containers
+export import :units;
+export import :error;
+export import :containers;
+
+// Interfaces
 export import :analog;
 export import :can;
 export import :pwm;
 export import :gpio;
 export import :sensors;
 export import :interrupts;
-export import :scatter_span;
 export import :i2c;
 export import :spi;
 export import :serial;
-export import :containers;
 export import :usb;
-
-export import strong_ptr;
-export import async_context;
 
 export namespace hal::inline v5 {
 inline constexpr auto version = "5.0.0";
