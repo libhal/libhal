@@ -102,12 +102,12 @@ class libhal_conan(ConanFile):
         self.tool_requires("cmake/[^4.0.0]")
         self.tool_requires("ninja/[^1.3.0]")
         self.test_requires("boost-ext-ut/2.3.1")
-        self.tool_requires("libhal-cmake-util/[^5.0.5]")
+        self.tool_requires("libhal-cmake-util/[^5.0.7]")
 
     def requirements(self):
         self.requires("strong_ptr/[^0.1.8]")
         self.requires("async_context/[^0.0.10]")
-        self.requires("scatter_span/0.0.0")
+        self.requires("scatter_span/0.0.1")
         self.requires("mp-units/2.5.1@libhal",
                       options={
                           "freestanding": True,

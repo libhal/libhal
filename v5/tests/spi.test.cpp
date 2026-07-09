@@ -212,11 +212,9 @@ void spi_transfer_test() noexcept
     async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 4> write_buffer = { 0x01, 0x02, 0x03, 0x04 };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
-    auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, { write_buffer }, {});
 
     // Verify
     expect(that % 4 == test.last_data_out_size);
@@ -227,12 +225,10 @@ void spi_transfer_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    auto write_data = hal::make_scatter_bytes();
     std::array<hal::byte, 8> read_buffer{};
-    auto read_spans = hal::make_writable_scatter_bytes(read_buffer);
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, {}, { read_buffer });
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -244,12 +240,10 @@ void spi_transfer_test() noexcept
     async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 3> write_buffer = { 0xAA, 0xBB, 0xCC };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
     std::array<hal::byte, 5> read_buffer{};
-    auto read_spans = hal::make_writable_scatter_bytes(read_buffer);
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, { write_buffer }, { read_buffer });
 
     // Verify
     expect(that % 3 == test.last_data_out_size);
@@ -260,11 +254,9 @@ void spi_transfer_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    auto write_data = hal::make_scatter_bytes();
-    auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, {}, {});
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -275,11 +267,9 @@ void spi_transfer_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    auto write_data = hal::make_scatter_bytes();
-    auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, {}, {});
 
     // Verify
     expect(hal::spi_channel::default_filler == test.last_filler);
@@ -289,12 +279,10 @@ void spi_transfer_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_spi test;
-    auto write_data = hal::make_scatter_bytes();
-    auto read_spans = hal::make_writable_scatter_bytes();
     hal::byte custom_filler{ 0x00 };
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans, custom_filler);
+    std::ignore = test.transfer(ctx, {}, {}, custom_filler);
 
     // Verify
     expect(custom_filler == test.last_filler);
@@ -307,11 +295,9 @@ void spi_transfer_test() noexcept
     std::array<hal::byte, 3> write_buffer = { hal::byte{ 0x11 },
                                               hal::byte{ 0x22 },
                                               hal::byte{ 0x33 } };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
-    auto read_spans = hal::make_writable_scatter_bytes();
 
     // Exercise
-    std::ignore = test.transfer(ctx, write_data, read_spans);
+    std::ignore = test.transfer(ctx, { write_buffer }, {});
 
     // Verify
     expect(hal::byte{ 0x11 } == test.last_data_out[0]);

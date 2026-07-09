@@ -20,6 +20,7 @@ module;
 export module hal:can;
 
 export import async_context;
+export import scatter_span;
 import :units;
 import :containers;
 

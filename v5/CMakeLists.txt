@@ -62,8 +62,8 @@ libhal_add_tests(libhal
         adc
         interrupts
         i2c
-        # spi
-        # serial
+        spi
+        serial
         containers
         sensors
         can
