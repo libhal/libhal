@@ -23,6 +23,7 @@ export import scatter_span;
 export import :units;
 export import :error;
 export import :containers;
+export import :aliases;
 
 // Interfaces
 export import :analog;
@@ -31,6 +32,7 @@ export import :pwm;
 export import :gpio;
 export import :sensors;
 export import :interrupts;
+export import :steady_clock;
 export import :i2c;
 export import :spi;
 export import :serial;

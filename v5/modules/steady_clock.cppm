@@ -15,7 +15,7 @@ export module hal:steady_clock;
 export import async_context;
 export import :units;
 
-export namespace hal {
+namespace hal::inline v5 {
 /**
  * @brief Hardware abstraction interface for a steady clock mechanism
  *
@@ -37,7 +37,7 @@ export namespace hal {
  *
  * After creation of this clock, the operating frequency shall not change.
  */
-class steady_clock
+export class steady_clock
 {
 public:
   /**
@@ -70,4 +70,4 @@ private:
   virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;
   virtual async::future<u64> driver_uptime(async::context& p_context) = 0;
 };
-}  // namespace hal
+}  // namespace hal::inline v5

@@ -38,14 +38,6 @@ class libhal_conan(ConanFile):
     exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
     package_type = "static-library"
     shared = False
-    options = {
-        "enable_clang_tidy": [True, False],
-        "clang_tidy_fix": [True, False],
-    }
-    default_options = {
-        "enable_clang_tidy": False,
-        "clang_tidy_fix": False,
-    }
 
     @property
     def _min_cppstd(self):
@@ -107,7 +99,7 @@ class libhal_conan(ConanFile):
     def requirements(self):
         self.requires("strong_ptr/[^0.1.8]")
         self.requires("async_context/[^0.0.10]")
-        self.requires("scatter_span/0.0.1")
+        self.requires("scatter_span/0.0.0")
         self.requires("mp-units/2.5.1@libhal",
                       options={
                           "freestanding": True,
@@ -130,8 +122,6 @@ class libhal_conan(ConanFile):
     def generate(self):
         tc = CMakeToolchain(self)
         tc.generator = "Ninja"
-        tc.variables["LIBHAL_ENABLE_CLANG_TIDY"] = self.options.enable_clang_tidy
-        tc.variables["LIBHAL_CLANG_TIDY_FIX"] = self.options.clang_tidy_fix
         tc.generate()
 
         deps = CMakeDeps(self)

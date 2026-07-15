@@ -15,7 +15,7 @@
 cmake_minimum_required(VERSION 4.0)
 
 project(libhal LANGUAGES CXX)
-
+set(LIBHAL_ENABLE_CLANG_TIDY OFF)
 # libhal cmake utilities from libhal-cmake-util
 # Source: https://github.com/libhal/libhal-cmake-util
 find_package(LibhalCMakeUtil REQUIRED)
@@ -29,6 +29,7 @@ libhal_project_init()
 libhal_add_library(libhal
     MODULES
         modules/hal.cppm
+        modules/aliases.cppm
         modules/analog.cppm
         modules/can.cppm
         modules/usb.cppm
