@@ -24,23 +24,23 @@ import async_context;
 
 using namespace std::literals;
 
-class test_steady_clock : public hal::steady_clock
+class simulated_steady_clock : public hal::steady_clock
 {
 private:
   async::future<hal::hertz> driver_frequency(async::context&) final
   {
     using namespace mp_units::si::unit_symbols;
-    constexpr auto ticks_per_second = std::chrono::steady_clock::period::den /
-                                      std::chrono::steady_clock::period::num;
-    return static_cast<std::uint32_t>(ticks_per_second) * Hz;
+    return 1 * MHz;
   }
 
   async::future<hal::u64> driver_uptime(async::context&) final
   {
-    auto const now = std::chrono::steady_clock::now();
-    return static_cast<hal::u64>(now.time_since_epoch().count());
+    return m_uptime++;
   }
+
+  hal::u64 m_uptime = 0;
 };
+
 class test_pwm : public hal::pwm16_channel
 {
 private:
@@ -94,8 +94,8 @@ int main()
   try {
     async::inplace_context<1024> context;
     auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
-    auto clock =
-      mem::make_strong_ptr<test_steady_clock>(std::pmr::new_delete_resource());
+    auto clock = mem::make_strong_ptr<simulated_steady_clock>(
+      std::pmr::new_delete_resource());
     auto app = app_main(context, pwm, clock);
 
     context.sync_wait(
