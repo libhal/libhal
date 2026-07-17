@@ -15,7 +15,7 @@
 cmake_minimum_required(VERSION 4.0)
 
 project(libhal LANGUAGES CXX)
-
+set(LIBHAL_ENABLE_CLANG_TIDY OFF)
 # libhal cmake utilities from libhal-cmake-util
 # Source: https://github.com/libhal/libhal-cmake-util
 find_package(LibhalCMakeUtil REQUIRED)
@@ -23,11 +23,13 @@ find_package(LibhalCMakeUtil REQUIRED)
 find_package(strong_ptr REQUIRED)
 find_package(mp-units REQUIRED)
 find_package(async_context REQUIRED)
+find_package(scatter_span REQUIRED)
 
 libhal_project_init()
 libhal_add_library(libhal
     MODULES
         modules/hal.cppm
+        modules/aliases.cppm
         modules/analog.cppm
         modules/can.cppm
         modules/usb.cppm
@@ -40,7 +42,6 @@ libhal_add_library(libhal
         modules/servo.cppm
         modules/steady_clock.cppm
         modules/interrupts.cppm
-        modules/scatter_span.cppm
         modules/i2c.cppm
         modules/spi.cppm
         modules/serial.cppm
@@ -51,6 +52,7 @@ target_link_libraries(libhal
     PRIVATE
         libhal::strong_ptr
         libhal::async_context
+        libhal::scatter_span
         mp-units::mp-units
 )
 
@@ -60,7 +62,6 @@ libhal_add_tests(libhal
     TEST_NAMES
         adc
         interrupts
-        scatter_span
         i2c
         spi
         serial

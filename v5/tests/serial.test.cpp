@@ -47,7 +47,7 @@ private:
 
   async::future<void> driver_write(
     async::context&,
-    hal::scatter_span<hal::byte const> p_data) override
+    mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {
@@ -97,7 +97,7 @@ private:
 
   async::future<void> driver_write(
     async::context&,
-    hal::scatter_span<hal::byte const> p_data) override
+    mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {
@@ -196,10 +196,9 @@ void serial_write_test() noexcept
     async::inplace_context<1024> ctx;
     test_serial test;
     std::array<hal::byte, 4> write_buffer = { 0x01, 0x02, 0x03, 0x04 };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
 
     // Exercise
-    test.write(ctx, write_data);
+    test.write(ctx, { write_buffer });
 
     // Verify
     expect(that % 4 == test.last_data_out_size);
@@ -209,10 +208,9 @@ void serial_write_test() noexcept
     // Setup
     async::inplace_context<1024> ctx;
     test_serial test;
-    auto write_data = hal::make_scatter_bytes();
 
     // Exercise
-    test.write(ctx, write_data);
+    test.write(ctx, {});
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -225,10 +223,9 @@ void serial_write_test() noexcept
     std::array<hal::byte, 3> write_buffer = { hal::byte{ 0xAA },
                                               hal::byte{ 0xBB },
                                               hal::byte{ 0xCC } };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
 
     // Exercise
-    test.write(ctx, write_data);
+    test.write(ctx, { write_buffer });
 
     // Verify
     expect(that % 0xAA == test.last_data_out[0]);
@@ -241,10 +238,9 @@ void serial_write_test() noexcept
     async::inplace_context<1024> ctx;
     test_serial test;
     std::array<hal::byte, 1> write_buffer = { hal::byte{ 0xFF } };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
 
     // Exercise
-    test.write(ctx, write_data);
+    test.write(ctx, { write_buffer });
 
     // Verify
     expect(that % 1 == test.last_data_out_size);
@@ -380,10 +376,9 @@ void awaitable_serial_wait_for_test() noexcept
     test_awaitable_serial test;
     std::array<hal::byte, 2> write_buffer = { hal::byte{ 0x12 },
                                               hal::byte{ 0x34 } };
-    auto write_data = hal::make_scatter_bytes(write_buffer);
 
     // Exercise
-    test.write(ctx, write_data);
+    test.write(ctx, { write_buffer });
 
     // Verify
     expect(that % 2 == test.last_data_out_size);

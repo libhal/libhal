@@ -20,9 +20,9 @@ export module hal:serial;
 
 export import async_context;
 export import strong_ptr;
+export import scatter_span;
 
 export import :units;
-export import :scatter_span;
 export import :containers;
 
 using namespace mp_units;
@@ -125,7 +125,7 @@ public:
    * @param p_data - data to be transmitted over the serial port
    */
   async::future<void> write(async::context& p_context,
-                            scatter_span<hal::byte const> p_data)
+                            mem::scatter_span<hal::byte const> p_data)
   {
     return driver_write(p_context, p_data);
   }
@@ -202,7 +202,7 @@ private:
                                                settings const& p_settings) = 0;
   virtual async::future<void> driver_write(
     async::context& p_context,
-    scatter_span<hal::byte const> p_data) = 0;
+    mem::scatter_span<hal::byte const> p_data) = 0;
   virtual circular_span<hal::byte const> driver_receive_buffer() = 0;
   virtual usize driver_receive_cursor() = 0;
 };
