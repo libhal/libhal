@@ -156,8 +156,7 @@ protected:
     if constexpr (needs_destruction()) {
       if (m_impl != nullptr) {
         using impl_type = typename Derived::impl;
-        hal::allocator(m_allocator)
-          .delete_object(static_cast<impl_type*>(m_impl));
+        allocator(m_allocator).delete_object(static_cast<impl_type*>(m_impl));
       }
     }
   }
