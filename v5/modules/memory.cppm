@@ -50,6 +50,9 @@ using opt_ptr = mem::optional_ptr<T>;
 export template<class T = void>
 using future = async::future<T>;
 
+/// Shorthand for an asynchronous operation with no result.
+export using task = async::task;
+
 /// Async factory result for a managed object
 ///
 /// A future that resolves to a strong_ptr. Used for factory functions that

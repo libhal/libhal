@@ -23,7 +23,6 @@ export import scatter_span;
 export import :units;
 export import :error;
 export import :containers;
-export import :aliases;
 
 // Interfaces
 export import :analog;
