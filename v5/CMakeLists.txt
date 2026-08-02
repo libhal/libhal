@@ -29,7 +29,6 @@ libhal_project_init()
 libhal_add_library(libhal
     MODULES
         modules/hal.cppm
-        modules/aliases.cppm
         modules/analog.cppm
         modules/can.cppm
         modules/usb.cppm

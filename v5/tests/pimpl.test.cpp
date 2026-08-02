@@ -2,8 +2,6 @@
 #include <coroutine>
 #include <memory_resource>
 #include <print>
-#include <span>
-#include <thread>
 #include <vector>
 
 #include <boost/ut.hpp>

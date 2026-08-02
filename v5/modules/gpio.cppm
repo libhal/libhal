@@ -16,6 +16,23 @@ export import async_context;
 export import :units;
 
 namespace hal::inline v5 {
+
+/// Generic settings for input/output pins
+struct pin_settings
+{
+  /// Pull resistor for an input pin
+  pin_resistor resistor = pin_resistor::pull_up;
+
+  /// Set to true to configure the pin to be in open drain mode
+  bool open_drain = false;
+
+  /**
+   * @brief Enables default comparison
+   *
+   */
+  bool operator<=>(pin_settings const&) const = default;
+};
+
 /**
  * @brief Digital input pin hardware abstraction interface.
  *
@@ -25,22 +42,6 @@ namespace hal::inline v5 {
 export class input_pin
 {
 public:
-  /// Generic settings for input pins
-  struct settings
-  {
-    /// Pull resistor for an input pin
-    pin_resistor resistor = pin_resistor::pull_up;
-
-    /// Set to true to configure the pin to be in open drain mode
-    bool open_drain = false;
-
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    bool operator<=>(settings const&) const = default;
-  };
-
   /**
    * @brief Configure the input pin to match the settings supplied
    *
@@ -50,7 +51,7 @@ public:
    * achieved.
    */
   [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+                                              pin_settings const& p_settings)
   {
     return driver_configure(p_context, p_settings);
   }
@@ -70,8 +71,9 @@ public:
   virtual ~input_pin() = default;
 
 protected:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
+  virtual async::future<void> driver_configure(
+    async::context& p_context,
+    pin_settings const& p_settings) = 0;
   virtual async::future<bool> driver_level(async::context& p_context) = 0;
 };
 
@@ -85,9 +87,23 @@ protected:
  * I/O expanders or other micro-controllers.
  *
  */
-export class output_pin : public input_pin
+export class output_pin
 {
 public:
+  /**
+   * @brief Configure the output pin to match the settings supplied
+   *
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @param p_settings - settings to apply to output pin
+   * @throws hal::operation_not_supported - if the settings could not be
+   * achieved.
+   */
+  [[nodiscard]] async::future<void> configure(async::context& p_context,
+                                              pin_settings const& p_settings)
+  {
+    return driver_configure(p_context, p_settings);
+  }
+
   /**
    * @brief Set the state of the pin
    *
@@ -101,13 +117,29 @@ public:
     return driver_level(p_context, p_high);
   }
 
-  ~output_pin() override = default;
+  /**
+   * @brief Read the current state of the output pin
+   *
+   * If the pin is configured as open_drain, then the pin's state matches the
+   * state of the pin externally. Otherwise, the state of the pin matches the
+   * last state set by the @ref level setter API.
+   *
+   * @param p_context - async context for coroutine suspension and resumption.
+   * @param p_high - if true then the pin state is set to HIGH voltage. If
+   * false, the pin state is set to LOW voltage.
+   */
+  [[nodiscard]] async::future<bool> level(async::context& p_context)
+  {
+    return driver_level(p_context);
+  }
+
+  virtual ~output_pin() = default;
 
 private:
-  // Needed to explain to the compiler that we are using the
-  // `input_pin::driver_level` and that the overload is allowable and the API
-  // below is not shadowing you.
-  using input_pin::driver_level;
+  virtual async::future<void> driver_configure(
+    async::context& p_context,
+    pin_settings const& p_settings) = 0;
+  virtual async::future<bool> driver_level(async::context& p_context) = 0;
   virtual async::future<void> driver_level(async::context& p_context,
                                            bool p_high) = 0;
 };
