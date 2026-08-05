@@ -152,7 +152,8 @@ void timed_interrupt_test() noexcept
       mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
 
     // Exercise
-    test.schedule(callback, hal::time_duration{ 1000 }, hal::timer_mode::periodic);
+    test.schedule(
+      callback, hal::time_duration{ 1000 }, hal::timer_mode::periodic);
 
     // Verify
     expect(that % hal::timer_mode::periodic == test.m_mode.value());
