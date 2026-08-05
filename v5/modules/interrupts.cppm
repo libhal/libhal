@@ -117,6 +117,20 @@ struct timed_callback
 };
 
 /**
+ * @brief Determines whether a scheduled callback fires once or repeatedly
+ */
+enum class timer_mode : u8
+{
+  /// The callback is invoked a single time after the delay elapses, then
+  /// the timer stops.
+  one_shot,
+  /// The callback is invoked after the delay elapses, then automatically
+  /// re-armed with the same delay, repeating indefinitely until
+  /// `schedule()` is called again or the callback is disabled.
+  periodic
+};
+
+/**
  * @brief An abstraction for hardware timed interrupts.
  *
  * Use this interface for devices and peripherals that have timer like
@@ -144,7 +158,7 @@ public:
   }
 
   /**
-   * @brief Schedule an callback be be executed after the delay time
+   * @brief Schedule an callback to be executed after the delay time
    *
    * If this is called and the timer has already scheduled an event (in other
    * words, `is_running()` returns true), then the previous scheduled event will
@@ -161,13 +175,16 @@ public:
    * Pass nullptr to disable this timed interrupt
    * @param p_delay - the amount of time until the timer expires. If p_callback
    * is nullptr, this parameter is ignored.
+   * @param p_mode - whether the callback fires once or repeatedly, see
+   * `timer_mode`
    * @throws hal::argument_out_of_domain - if p_interval is greater than what
    * can be cannot be achieved.
    */
   void schedule(mem::optional_ptr<timed_callback> const& p_callback,
-                time_duration p_delay)
+                time_duration p_delay,
+                timer_mode p_mode = timer_mode::one_shot)
   {
-    driver_schedule(p_callback, p_delay);
+    driver_schedule(p_callback, p_delay, p_mode);
   }
 
   virtual ~timed_interrupt() = default;
@@ -176,7 +193,8 @@ private:
   virtual bool driver_scheduled() = 0;
   virtual void driver_schedule(
     mem::optional_ptr<timed_callback> const& p_callback,
-    time_duration p_delay) = 0;
+    time_duration p_delay,
+    timer_mode p_mode) = 0;
 };
 
 }  // namespace hal::inline v5
