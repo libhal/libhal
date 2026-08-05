@@ -14,8 +14,22 @@
 
 #include <boost/ut.hpp>
 #include <memory_resource>
+#include <ostream>
 
 import hal;
+
+namespace hal {
+std::ostream& operator<<(std::ostream& p_ostream, timer_mode p_mode)
+{
+  switch (p_mode) {
+    case timer_mode::one_shot:
+      return p_ostream << "timer_mode::one_shot";
+    case timer_mode::periodic:
+      return p_ostream << "timer_mode::periodic";
+  }
+  return p_ostream << "timer_mode::<unknown>";
+}
+}  // namespace hal
 
 namespace {
 
@@ -36,6 +50,7 @@ public:
   bool is_scheduled = false;
   mem::optional_ptr<hal::timed_callback> stored_callback;
   hal::time_duration stored_delay{ 0 };
+  std::optional<hal::timer_mode> m_mode;
 
   ~test_timed_interrupt() override = default;
 
@@ -46,11 +61,13 @@ private:
   }
 
   void driver_schedule(mem::optional_ptr<hal::timed_callback> const& p_callback,
-                       hal::time_duration p_delay) override
+                       hal::time_duration p_delay,
+                       hal::timer_mode p_mode) override
   {
     stored_callback = p_callback;
     stored_delay = p_delay;
     is_scheduled = p_callback.has_value();
+    m_mode = p_mode;
   }
 };
 
@@ -113,6 +130,33 @@ void timed_interrupt_test() noexcept
 
     // Verify
     expect(result);
+  };
+
+  "::schedule() - defaults to one_shot mode"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    auto callback =
+      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
+
+    // Exercise
+    test.schedule(callback, hal::time_duration{ 1000 });
+
+    // Verify
+    expect(that % hal::timer_mode::one_shot == test.m_mode.value());
+  };
+
+  "::schedule() - with periodic mode"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    auto callback =
+      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
+
+    // Exercise
+    test.schedule(
+      callback, hal::time_duration{ 1000 }, hal::timer_mode::periodic);
+
+    // Verify
+    expect(that % hal::timer_mode::periodic == test.m_mode.value());
   };
 
   "::schedule() - reschedule replaces previous"_test = []() {

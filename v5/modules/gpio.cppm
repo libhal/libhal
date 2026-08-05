@@ -18,7 +18,7 @@ export import :units;
 namespace hal::inline v5 {
 
 /// Generic settings for input/output pins
-struct pin_settings
+export struct pin_settings
 {
   /// Pull resistor for an input pin
   pin_resistor resistor = pin_resistor::pull_up;
