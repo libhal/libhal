@@ -35,7 +35,6 @@ public:
   hal::hertz baud_rate_hz{ 500'000 * Hz };
 
   bool on_receive_called{ false };
-  ~test_can_transceiver() override = default;
 
 private:
   async::future<hal::hertz> driver_baud_rate(async::context&) override
@@ -74,8 +73,6 @@ public:
   bool on_bus_off_called{ false };
   bool bus_on_called{ false };
 
-  ~test_can_bus_manager() override = default;
-
 private:
   async::future<void> driver_baud_rate(async::context&,
                                        hal::u32 p_hertz) override
@@ -110,8 +107,6 @@ class test_can_filter : public hal::can_filter<Allowed>
 {
 public:
   std::optional<Allowed> last_allowed{ std::nullopt };
-
-  ~test_can_filter() override = default;
 
 private:
   async::future<void> driver_allow(async::context&,

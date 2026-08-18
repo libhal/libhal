@@ -234,7 +234,8 @@ public:
     return driver_receive_cursor();
   }
 
-  virtual ~can_transceiver() = default;
+protected:
+  ~can_transceiver() = default;
 
 private:
   virtual async::future<hertz> driver_baud_rate(async::context& p_context) = 0;
@@ -277,8 +278,6 @@ public:
   {
     return driver_on_receive(p_context);
   }
-
-  ~awaitable_can_transceiver() override = default;
 
 private:
   virtual async::future<void> driver_on_receive(async::context& p_context) = 0;
@@ -401,7 +400,8 @@ public:
     return driver_bus_on(p_context);
   }
 
-  virtual ~can_bus_manager() = default;
+protected:
+  ~can_bus_manager() = default;
 
 private:
   virtual async::future<void> driver_baud_rate(async::context& p_context,
@@ -444,7 +444,9 @@ public:
   {
     return driver_allow(p_context, p_allowed);
   }
-  virtual ~can_filter() = default;
+
+protected:
+  ~can_filter() = default;
 
 private:
   virtual async::future<void> driver_allow(async::context&,

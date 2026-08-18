@@ -35,8 +35,6 @@ public:
   hal::usize last_data_out_size{};
   hal::usize last_data_in_size{};
 
-  ~test_i2c() override = default;
-
 private:
   async::future<void> driver_configure(
     async::context&,

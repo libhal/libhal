@@ -34,8 +34,6 @@ public:
   std::array<hal::byte, 256> rx_buffer{};
   hal::usize rx_cursor{ 0 };
 
-  ~test_serial() override = default;
-
 private:
   async::future<void> driver_configure(
     async::context&,
@@ -83,8 +81,6 @@ public:
   hal::usize rx_cursor{ 0 };
   hal::serial_event last_event{};
   bool wait_for_called{ false };
-
-  ~test_awaitable_serial() override = default;
 
 private:
   async::future<void> driver_configure(

@@ -75,7 +75,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~adc16() = default;
+protected:
+  ~adc16() = default;
 
 private:
   virtual async::future<u16> driver_read(async::context& p_context) = 0;
@@ -120,7 +121,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~adc24() = default;
+protected:
+  ~adc24() = default;
 
 private:
   virtual async::future<u32> driver_read(async::context& p_context) = 0;
@@ -169,7 +171,8 @@ public:
     return driver_write(p_context, p_percentage);
   }
 
-  virtual ~dac16() = default;
+protected:
+  ~dac16() = default;
 
 private:
   virtual async::future<void> driver_write(async::context& p_context,

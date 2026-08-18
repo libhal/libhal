@@ -27,7 +27,6 @@ class test_adc16 : public hal::adc16
 {
 public:
   constexpr static hal::u16 returned_position = ((1U << 16U) - 1U) / 2U;
-  ~test_adc16() override = default;
 
 private:
   async::future<hal::u16> driver_read(async::context&) override
@@ -59,7 +58,6 @@ class test_adc24 : public hal::adc24
 {
 public:
   constexpr static hal::u32 returned_position = ((1U << 24U) - 1U) / 2U;
-  ~test_adc24() override = default;
 
 private:
   async::future<hal::u32> driver_read(async::context&) override

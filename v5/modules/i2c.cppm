@@ -138,7 +138,8 @@ public:
     return driver_transaction(p_context, p_address, p_data_out, p_data_in);
   }
 
-  virtual ~i2c() = default;
+protected:
+  ~i2c() = default;
 
 private:
   virtual async::future<void> driver_configure(async::context& p_context,

@@ -36,7 +36,6 @@ class test_current_sensor : public hal::current_sensor
 {
 public:
   hal::amperes returned_value = 1.5f * A;
-  ~test_current_sensor() override = default;
 
 private:
   async::future<hal::amperes> driver_read(async::context&) override
@@ -72,7 +71,6 @@ class test_volt_sensor : public hal::volt_sensor
 {
 public:
   hal::volts returned_value = 3.3f * V;
-  ~test_volt_sensor() override = default;
 
 private:
   async::future<hal::volts> driver_read(async::context&) override
@@ -108,7 +106,6 @@ class test_distance_sensor : public hal::distance_sensor
 {
 public:
   hal::meters returned_value = 1.0f * m;
-  ~test_distance_sensor() override = default;
 
 private:
   async::future<hal::meters> driver_read(async::context&) override
@@ -145,7 +142,6 @@ class test_angular_velocity_sensor : public hal::angular_velocity_sensor
 public:
   hal::angular_velocity returned_value = 90.0f * (rev / s);
   // hal::angular_velocity returned_value = hal::angular_velocity(90.0f);
-  ~test_angular_velocity_sensor() override = default;
 
 private:
   async::future<hal::angular_velocity> driver_read(async::context&) override
@@ -181,7 +177,6 @@ class test_rotation_sensor : public hal::rotation_sensor
 {
 public:
   hal::revolutions returned_value = 45.0f * rev;
-  ~test_rotation_sensor() override = default;
 
 private:
   async::future<hal::revolutions> driver_read(async::context&) override
@@ -221,7 +216,6 @@ public:
     .y = 0.0f * (m / pow<2>(s)),
     .z = 9.81f * (m / pow<2>(s)),
   };
-  ~test_accelerometer() override = default;
 
 private:
   async::future<hal::accelerometer::read_t> driver_read(
@@ -268,7 +262,6 @@ public:
     .y = 0.0f * T,
     .z = 0.0f * T,
   };
-  ~test_magnetometer() override = default;
 
 private:
   async::future<hal::magnetometer::read_t> driver_read(async::context&) override
@@ -314,7 +307,6 @@ public:
     .y = 0.0f * (rev / s),
     .z = 0.0f * (rev / s),
   };
-  ~test_gyroscope() override = default;
 
 private:
   async::future<hal::gyroscope::read_t> driver_read(async::context&) override
@@ -356,7 +348,6 @@ class test_temperature_sensor : public hal::temperature_sensor
 {
 public:
   hal::kelvin returned_value = delta<K>(298.15f);
-  ~test_temperature_sensor() override = default;
 
 private:
   async::future<hal::kelvin> driver_read(async::context&) override

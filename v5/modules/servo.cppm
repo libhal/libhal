@@ -37,8 +37,8 @@ public:
     revolutions max;  ///< Maximum position in revolutions
   };
 
-  virtual ~basic_servo() = default;
-
+protected:
+  ~basic_servo() = default;
   /**
    * @brief Enable or disable the servo
    *

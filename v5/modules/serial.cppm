@@ -195,7 +195,8 @@ public:
     return driver_receive_cursor();
   }
 
-  virtual ~serial() = default;
+protected:
+  ~serial() = default;
 
 private:
   virtual async::future<void> driver_configure(async::context& p_context,
@@ -254,8 +255,6 @@ public:
   {
     return driver_wait_for(p_context, p_event);
   }
-
-  ~awaitable_serial() override = default;
 
 private:
   virtual async::future<void> driver_wait_for(async::context& p_context,

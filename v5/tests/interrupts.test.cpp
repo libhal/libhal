@@ -52,8 +52,6 @@ public:
   hal::time_duration stored_delay{ 0 };
   std::optional<hal::timer_mode> m_mode;
 
-  ~test_timed_interrupt() override = default;
-
 private:
   bool driver_scheduled() override
   {

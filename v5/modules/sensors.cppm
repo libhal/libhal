@@ -36,7 +36,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~current_sensor() = default;
+protected:
+  ~current_sensor() = default;
 
 private:
   virtual async::future<amperes> driver_read(async::context& p_context) = 0;
@@ -60,7 +61,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~volt_sensor() = default;
+protected:
+  ~volt_sensor() = default;
 
 private:
   virtual async::future<volts> driver_read(async::context& p_context) = 0;
@@ -139,7 +141,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~distance_sensor() = default;
+protected:
+  ~distance_sensor() = default;
 
 private:
   virtual async::future<meters> driver_read(async::context& p_context) = 0;
@@ -164,7 +167,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~angular_velocity_sensor() = default;
+protected:
+  ~angular_velocity_sensor() = default;
 
 private:
   virtual async::future<angular_velocity> driver_read(
@@ -242,7 +246,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~rotation_sensor() = default;
+protected:
+  ~rotation_sensor() = default;
 
 private:
   virtual async::future<revolutions> driver_read(async::context& p_context) = 0;
@@ -291,7 +296,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~accelerometer() = default;
+protected:
+  ~accelerometer() = default;
 
 private:
   virtual async::future<read_t> driver_read(async::context& p_context) = 0;
@@ -348,7 +354,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~magnetometer() = default;
+protected:
+  ~magnetometer() = default;
 
 private:
   virtual async::future<read_t> driver_read(async::context& p_context) = 0;
@@ -396,7 +403,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~gyroscope() = default;
+protected:
+  ~gyroscope() = default;
 
 private:
   virtual async::future<read_t> driver_read(async::context& p_context) = 0;
@@ -420,7 +428,8 @@ public:
     return driver_read(p_context);
   }
 
-  virtual ~temperature_sensor() = default;
+protected:
+  ~temperature_sensor() = default;
 
 private:
   virtual async::future<kelvin> driver_read(async::context& p_context) = 0;
