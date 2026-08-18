@@ -147,8 +147,6 @@ public:
   hal::serial_event last_event{};
   bool wait_for_called{ false };
 
-  ~test_awaitable_serial() override = default;
-
 private:
   async::future<void> driver_configure(
     async::context&,

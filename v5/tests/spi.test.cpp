@@ -38,8 +38,6 @@ public:
   hal::usize last_data_in_size{};
   hal::byte last_filler{ hal::spi_channel::default_filler };
 
-  ~test_spi() override = default;
-
 private:
   async::future<void> driver_configure(
     async::context&,

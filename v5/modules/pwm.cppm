@@ -83,7 +83,8 @@ public:
     return driver_duty_cycle(p_context, p_duty_cycle);
   }
 
-  virtual ~pwm16_channel() = default;
+protected:
+  ~pwm16_channel() = default;
 
 private:
   virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;
@@ -100,8 +101,6 @@ private:
 class pwm_group_manager
 {
 public:
-  virtual ~pwm_group_manager() = default;
-
   /**
    * @brief Set the waveform frequency for pwm channels managed by this driver
    *
@@ -138,6 +137,9 @@ public:
   {
     return driver_frequency(p_context, p_frequency);
   }
+
+protected:
+  ~pwm_group_manager() = default;
 
 private:
   virtual async::future<void> driver_frequency(async::context& p_context,

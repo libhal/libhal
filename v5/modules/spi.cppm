@@ -359,7 +359,8 @@ public:
     return chip_select(p_context, false);
   }
 
-  virtual ~spi_channel() = default;
+protected:
+  ~spi_channel() = default;
 
 private:
   virtual async::future<void> driver_configure(async::context&,

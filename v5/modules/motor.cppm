@@ -68,7 +68,8 @@ public:
     return driver_power(p_context, p_power);
   }
 
-  virtual ~motor() = default;
+protected:
+  ~motor() = default;
 
 private:
   virtual async::future<void> driver_power(async::context& p_context,

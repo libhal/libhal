@@ -98,7 +98,8 @@ public:
     driver_on_trigger(p_callback);
   }
 
-  virtual ~edge_triggered_interrupt() = default;
+protected:
+  ~edge_triggered_interrupt() = default;
 
 private:
   virtual void driver_configure(settings const& p_settings) = 0;
@@ -187,7 +188,8 @@ public:
     driver_schedule(p_callback, p_delay, p_mode);
   }
 
-  virtual ~timed_interrupt() = default;
+protected:
+  ~timed_interrupt() = default;
 
 private:
   virtual bool driver_scheduled() = 0;

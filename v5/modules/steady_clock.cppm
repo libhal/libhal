@@ -64,7 +64,8 @@ public:
     return driver_uptime(p_context);
   }
 
-  virtual ~steady_clock() = default;
+protected:
+  ~steady_clock() = default;
 
 private:
   virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;

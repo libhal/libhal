@@ -68,7 +68,8 @@ public:
     return driver_level(p_context);
   }
 
-  virtual ~input_pin() = default;
+protected:
+  ~input_pin() = default;
 
 protected:
   virtual async::future<void> driver_configure(
@@ -133,7 +134,8 @@ public:
     return driver_level(p_context);
   }
 
-  virtual ~output_pin() = default;
+protected:
+  ~output_pin() = default;
 
 private:
   virtual async::future<void> driver_configure(
@@ -164,8 +166,6 @@ public:
   {
     return driver_on_transition(p_context, p_trigger);
   }
-
-  ~awaitable_pin() override = default;
 
 private:
   virtual async::future<void> driver_on_transition(async::context& p_context,

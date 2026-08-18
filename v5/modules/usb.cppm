@@ -250,8 +250,6 @@ export enum class bus_event : u8 {
 class endpoint
 {
 public:
-  virtual ~endpoint() = default;
-
   /**
    * @brief Get info about this endpoint
    *
@@ -309,6 +307,9 @@ public:
   {
     return driver_reset(p_context);
   }
+
+protected:
+  ~endpoint() = default;
 
 private:
   [[nodiscard]] virtual endpoint_info driver_info() const = 0;
@@ -1340,7 +1341,8 @@ public:
     return driver_write(p_context, p_buffer);
   }
 
-  virtual ~endpoint_io() = default;
+protected:
+  ~endpoint_io() = default;
 
 private:
   virtual async::future<usize> driver_read(
@@ -1561,7 +1563,8 @@ public:
     return driver_handle_host_event(p_context, p_event);
   }
 
-  virtual ~interface() = default;
+protected:
+  ~interface() = default;
 
 private:
   virtual async::future<descriptor_count> driver_write_descriptors(
