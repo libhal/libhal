@@ -30,7 +30,7 @@ RUN conan hal setup
 RUN mkdir /test_libhal
 WORKDIR /test_libhal
 RUN git clone https://github.com/libhal/libhal-arm-mcu.git
-WORKDIR /test_libhal/libhal-arm-mcu
+WORKDIR /test_libhal/libhal-arm-mcu/v1
 RUN conan create . -pr:a hal/tc/gcc -pr hal/mcu/stm32f103c8 -b missing
 RUN conan build demos -pr:a hal/tc/gcc -pr hal/mcu/stm32f103c8 -b missing
 RUN mkdir /code
