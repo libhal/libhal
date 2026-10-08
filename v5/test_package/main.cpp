@@ -13,27 +13,23 @@
 // limitations under the License.
 
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 #include <print>
-#include <span>
-#include <variant>
 
 import hal;
-import async_context;
 
 using namespace std::literals;
 
 class simulated_steady_clock : public hal::steady_clock
 {
 private:
-  async::future<hal::hertz> driver_frequency(async::context&) final
+  hal::hertz driver_frequency() final
   {
     using namespace mp_units::si::unit_symbols;
     return 1 * MHz;
   }
 
-  async::future<hal::u64> driver_uptime(async::context&) final
+  hal::u64 driver_uptime() final
   {
     return m_uptime++;
   }
@@ -44,64 +40,53 @@ private:
 class test_pwm : public hal::pwm16_channel
 {
 private:
-  async::future<hal::hertz> driver_frequency(async::context&) final
+  hal::hertz driver_frequency() final
   {
     using namespace mp_units::si::unit_symbols;
     return 10 * kHz;
   }
-  async::future<void> driver_duty_cycle(async::context&,
-                                        hal::u16 p_duty_cycle) final
+
+  void driver_duty_cycle(hal::u16 p_duty_cycle) final
   {
     std::println("duty cycle = {}/{}", p_duty_cycle, (1 << 16) - 1);
-    return {};
   }
 };
 
-async::future<int> app_main(async::context& p_ctx,
-                            mem::strong_ptr<hal::pwm16_channel> p_pwm,
-                            mem::strong_ptr<hal::steady_clock> p_clock)
+int app_main(hal::pwm16_channel& p_pwm, hal::steady_clock& p_clock)
 {
   try {
-    auto pwm_frequency_int = (co_await p_pwm->frequency(p_ctx))
-                               .numerical_value_in(mp_units::si::hertz);
+    auto const pwm_frequency_int =
+      p_pwm.frequency().numerical_value_in(mp_units::si::hertz);
     std::println("PWM frequency = {}", pwm_frequency_int);
-    co_await p_pwm->duty_cycle(p_ctx, 1 << 15);
-    co_await p_pwm->duty_cycle(p_ctx, 1 << 14);
-    co_await p_pwm->duty_cycle(p_ctx, 1 << 13);
-    co_await p_pwm->duty_cycle(p_ctx, 1 << 12);
+    p_pwm.duty_cycle(1 << 15);
+    p_pwm.duty_cycle(1 << 14);
+    p_pwm.duty_cycle(1 << 13);
+    p_pwm.duty_cycle(1 << 12);
 
-    auto clock_frequency_int = (co_await p_clock->frequency(p_ctx))
-                                 .numerical_value_in(mp_units::si::hertz);
+    auto const clock_frequency_int =
+      p_clock.frequency().numerical_value_in(mp_units::si::hertz);
     std::println("Steady clock frequency = {}", clock_frequency_int);
-    auto const uptime_before = co_await p_clock->uptime(p_ctx);
-    auto const uptime_after = co_await p_clock->uptime(p_ctx);
+    auto const uptime_before = p_clock.uptime();
+    hal::busy_wait_without_yielding_for(p_clock, 5us);
+    auto const uptime_after = p_clock.uptime();
     std::println("Steady clock uptime = {} -> {}", uptime_before, uptime_after);
   } catch (hal::argument_out_of_domain const& p_errc) {
     std::println("Caught argument_out_of_domain error successfully!");
     std::println("    Object address: {}", p_errc.instance());
   } catch (...) {
     std::println("Unknown error!");
-    co_return -1;
+    return -1;
   }
-  co_return 0;
+  return 0;
 }
-
-async::sleep_duration last_sleep{};
 
 int main()
 {
-  int status = 0;
   try {
-    async::inplace_context<1024> context;
     auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
     auto clock = mem::make_strong_ptr<simulated_steady_clock>(
       std::pmr::new_delete_resource());
-    auto app = app_main(context, pwm, clock);
-
-    context.sync_wait(
-      [](async::sleep_duration p_sleep) { last_sleep = p_sleep; });
-
-    return app.value();
+    return app_main(*pwm, *clock);
   } catch (...) {
     return -2;
   }

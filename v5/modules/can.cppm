@@ -19,8 +19,8 @@ module;
 
 export module hal:can;
 
-export import async_context;
 export import scatter_span;
+export import strong_ptr;
 import :units;
 import :containers;
 
@@ -150,17 +150,15 @@ public:
   /**
    * @return the device's operating baud rate in hertz
    */
-  async::future<hertz> baud_rate(async::context& p_context)
+  hertz baud_rate()
   {
-    return driver_baud_rate(p_context);
+    return driver_baud_rate();
   }
 
   /**
    * @brief Send a can message over the can network
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_message - a message to be sent over the can network
-   * @return async::future<void> - completes when the message is sent
    * @throws hal::operation_not_permitted - or a derivative of this class, if
    *         the can device has entered the "bus-off" state. This can happen if
    *         a critical fault in the bus has occurred. A call to `bus_on()`
@@ -168,10 +166,9 @@ public:
    *         `bus_on()` for more details.
    *
    */
-  async::future<void> send(async::context& p_context,
-                           can_message const& p_message)
+  void send(can_message const& p_message)
   {
-    return driver_send(p_context, p_message);
+    driver_send(p_message);
   }
 
   /**
@@ -238,49 +235,67 @@ protected:
   ~can_transceiver() = default;
 
 private:
-  virtual async::future<hertz> driver_baud_rate(async::context& p_context) = 0;
-  virtual async::future<void> driver_send(async::context& p_context,
-                                          can_message const& p_message) = 0;
+  virtual hertz driver_baud_rate() = 0;
+  virtual void driver_send(can_message const& p_message) = 0;
   virtual circular_span<can_message const> driver_receive_buffer() = 0;
   virtual usize driver_receive_cursor() = 0;
 };
 
 /**
- * @brief Extension of can_transceiver with interrupt-driven RX notification.
+ * @brief Callback object invoked by a `can_interrupt` when a message arrives
  *
- * Extends the can_transceiver interface with the ability to suspend a coroutine
- * until a new message is written into the receive buffer. Use this interface
- * when the underlying hardware can signal RX activity via interrupt.
- *
- * Drivers that cannot natively signal RX events should not implement this
- * interface. Use the cursor-based polling API via `receive_buffer()` and
- * `receive_cursor()` on the base `can_transceiver` interface instead.
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine. To wake a context waiting on a message, call
+ * `hal::notifier::notify()` from the callback.
  */
-export class awaitable_can_transceiver : public can_transceiver
+export struct can_receive_callback
+{
+  /**
+   * @brief Invoked when a CAN message has been received
+   *
+   * @param p_message - the received message. The reference is only valid for
+   * the duration of the callback; copy it if it must be kept.
+   */
+  virtual void callback(can_message const& p_message) noexcept = 0;
+};
+
+/**
+ * @brief CAN Bus message reception interrupt hardware abstraction
+ *
+ * Use this interface to run a callback each time a message is received. If
+ * message filtering is enabled, the callback is only invoked for messages
+ * accepted by the filter. Drivers that cannot natively signal RX events should
+ * not implement this interface; use the cursor-based polling API via
+ * `receive_buffer()` and `receive_cursor()` on `can_transceiver` instead.
+ *
+ * Implementations of this interface are NOT sharable across multiple device or
+ * application drivers. If shared, only the last callback set will be invoked.
+ */
+export class can_interrupt
 {
 public:
   /**
-   * @brief Suspend until the next CAN message is received
+   * @brief Set the callback invoked when a message is received
    *
-   * Multiple coroutines may concurrently await this function. All registered
-   * waiters are unblocked when the next message arrives in the receive buffer.
-   * If the implementation's internal waiter capacity is exceeded, the caller
-   * will block by sync until a slot becomes available. Starvation under this
-   * condition is possible depending on the scheduling algorithm in use;
-   * developers with strict fairness requirements should account for this when
-   * selecting or implementing a scheduler.
+   * Messages received before a callback is installed are not reported to a
+   * callback, although they are still written into the receive buffer of the
+   * associated `can_transceiver`.
    *
-   * @param p_context - async context for coroutine suspension and resumption
-   * @return async::future<void> - completes when a message has been written
-   *         into the receive buffer
+   * @param p_callback - the callback to invoke on message reception. Pass an
+   * empty optional to disable the callback.
    */
-  async::future<void> on_receive(async::context& p_context)
+  void on_receive(mem::optional_ptr<can_receive_callback> const& p_callback)
   {
-    return driver_on_receive(p_context);
+    driver_on_receive(p_callback);
   }
 
+protected:
+  ~can_interrupt() = default;
+
 private:
-  virtual async::future<void> driver_on_receive(async::context& p_context) = 0;
+  virtual void driver_on_receive(
+    mem::optional_ptr<can_receive_callback> const& p_callback) = 0;
 };
 
 /**
@@ -295,6 +310,20 @@ export enum class can_message_acceptance : u8 {
   /// Only accept messages that pass through filters. If no filters have been
   /// setup, then no messages will be received.
   filtered,
+};
+
+/**
+ * @brief Callback object invoked by a `can_bus_manager` on bus-off
+ *
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine. Recover the bus by calling `can_bus_manager::bus_on()` from
+ * application code, not from within the callback.
+ */
+export struct can_bus_off_callback
+{
+  /// Invoked when the CAN device enters the bus-off state
+  virtual void callback() noexcept = 0;
 };
 
 /**
@@ -321,55 +350,46 @@ public:
    * This API should be called before passing a `hal::can_transceiver`,
    * corrsponding to this can bus to a device driver for usage.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_hertz - baud rate in hertz
-   * @return async::future<void> - completes when the baud rate is set
    * @throws hal::operation_not_supported if the baud rate is above or below
    * what the device can support.
    */
-  async::future<void> baud_rate(async::context& p_context, hal::u32 p_hertz)
+  void baud_rate(hal::u32 p_hertz)
   {
-    return driver_baud_rate(p_context, p_hertz);
+    driver_baud_rate(p_hertz);
   }
 
   /**
    * @brief Set the filter mode for the can bus
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_accept - defines the set of messages that will be accepted. See
    * the `can_message_acceptance` enum class for details about each option and
    * what they do.
-   * @return async::future<void> - completes when the filter mode is set
    */
-  async::future<void> filter_mode(async::context& p_context,
-                                  can_message_acceptance p_accept)
+  void filter_mode(can_message_acceptance p_accept)
   {
-    return driver_filter_mode(p_context, p_accept);
+    driver_filter_mode(p_accept);
   }
 
   /**
-   * @brief Wait for a bus-off event
+   * @brief Set the callback invoked when the device enters bus-off
    *
    * The BUS-OFF state for CAN is denoted by the occurrence of too many
    * transmission errors (TEC > 255) causing the CAN controller to disconnect
    * from the bus to prevent further network disruption. During bus-off,
    * the node cannot transmit or receive any messages.
    *
-   * On construction of the can driver, the device starts in the "bus-on" state.
-   * When this event completes, the `send()` API will throw the
-   * `hal::operation_not_permitted` exception and the `receive_cursor()` API
-   * will not update.
+   * On construction of the can driver, the device starts in the "bus-on" state
+   * with no bus-off callback installed. After this callback has been invoked,
+   * the `send()` API will throw the `hal::operation_not_permitted` exception
+   * and the `receive_cursor()` API will not update until `bus_on()` is called.
    *
-   * Care should be taken when awaiting this event, as it will most likely be
-   * triggered from an interrupt context.
-   *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<void> - completes when the device enters bus-off
-   * state
+   * @param p_callback - the callback to invoke when the device enters bus-off.
+   * Pass an empty optional to disable the callback.
    */
-  async::future<void> on_bus_off(async::context& p_context)
+  void on_bus_off(mem::optional_ptr<can_bus_off_callback> const& p_callback)
   {
-    return driver_on_bus_off(p_context);
+    driver_on_bus_off(p_callback);
   }
 
   /**
@@ -391,26 +411,21 @@ public:
    * `hal::operation_not_permitted`. If this occurs, this function must be
    * called to re-enable bus communication.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<void> - completes when the device transitions to
-   * bus-on
    */
-  async::future<void> bus_on(async::context& p_context)
+  void bus_on()
   {
-    return driver_bus_on(p_context);
+    driver_bus_on();
   }
 
 protected:
   ~can_bus_manager() = default;
 
 private:
-  virtual async::future<void> driver_baud_rate(async::context& p_context,
-                                               hal::u32 p_hertz) = 0;
-  virtual async::future<void> driver_filter_mode(
-    async::context& p_context,
-    can_message_acceptance p_accept) = 0;
-  virtual async::future<void> driver_on_bus_off(async::context& p_context) = 0;
-  virtual async::future<void> driver_bus_on(async::context& p_context) = 0;
+  virtual void driver_baud_rate(hal::u32 p_hertz) = 0;
+  virtual void driver_filter_mode(can_message_acceptance p_accept) = 0;
+  virtual void driver_on_bus_off(
+    mem::optional_ptr<can_bus_off_callback> const& p_callback) = 0;
+  virtual void driver_bus_on() = 0;
 };
 
 /**
@@ -431,26 +446,22 @@ public:
   /**
    * @brief Configure the filter acceptance criteria
    *
-   * Asynchronously updates the filter to accept messages matching the specified
+   * Updates the filter to accept messages matching the specified
    * criteria. If p_allowed is nullopt, the filter may be cleared or disabled
    * depending on the implementation.
    *
-   * @param p_context - The async execution context for this operation
    * @param p_allowed - The filtering criteria; nullopt to clear the filter
-   * @return async::future<void> - Completes when the filter is configured
    */
-  async::future<void> allow(async::context& p_context,
-                            std::optional<Allowed> p_allowed)
+  void allow(std::optional<Allowed> p_allowed)
   {
-    return driver_allow(p_context, p_allowed);
+    driver_allow(p_allowed);
   }
 
 protected:
   ~can_filter() = default;
 
 private:
-  virtual async::future<void> driver_allow(async::context&,
-                                           std::optional<Allowed>) = 0;
+  virtual void driver_allow(std::optional<Allowed>) = 0;
 };
 
 /**

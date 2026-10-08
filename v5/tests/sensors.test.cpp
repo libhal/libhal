@@ -14,13 +14,11 @@
 
 #include <array>
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 
 #include <boost/ut.hpp>
 
 import hal;
-import async_context;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
@@ -38,7 +36,7 @@ public:
   hal::amperes returned_value = 1.5f * A;
 
 private:
-  async::future<hal::amperes> driver_read(async::context&) override
+  hal::amperes driver_read() override
   {
     return returned_value;
   }
@@ -50,16 +48,14 @@ void current_sensor_test() noexcept
 
   "current_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_current_sensor test;
     test.returned_value = 2.5f * A;
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((2.5f * A) == result.value());
+    expect((2.5f * A) == result);
   };
 }
 
@@ -73,7 +69,7 @@ public:
   hal::volts returned_value = 3.3f * V;
 
 private:
-  async::future<hal::volts> driver_read(async::context&) override
+  hal::volts driver_read() override
   {
     return returned_value;
   }
@@ -85,16 +81,14 @@ void volt_sensor_test() noexcept
 
   "volt_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_volt_sensor test;
     test.returned_value = 5.0f * V;
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((5.0f * V) == result.value());
+    expect((5.0f * V) == result);
   };
 }
 
@@ -108,7 +102,7 @@ public:
   hal::meters returned_value = 1.0f * m;
 
 private:
-  async::future<hal::meters> driver_read(async::context&) override
+  hal::meters driver_read() override
   {
     return returned_value;
   }
@@ -120,16 +114,14 @@ void distance_sensor_test() noexcept
 
   "distance_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_distance_sensor test;
     test.returned_value = 0.5f * m;
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((0.5f * m) == result.value());
+    expect((0.5f * m) == result);
   };
 }
 
@@ -144,7 +136,7 @@ public:
   // hal::angular_velocity returned_value = hal::angular_velocity(90.0f);
 
 private:
-  async::future<hal::angular_velocity> driver_read(async::context&) override
+  hal::angular_velocity driver_read() override
   {
     return returned_value;
   }
@@ -156,16 +148,14 @@ void angular_velocity_sensor_test() noexcept
 
   "angular_velocity_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_angular_velocity_sensor test;
     test.returned_value = 180.0f * (angular::unit_symbols::rev / s);
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((180.0f * (angular::unit_symbols::rev / s)) == result.value());
+    expect((180.0f * (angular::unit_symbols::rev / s)) == result);
   };
 }
 
@@ -179,7 +169,7 @@ public:
   hal::revolutions returned_value = 45.0f * rev;
 
 private:
-  async::future<hal::revolutions> driver_read(async::context&) override
+  hal::revolutions driver_read() override
   {
     return returned_value;
   }
@@ -191,16 +181,14 @@ void rotation_sensor_test() noexcept
 
   "rotation_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_rotation_sensor test;
     test.returned_value = 0.75f * rev;
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((0.75f * rev) == result.value());
+    expect((0.75f * rev) == result);
   };
 }
 
@@ -218,8 +206,7 @@ public:
   };
 
 private:
-  async::future<hal::accelerometer::read_t> driver_read(
-    async::context&) override
+  hal::accelerometer::read_t driver_read() override
   {
     return returned_value;
   }
@@ -231,7 +218,6 @@ void accelerometer_test() noexcept
 
   "accelerometer::read() returns x, y, z values from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_accelerometer test;
     test.returned_value = {
       .x = 1.0f * (m / pow<2>(s)),
@@ -240,13 +226,12 @@ void accelerometer_test() noexcept
     };
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((1.0f * (m / pow<2>(s))) == result.value().x);
-    expect((2.0f * (m / pow<2>(s))) == result.value().y);
-    expect((3.0f * (m / pow<2>(s))) == result.value().z);
+    expect((1.0f * (m / pow<2>(s))) == result.x);
+    expect((2.0f * (m / pow<2>(s))) == result.y);
+    expect((3.0f * (m / pow<2>(s))) == result.z);
   };
 }
 
@@ -264,7 +249,7 @@ public:
   };
 
 private:
-  async::future<hal::magnetometer::read_t> driver_read(async::context&) override
+  hal::magnetometer::read_t driver_read() override
   {
     return returned_value;
   }
@@ -276,7 +261,6 @@ void magnetometer_test() noexcept
 
   "magnetometer::read() returns x, y, z values from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_magnetometer test;
     test.returned_value = {
       .x = 0.1f * T,
@@ -285,13 +269,12 @@ void magnetometer_test() noexcept
     };
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((0.1f * T) == result.value().x);
-    expect((0.2f * T) == result.value().y);
-    expect((0.3f * T) == result.value().z);
+    expect((0.1f * T) == result.x);
+    expect((0.2f * T) == result.y);
+    expect((0.3f * T) == result.z);
   };
 }
 
@@ -309,7 +292,7 @@ public:
   };
 
 private:
-  async::future<hal::gyroscope::read_t> driver_read(async::context&) override
+  hal::gyroscope::read_t driver_read() override
   {
     return returned_value;
   }
@@ -321,7 +304,6 @@ void gyroscope_test() noexcept
 
   "gyroscope::read() returns x, y, z values from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_gyroscope test;
     test.returned_value = {
       .x = 10.0f * (rev / s),
@@ -330,13 +312,12 @@ void gyroscope_test() noexcept
     };
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect((10.0f * (rev / s)) == result.value().x);
-    expect((20.0f * (rev / s)) == result.value().y);
-    expect((30.0f * (rev / s)) == result.value().z);
+    expect((10.0f * (rev / s)) == result.x);
+    expect((20.0f * (rev / s)) == result.y);
+    expect((30.0f * (rev / s)) == result.z);
   };
 }
 
@@ -350,7 +331,7 @@ public:
   hal::kelvin returned_value = delta<K>(298.15f);
 
 private:
-  async::future<hal::kelvin> driver_read(async::context&) override
+  hal::kelvin driver_read() override
   {
     return returned_value;
   }
@@ -362,16 +343,14 @@ void temperature_sensor_test() noexcept
 
   "temperature_sensor::read() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_temperature_sensor test;
     test.returned_value = delta<K>(373.15f);
 
     // Exercise
-    auto result = test.read(ctx);
+    auto result = test.read();
 
     // Verify
-    expect(result.has_value());
-    expect(delta<K>(373.15f) == result.value());
+    expect(delta<K>(373.15f) == result);
   };
 }
 
