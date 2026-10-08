@@ -14,7 +14,6 @@
 
 export module hal:i2c;
 
-export import async_context;
 export import strong_ptr;
 export import scatter_span;
 
@@ -64,10 +63,9 @@ public:
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
@@ -92,15 +90,18 @@ public:
    * - If both p_data_in and p_data_out are empty, simply do nothing and return
    *   success.
    *
-   * # Async Responsibilities
+   * # Blocking behavior
    *
-   * This API is expected to set the context to `async::blocked_by::io` after it
-   * has initiated the transaction process. Implementations that use interrupt
-   * should continue to block until the transaction is finished. This interface
-   * is considered a shared resource and thus, implementations must record the
-   * context address of the context that is using this resource (the one blocked
-   * by IO) and set any other context to `async::blocked_by::sync` with the
-   * blocking context as the address.
+   * This call blocks the calling context until the transaction is finished.
+   * Implementations that wait on interrupts or DMA should block through a
+   * `hal::notifier`, so the installed waiter provider can idle the CPU or run
+   * other contexts in the meantime. This interface is a shared resource:
+   * implementations shared between contexts must serialize transactions.
+   *
+   * Implementations must bound how long they wait on the bus, for example when
+   * a device stretches the clock or holds SDA low indefinitely. That bound is a
+   * property of the implementation, typically set at construction, and is not
+   * a parameter of this API.
    *
    * # How Arbitration loss is handled
    *
@@ -108,8 +109,8 @@ public:
    * become free and try again. Arbitration loss means that during the address
    * phase of a transaction 1 or more i2c bus controllers attempted to perform
    * an transaction and one of the i2c bus controllers, that isn't this one won
-   * out. In this situation the context that initiated the transaction should
-   * remain blocked by IO until the transaction is complete.
+   * out. In this situation this call continues to block until the transaction
+   * is complete.
    *
    * @param p_address 7-bit address of the device you want to communicate with.
    * To perform a transaction with a 10-bit address, this parameter must be the
@@ -128,30 +129,25 @@ public:
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
+   * @throws hal::timed_out - indicates that the bus did not complete the
+   * transaction within the implementation's bound, for example because a
+   * device stretched the clock for too long.
    */
-  [[nodiscard]] async::future<void> transaction(
-    async::context& p_context,
-    hal::byte p_address,
-    mem::scatter_span<hal::byte const> p_data_out,
-    mem::scatter_span<hal::byte> p_data_in)
+  void transaction(hal::byte p_address,
+                   mem::scatter_span<hal::byte const> p_data_out,
+                   mem::scatter_span<hal::byte> p_data_in)
   {
-    return driver_transaction(p_context, p_address, p_data_out, p_data_in);
+    driver_transaction(p_address, p_data_out, p_data_in);
   }
 
 protected:
   ~i2c() = default;
 
 private:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
 
-  /// Implementors of this virtual API should simply call the concrete class's
-  /// implementation of driver_transaction() without the p_timeout parameter and
-  /// drop the p_timeout parameter.
-  virtual async::future<void> driver_transaction(
-    async::context& p_context,
-    hal::byte p_address,
-    mem::scatter_span<hal::byte const> p_data_out,
-    mem::scatter_span<hal::byte> p_data_in) = 0;
+  virtual void driver_transaction(hal::byte p_address,
+                                  mem::scatter_span<hal::byte const> p_data_out,
+                                  mem::scatter_span<hal::byte> p_data_in) = 0;
 };
 }  // namespace hal::inline v5

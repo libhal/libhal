@@ -20,7 +20,6 @@ module;
 export module hal:memory;
 
 import strong_ptr;
-import async_context;
 
 namespace hal::inline v5 {
 
@@ -46,21 +45,6 @@ using ptr = mem::strong_ptr<T>;
 /// @tparam T The type of object being managed
 export template<class T>
 using opt_ptr = mem::optional_ptr<T>;
-
-export template<class T = void>
-using future = async::future<T>;
-
-/// Shorthand for an asynchronous operation with no result.
-export using task = async::task;
-
-/// Async factory result for a managed object
-///
-/// A future that resolves to a strong_ptr. Used for factory functions that
-/// perform async initialization. The caller co_awaits the factory and receives
-/// a strong_ptr to the fully initialized object.
-/// @tparam T The type of object being created asynchronously
-export template<class T>
-using future_ptr = future<hal::ptr<T>>;
 
 /// Create a managed object with a strong pointer
 ///

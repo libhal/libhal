@@ -12,7 +12,6 @@
 
 export module hal:servo;
 
-export import async_context;
 export import :units;
 
 export namespace hal::inline v5 {
@@ -46,13 +45,11 @@ protected:
    * may enter a low-power braking mode, but should not actively control
    * position.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_state - true to enable, false to disable
    */
-  [[nodiscard]] async::future<void> enable(async::context& p_context,
-                                           bool p_state)
+  void enable(bool p_state)
   {
-    return driver_enable(p_context, p_state);
+    driver_enable(p_state);
   }
 
   /**
@@ -61,36 +58,28 @@ protected:
    * Moves the servo to the specified position and holds it there.
    * Position must be within the range returned by position_range().
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_target_position - The position in revolutions to move to
    */
-  [[nodiscard]] async::future<void> position(async::context& p_context,
-                                             revolutions p_target_position)
+  void position(revolutions p_target_position)
   {
-    return driver_position(p_context, p_target_position);
+    driver_position(p_target_position);
   }
 
   /**
    * @brief Get the valid position range for this servo
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<position_range_t> - The minimum and maximum position
+   * @return position_range_t - The minimum and maximum position
    * in revolutions
    */
-  [[nodiscard]] async::future<position_range_t> position_range(
-    async::context& p_context)
+  [[nodiscard]] position_range_t position_range()
   {
-    return driver_position_range(p_context);
+    return driver_position_range();
   }
 
 private:
-  virtual async::future<void> driver_enable(async::context& p_context,
-                                            bool p_state) = 0;
-  virtual async::future<void> driver_position(
-    async::context& p_context,
-    revolutions p_target_position) = 0;
-  virtual async::future<position_range_t> driver_position_range(
-    async::context& p_context) = 0;
+  virtual void driver_enable(bool p_state) = 0;
+  virtual void driver_position(revolutions p_target_position) = 0;
+  virtual position_range_t driver_position_range() = 0;
 };
 
 /**
@@ -105,30 +94,27 @@ public:
   /**
    * @brief Get the current position of the servo
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<revolutions> - The current position in revolutions
+   * @return revolutions - The current position in revolutions
    */
-  [[nodiscard]] async::future<revolutions> position(async::context& p_context)
+  [[nodiscard]] revolutions position()
   {
-    return driver_get_position(p_context);
+    return driver_get_position();
   }
 
   /**
    * @brief Check if the servo is currently moving
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<bool> - true if the servo is in motion, false if
+   * @return bool - true if the servo is in motion, false if
    * stationary
    */
-  [[nodiscard]] async::future<bool> is_moving(async::context& p_context)
+  [[nodiscard]] bool is_moving()
   {
-    return driver_is_moving(p_context);
+    return driver_is_moving();
   }
 
 private:
-  virtual async::future<revolutions> driver_get_position(
-    async::context& p_context) = 0;
-  virtual async::future<bool> driver_is_moving(async::context& p_context) = 0;
+  virtual revolutions driver_get_position() = 0;
+  virtual bool driver_is_moving() = 0;
 };
 
 /**
@@ -170,47 +156,41 @@ public:
    *
    * Sets the velocity that will be used for subsequent position commands.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - Structure containing velocity parameters
    * @throws hal::operation_not_supported - if the settings cannot be
    * accommodated by the servo. This occurs if the magnitude of the value is
    * greater than the value returned from range().
    */
-  [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
    * @brief Get the current velocity status
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<status_t> - Structure containing current velocity
+   * @return status_t - Structure containing current velocity
    * information
    */
-  [[nodiscard]] async::future<status_t> status(async::context& p_context)
+  [[nodiscard]] status_t status()
   {
-    return driver_status(p_context);
+    return driver_status();
   }
 
   /**
    * @brief Get the valid velocity range for this servo
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<range_t> - The minimum and maximum velocities in RPM
+   * @return range_t - The minimum and maximum velocities in RPM
    */
-  [[nodiscard]] async::future<range_t> velocity_range(async::context& p_context)
+  [[nodiscard]] range_t velocity_range()
   {
-    return driver_velocity_range(p_context);
+    return driver_velocity_range();
   }
 
 private:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
-  virtual async::future<status_t> driver_status(async::context& p_context) = 0;
-  virtual async::future<range_t> driver_velocity_range(
-    async::context& p_context) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_velocity_range() = 0;
 };
 
 /**
@@ -252,48 +232,42 @@ public:
    *
    * Sets the torque limit that will be applied during position commands.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - Structure containing torque parameters
    * @throws hal::operation_not_supported - if the settings cannot be
    * accommodated by the servo. This occurs if the magnitude of the value is
    * greater than the value returned from range().
    */
-  [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
    * @brief Get the current torque status
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<status_t> - Structure containing current torque
+   * @return status_t - Structure containing current torque
    * information
    */
-  [[nodiscard]] async::future<status_t> status(async::context& p_context)
+  [[nodiscard]] status_t status()
   {
-    return driver_status(p_context);
+    return driver_status();
   }
 
   /**
    * @brief Get the valid torque range for this servo
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<range_t> - The minimum and maximum torque values in
+   * @return range_t - The minimum and maximum torque values in
    * newton meters
    */
-  [[nodiscard]] async::future<range_t> torque_range(async::context& p_context)
+  [[nodiscard]] range_t torque_range()
   {
-    return driver_torque_range(p_context);
+    return driver_torque_range();
   }
 
 private:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
-  virtual async::future<status_t> driver_status(async::context& p_context) = 0;
-  virtual async::future<range_t> driver_torque_range(
-    async::context& p_context) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_torque_range() = 0;
 };
 
 /**
@@ -339,16 +313,14 @@ public:
    * position commands. Only the magnitude (absolute values) of the values are
    * taken.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - Structure containing velocity and torque parameters
    * @throws hal::operation_not_supported - if the settings cannot be
    * accommodated by the servo. This occurs if the magnitude of the value is
    * greater than the value returned from range().
    */
-  [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
@@ -356,45 +328,39 @@ public:
    *
    * Directly sets just the velocity parameter while maintaining other settings.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_target_velocity - Target velocity in RPM
    */
-  [[nodiscard]] async::future<void> velocity(async::context& p_context,
-                                             rpm p_target_velocity)
+  void velocity(rpm p_target_velocity)
   {
-    return driver_velocity(p_context, p_target_velocity);
+    driver_velocity(p_target_velocity);
   }
 
   /**
    * @brief Get current velocity and torque status
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<status_t> - Structure containing current velocity
+   * @return status_t - Structure containing current velocity
    * and torque information
    */
-  [[nodiscard]] async::future<status_t> status(async::context& p_context)
+  [[nodiscard]] status_t status()
   {
-    return driver_status(p_context);
+    return driver_status();
   }
 
   /**
    * @brief Get the valid ranges for velocity and torque
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<range_t> - Structure containing velocity and torque
+   * @return range_t - Structure containing velocity and torque
    * range information
    */
-  [[nodiscard]] async::future<range_t> range(async::context& p_context)
+  [[nodiscard]] range_t range()
   {
-    return driver_range(p_context);
+    return driver_range();
   }
 
 private:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
-  virtual async::future<void> driver_velocity(async::context& p_context,
-                                              rpm p_target_velocity) = 0;
-  virtual async::future<status_t> driver_status(async::context& p_context) = 0;
-  virtual async::future<range_t> driver_range(async::context& p_context) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual void driver_velocity(rpm p_target_velocity) = 0;
+  virtual status_t driver_status() = 0;
+  virtual range_t driver_range() = 0;
 };
 }  // namespace hal::inline v5

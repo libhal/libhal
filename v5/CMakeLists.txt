@@ -22,7 +22,6 @@ find_package(LibhalCMakeUtil REQUIRED)
 
 find_package(strong_ptr REQUIRED)
 find_package(mp-units REQUIRED)
-find_package(async_context REQUIRED)
 find_package(scatter_span REQUIRED)
 
 libhal_project_init()
@@ -41,6 +40,7 @@ libhal_add_library(libhal
         modules/servo.cppm
         modules/steady_clock.cppm
         modules/interrupts.cppm
+        modules/waiter.cppm
         modules/i2c.cppm
         modules/spi.cppm
         modules/serial.cppm
@@ -51,7 +51,6 @@ libhal_add_library(libhal
 target_link_libraries(libhal
     PRIVATE
         libhal::strong_ptr
-        libhal::async_context
         libhal::scatter_span
         mp-units::mp-units
 )
@@ -61,6 +60,7 @@ libhal_install_library(libhal NAMESPACE libhal)
 libhal_add_tests(libhal
     TEST_NAMES
         adc
+        can
         interrupts
         i2c
         spi
@@ -68,4 +68,5 @@ libhal_add_tests(libhal
         containers
         sensors
         pimpl
+        waiter
 )

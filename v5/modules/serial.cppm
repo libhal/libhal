@@ -18,7 +18,6 @@ module;
 
 export module hal:serial;
 
-export import async_context;
 export import strong_ptr;
 export import scatter_span;
 
@@ -107,27 +106,23 @@ public:
    * before modifying the hardware. This will ensure that if this operation
    * fails, the state of the serial device has not changed.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - settings to apply to serial driver
    * @throws hal::operation_not_supported - if the settings could not be
    * achieved.
    */
-  async::future<void> configure(async::context& p_context,
-                                settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
    * @brief Write data to the transmitter line of the serial port
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_data - data to be transmitted over the serial port
    */
-  async::future<void> write(async::context& p_context,
-                            mem::scatter_span<hal::byte const> p_data)
+  void write(mem::scatter_span<hal::byte const> p_data)
   {
-    return driver_write(p_context, p_data);
+    driver_write(p_data);
   }
 
   /**
@@ -199,65 +194,80 @@ protected:
   ~serial() = default;
 
 private:
-  virtual async::future<void> driver_configure(async::context& p_context,
-                                               settings const& p_settings) = 0;
-  virtual async::future<void> driver_write(
-    async::context& p_context,
-    mem::scatter_span<hal::byte const> p_data) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual void driver_write(mem::scatter_span<hal::byte const> p_data) = 0;
   virtual circular_span<hal::byte const> driver_receive_buffer() = 0;
   virtual usize driver_receive_cursor() = 0;
 };
 
-/// The set of serial receive events that can be awaited on by
+/// The set of serial receive events reported to a `serial_receive_callback`
 export enum class serial_event : u8 {
-  /// Suspend until at least one new byte has been written into the receive
-  /// buffer since the call was made. The cursor position at the time of the
-  /// call is used as the baseline. Resumption occurs when the cursor advances
-  /// past that position.
+  /// New data has been written into the receive buffer. How much data each
+  /// event represents is implementation-defined: a single byte, a FIFO
+  /// threshold, or a DMA half/full transfer. Use `receive_cursor()` to find out
+  /// how much arrived.
   rx = 0,
 
-  /// Suspend until the RX line has transitioned from active to idle after
-  /// receiving one or more bytes. Implementations without hardware idle
-  /// detection must emulate this behavior, typically by monitoring cursor
-  /// movement with a timer. The exact idle timeout is implementation-defined.
+  /// The RX line has transitioned from active to idle after receiving one or
+  /// more bytes. Implementations without hardware idle detection must emulate
+  /// this, typically by monitoring cursor movement with a timer. The exact idle
+  /// timeout is implementation-defined.
   idle = 1,
 };
 
 /**
- * @brief Extension of serial with asynchronous RX event notification.
+ * @brief Callback object invoked by a `serial_interrupt` on receive events
  *
- * Extends the serial interface with the ability to suspend a coroutine until
- * a specific receive event occurs. Use this interface when the underlying
- * hardware or driver can signal RX activity or line idle conditions via
- * interrupt.
- *
- * Drivers that cannot natively signal RX events should not implement this
- * interface. Use the polling free functions with a clock against the base
- * serial interface instead.
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine. Read data through `serial::receive_buffer()` outside of the
+ * callback. To wake a context waiting on received data, call
+ * `hal::notifier::notify()` from the callback.
  */
-export class awaitable_serial : public serial
+export struct serial_receive_callback
+{
+  /**
+   * @brief Invoked when a serial receive event occurs
+   *
+   * @param p_event - the receive event that occurred
+   */
+  virtual void callback(serial_event p_event) noexcept = 0;
+};
+
+/**
+ * @brief Serial receive event interrupt hardware abstraction
+ *
+ * Use this interface to run a callback when the serial port receives data or
+ * its RX line goes idle. Drivers whose hardware can signal RX activity or line
+ * idle conditions via interrupt should vend this interface alongside
+ * `hal::serial`. Drivers that cannot natively signal RX events should not
+ * implement it; poll `receive_cursor()` instead.
+ *
+ * Implementations of this interface are NOT sharable across multiple device or
+ * application drivers. If shared, only the last callback set will be invoked.
+ */
+export class serial_interrupt
 {
 public:
   /**
-   * @brief Suspend the coroutine until the specified RX event occurs.
+   * @brief Set the callback invoked on serial receive events
    *
-   * For `event::rx`: resumes when at least one new byte has arrived in the
-   * receive buffer. The cursor is snapshotted at the time of the call and
-   * resumption occurs once it advances.
+   * Any receive events that occur before a callback is installed are not
+   * reported, although the data is still written into the receive buffer.
    *
-   * For `event::idle`: resumes when the RX line goes idle after a burst of
-   * data. Implementations without a hardware idle interrupt must emulate this.
-   *
-   * @param p_context - the async context to suspend while waiting
-   * @param p_event - the RX condition to wait for
+   * @param p_callback - the callback to invoke on receive events. Pass an empty
+   * optional to disable the callback.
    */
-  async::future<void> wait_for(async::context& p_context, serial_event p_event)
+  void on_receive(mem::optional_ptr<serial_receive_callback> const& p_callback)
   {
-    return driver_wait_for(p_context, p_event);
+    driver_on_receive(p_callback);
   }
 
+protected:
+  ~serial_interrupt() = default;
+
 private:
-  virtual async::future<void> driver_wait_for(async::context& p_context,
-                                              serial_event p_event) = 0;
+  virtual void driver_on_receive(
+    mem::optional_ptr<serial_receive_callback> const& p_callback) = 0;
 };
 }  // namespace hal::inline v5

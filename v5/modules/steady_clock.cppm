@@ -12,7 +12,6 @@
 
 export module hal:steady_clock;
 
-export import async_context;
 export import :units;
 
 namespace hal::inline v5 {
@@ -43,32 +42,30 @@ public:
   /**
    * @brief Get the operating frequency of the steady clock
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<hertz> - operating frequency of the steady clock.
+   * @return hertz - operating frequency of the steady clock.
    * Guaranteed to be a positive value by the implementing driver.
    */
-  [[nodiscard]] async::future<hertz> frequency(async::context& p_context)
+  [[nodiscard]] hertz frequency()
   {
-    return driver_frequency(p_context);
+    return driver_frequency();
   }
 
   /**
    * @brief Get the current value of the steady clock
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<u64> - Number of counts that the steady clock has
+   * @return u64 - Number of counts that the steady clock has
    * counted since it started.
    */
-  [[nodiscard]] async::future<u64> uptime(async::context& p_context)
+  [[nodiscard]] u64 uptime()
   {
-    return driver_uptime(p_context);
+    return driver_uptime();
   }
 
 protected:
   ~steady_clock() = default;
 
 private:
-  virtual async::future<hertz> driver_frequency(async::context& p_context) = 0;
-  virtual async::future<u64> driver_uptime(async::context& p_context) = 0;
+  virtual hertz driver_frequency() = 0;
+  virtual u64 driver_uptime() = 0;
 };
 }  // namespace hal::inline v5
