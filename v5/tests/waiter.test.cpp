@@ -255,6 +255,7 @@ void notifier_test() noexcept
     // Exercise
     {
       hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
+      // NOLINTNEXTLINE(bugprone-infinite-loop): set by on_block via block()
       while (not operation_done) {
         operation.block();
       }

@@ -63,7 +63,7 @@ export struct endpoint_info
    */
   [[nodiscard]] bool in_direction()
   {
-    return number >> 7;
+    return (number & 0x80U) != 0;
   }
 
   /**
@@ -73,7 +73,7 @@ export struct endpoint_info
    */
   [[nodiscard]] u8 logical_number()
   {
-    return number & 0xF;
+    return static_cast<u8>(number & 0xFU);
   }
 };
 
@@ -333,16 +333,16 @@ private:
 export struct lpm_support
 {
   /// @brief Bitmask for USB 2.0 remote wakeup capability.
-  static constexpr hal::u8 remote_wakeup_mask = 1 << 0;
+  static constexpr hal::u8 remote_wakeup_mask = 1U << 0U;
 
   /// @brief Bitmask for the USB 2.0 L1 (sleep) LPM state.
-  static constexpr hal::u8 l1_mask = 1 << 1;
+  static constexpr hal::u8 l1_mask = 1U << 1U;
 
   /// @brief Bitmask for the USB 3.x U1 link state.
-  static constexpr hal::u8 u1_mask = 1 << 2;
+  static constexpr hal::u8 u1_mask = 1U << 2U;
 
   /// @brief Bitmask for the USB 3.x U2 link state.
-  static constexpr hal::u8 u2_mask = 1 << 3;
+  static constexpr hal::u8 u2_mask = 1U << 3U;
 
   /**
    * @brief Returns whether USB 2.0 remote wakeup is supported.
@@ -470,7 +470,7 @@ export struct lpm_support
     if (p_enable) {
       bits |= p_mask;
     } else {
-      bits &= ~p_mask;
+      bits &= static_cast<hal::u8>(~static_cast<unsigned>(p_mask));
     }
   }
 
@@ -983,9 +983,10 @@ export struct setup_packet
    */
   constexpr setup_packet(args p_args)
   {
-    raw_request_bytes[0] = p_args.device_to_host << 7 |
-                           static_cast<byte>(p_args.type) << 5 |
-                           static_cast<byte>(p_args.recipient);
+    raw_request_bytes[0] =
+      static_cast<byte>((static_cast<unsigned>(p_args.device_to_host) << 7U) |
+                        (static_cast<unsigned>(p_args.type) << 5U) |
+                        static_cast<unsigned>(p_args.recipient));
     raw_request_bytes[1] = p_args.request;
 
     set_le_u16<value_offset>(p_args.value);
@@ -1031,7 +1032,7 @@ export struct setup_packet
    */
   [[nodiscard]] constexpr request_type get_type() const
   {
-    u8 const t = (bm_request_type() >> 5) & 0b11;
+    u8 const t = (static_cast<unsigned>(bm_request_type()) >> 5U) & 0b11U;
     if (t > 2) {
       return request_type::invalid;
     }
@@ -1050,7 +1051,7 @@ export struct setup_packet
    */
   [[nodiscard]] constexpr request_recipient get_recipient() const
   {
-    u8 const r = bm_request_type() & 0b1111;
+    u8 const r = bm_request_type() & 0b1111U;
     if (r > 2) {
       return request_recipient::invalid;
     }
@@ -1069,7 +1070,7 @@ export struct setup_packet
    */
   [[nodiscard]] constexpr bool is_device_to_host() const
   {
-    return (bm_request_type() & (1 << 7)) != 0;
+    return (bm_request_type() & (1U << 7U)) != 0;
   }
 
   [[nodiscard]] constexpr u8 bm_request_type() const
@@ -1172,12 +1173,12 @@ export struct setup_packet
     static_assert(offset < 7,
                   "Offset greater than size of setup bytes, need at least two "
                   "bytes to emplace the u16");
-    static_assert(0 == (offset & 0b1),
+    static_assert(0 == (offset & 0b1U),
                   "Offset must be even number (2-byte/16-bit aligned)");
 
-    raw_request_bytes[offset + 0] = static_cast<hal::byte>(p_value & 0xFF);
+    raw_request_bytes[offset + 0] = static_cast<hal::byte>(p_value & 0xFFU);
     raw_request_bytes[offset + 1] =
-      static_cast<hal::byte>((p_value >> 8) & 0xFF);
+      static_cast<hal::byte>((static_cast<unsigned>(p_value) >> 8U) & 0xFFU);
   }
 
   /**
@@ -1194,7 +1195,7 @@ export struct setup_packet
   [[nodiscard]] constexpr static u16 from_le_bytes(hal::byte p_first,
                                                    hal::byte p_second)
   {
-    return static_cast<u16>(p_second) << 8 | p_first;
+    return static_cast<u16>((static_cast<unsigned>(p_second) << 8U) | p_first);
   }
 
   /**
@@ -1209,11 +1210,12 @@ export struct setup_packet
    */
   [[nodiscard]] constexpr static std::array<hal::byte, 2> to_le_u16(u16 p_value)
   {
-    return { static_cast<hal::byte>(p_value & 0xFF),
-             static_cast<hal::byte>((p_value >> 8) & 0xFF) };
+    return { static_cast<hal::byte>(p_value & 0xFFU),
+             static_cast<hal::byte>((static_cast<unsigned>(p_value) >> 8U) &
+                                    0xFFU) };
   }
 
-  std::array<byte, 8> raw_request_bytes;
+  std::array<byte, 8U> raw_request_bytes;
 };
 
 /**
