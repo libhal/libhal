@@ -49,8 +49,8 @@ class libhal_conan(ConanFile):
         return {
             "gcc": ("14", "GCC 14+ required for libhal"),
             "clang": (
-                "19",
-                "Clang 19+ required for libhal"
+                "23",
+                "Clang 23+ required for libhal (lifetime safety analysis)"
             ),
             "apple-clang": (
                 "19.0.0",
@@ -99,7 +99,7 @@ class libhal_conan(ConanFile):
     def requirements(self):
         self.requires("strong_ptr/[^0.2.2]")
         self.requires("scatter_span/0.0.0")
-        self.requires("mp-units/2.5.1@libhal",
+        self.requires("mp-units/2.6.0@libhal",
                       options={
                           "freestanding": True,
                           "cxx_modules": True,
