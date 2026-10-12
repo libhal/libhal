@@ -25,7 +25,6 @@ module;
 export module hal:usb;
 
 export import scatter_span;
-export import strong_ptr;
 
 import :units;
 export import :lifetime;

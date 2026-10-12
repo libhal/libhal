@@ -22,7 +22,6 @@ module;
 export module hal:can;
 
 export import scatter_span;
-export import strong_ptr;
 import :units;
 import :containers;
 export import :lifetime;

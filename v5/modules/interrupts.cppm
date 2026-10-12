@@ -18,7 +18,6 @@ module;
 
 export module hal:interrupts;
 
-export import strong_ptr;
 export import :units;
 export import :lifetime;
 export import :subscription;

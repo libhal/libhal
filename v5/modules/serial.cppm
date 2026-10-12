@@ -20,7 +20,6 @@ module;
 
 export module hal:serial;
 
-export import strong_ptr;
 export import scatter_span;
 
 export import :units;

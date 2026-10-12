@@ -19,7 +19,6 @@ project(libhal LANGUAGES CXX)
 # Source: https://github.com/libhal/libhal-cmake-util
 find_package(LibhalCMakeUtil REQUIRED)
 
-find_package(strong_ptr REQUIRED)
 find_package(mp-units REQUIRED)
 find_package(scatter_span REQUIRED)
 
@@ -51,7 +50,6 @@ libhal_add_library(libhal
 
 target_link_libraries(libhal
     PRIVATE
-        libhal::strong_ptr
         libhal::scatter_span
         mp-units::mp-units
 )

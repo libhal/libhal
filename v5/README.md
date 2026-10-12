@@ -8,12 +8,12 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
 
 - **Modules First**: Migrate from headers to C++20 modules for all code and libraries
 - **Waiter Seam**: All libhal interfaces are synchronous. Peripheral drivers that wait on interrupts or DMA block through a `hal::notifier`, which wakes the calling context's `hal::blocking_waiter`. Platforms install a default waiter provider (e.g. WFI on Cortex-M, std-based on hosts) and runtimes such as an RTOS or fibers replace it, so blocking calls idle the CPU or yield to other contexts without the interfaces changing. Composite drivers only call `hal::sleep_for` and the blocking APIs of the interfaces they hold.
-- **Callbacks for Events**: Interfaces expose non-blocking access to state and data plus a callback for "state changed" (e.g. `hal::edge_triggered_interrupt`, `hal::serial_interrupt`, `hal::can_interrupt`). Blocking waits and polling loops are built on top of those callbacks outside of the interfaces.
+- **Callbacks for Events**: Interfaces expose non-blocking access to state and data plus a callback for "state changed" (e.g. `hal::edge_triggered_interrupt`, `hal::serial_interrupt`, `hal::can_interrupt`). Blocking waits and polling loops are built on top of those callbacks outside of the interfaces. Each callback source has at most one subscriber: `on_x(callback&)` returns a `hal::subscription` that unregisters when destroyed, and fan-out lives in `<interface>_multiplexer` adapters.
+- **Compile-Time Lifetime Safety**: Drivers hold non-owning references (`hal::ref`, `hal::static_ref`, `hal::lease`) annotated for Clang 23's lifetime safety analysis (`-Wlifetime-safety`), which catches dangling driver references at compile time. There is no reference counting; `strong_ptr` and `optional_ptr` were removed.
 - **No Timeout Parameters**: Transfer operations are bounded by the hardware; their fault timeouts are a property of each implementation, set at construction, rather than a parameter of the interface.
 - **Labelled ABI**: Namespace becomes `hal::inline v5` to label ABIs and support future backwards compatibility
 - **Strongly Typed Units**: Migrate to mp-units library. Single precision float for most units, unsigned 32-bit integer for frequency
 - **Factor Out Dependencies**: Extract generic libraries into standalone components:
-  - strong_ptr
   - inplace_function (or alternative)
   - scatter_span
 - **Tagged Callbacks**: All interface callbacks include unique first parameter tag type (e.g., `struct my_tag{};`) for exception disambiguation
@@ -22,8 +22,7 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
 ### Policies
 
 - Use `std::pmr::polymorphic_allocator` for dynamic memory allocation during program initialization or `dyninit` time
-- Factory functions use `acquire_` prefix and return type-erased smart pointers
-- Widespread use of `strong_ptr` for memory management
+- Peripherals that must be torn down and reused live in a `hal::static_slot` and are owned through a `hal::lease`; destroying the lease resets the peripheral
 
 ### Interfaces
 
@@ -34,6 +33,10 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
 
 1. Where should container libraries like `circular_buffer` and
    `allocated_buffer` go?
+2. How should manager and resource drivers be constructed now that
+   `strong_ptr` is gone (e.g. returning drivers by value tied to their manager,
+   or adapter classes that take the manager), and how do developers choose
+   where a driver's memory lives?
 
 ## Changes to v4 After Split
 
@@ -53,5 +56,4 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
   - `pwm_duty_cycle16`
   - Extended CAN interfaces (not `hal::can`)
   - USB interfaces
-- `hal::v5::strong_ptr` will be brought into the `hal` namespace, eliminating the need to type `v5::` everywhere.
 -

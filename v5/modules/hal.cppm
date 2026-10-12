@@ -15,7 +15,6 @@
 export module hal;
 
 // Core 3rd party libraries
-export import strong_ptr;
 export import scatter_span;
 
 // Types, definitions, and containers
