@@ -49,8 +49,10 @@ function(libhal_compile_check SOURCE CASE EXPECT)
     set_tests_properties(${TARGET} PROPERTIES
         RESOURCE_LOCK libhal_compile_checks)
     if(EXPECT STREQUAL "SUCCESS")
+        # Only compiler diagnostics (file:line:col:) count. Linker warnings,
+        # such as SDK version mismatches on macOS, are unrelated to the case.
         set_tests_properties(${TARGET} PROPERTIES
-            FAIL_REGULAR_EXPRESSION "warning:|error:")
+            FAIL_REGULAR_EXPRESSION "[0-9]+:[0-9]+: (fatal )?(warning|error):")
     else()
         set_tests_properties(${TARGET} PROPERTIES
             PASS_REGULAR_EXPRESSION "${EXPECT}")

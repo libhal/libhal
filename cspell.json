@@ -4,6 +4,7 @@
   "words": [
     "alignof",
     "allocator",
+    "bkpt",
     "bugprone",
     "cassert",
     "chrono",
@@ -31,9 +32,11 @@
     "dtors",
     "dyninit",
     "EABI",
+    "ebss",
     "elif",
     "endif",
     "endverbatim",
+    "estack",
     "Estell",
     "giga",
     "ifdef",
@@ -51,6 +54,7 @@
     "NOLINTNEXTLINE",
     "nothrow",
     "nullptr",
+    "pointee",
     "pollable",
     "pragma",
     "println",
@@ -66,7 +70,9 @@
     "uninitialised",
     "uninitialized",
     "uptr",
-    "veltor"
+    "veltor",
+    "Werror",
+    "Wlifetime"
   ],
   "ignorePaths": [
     "build/",
