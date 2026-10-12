@@ -14,13 +14,11 @@
 
 #include <array>
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 
 #include <boost/ut.hpp>
 
 import hal;
-import async_context;
 
 namespace {
 class test_adc16 : public hal::adc16
@@ -29,9 +27,8 @@ public:
   constexpr static hal::u16 returned_position = ((1U << 16U) - 1U) / 2U;
 
 private:
-  async::future<hal::u16> driver_read(async::context&) override
+  hal::u16 driver_read() override
   {
-    // WARNING co_return seems to loop forever!!
     return returned_position;
   }
 };
@@ -42,15 +39,13 @@ void adc16_test() noexcept
 
   "::read()"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_adc16 test;
 
     // Exercise
-    auto sample = test.read(ctx);
+    auto sample = test.read();
 
     // Verify
-    expect(that % sample.has_value());
-    expect(that % test_adc16::returned_position == sample.value());
+    expect(that % test_adc16::returned_position == sample);
   };
 };
 
@@ -60,7 +55,7 @@ public:
   constexpr static hal::u32 returned_position = ((1U << 24U) - 1U) / 2U;
 
 private:
-  async::future<hal::u32> driver_read(async::context&) override
+  hal::u32 driver_read() override
   {
     return returned_position;
   }
@@ -72,15 +67,13 @@ void adc24_test() noexcept
 
   "::read()"_test = [&]() {
     // Setup
-    async::inplace_context<1024> context;
     test_adc24 test;
 
     // Exercise
-    auto sample = test.read(context);
+    auto sample = test.read();
 
     // Verify
-    expect(that % sample.has_value());
-    expect(that % test_adc24::returned_position == sample.value());
+    expect(that % test_adc24::returned_position == sample);
   };
 };
 

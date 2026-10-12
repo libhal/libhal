@@ -1,5 +1,4 @@
 #include <algorithm>
-#include <coroutine>
 #include <memory_resource>
 #include <print>
 #include <vector>
@@ -80,25 +79,21 @@ public:
   struct impl;  // forward declaration only
 
   // Create Factory Function
-  static async::future<hal::ptr<smart_motor>> create(
-    async::context&,
-    hal::allocator p_allocator,
-    hal::ptr<hal::awaitable_serial> const& p_serial);
+  static hal::ptr<smart_motor> create(hal::allocator p_allocator,
+                                      hal::ptr<hal::serial> const& p_serial);
 
   // Position rotation with velocity + torque control
-  static async::future<hal::ptr<hal::veltor_servo>> acquire_veltor_servo(
-    async::context&,
-    hal::allocator);
+  static hal::ptr<hal::veltor_servo> acquire_veltor_servo(hal::allocator);
 
   // Continuous rotation with velocity + torque control
-  static async::future<hal::ptr<hal::motor>> acquire_motor(async::context&);
+  static hal::ptr<hal::motor> acquire_motor();
 
   // Must start with `acquire_` and should either be name of interface or
   // something descriptive like `acquire_rear_left_motor`.
 
   smart_motor(private_key,
               hal::allocator p_allocator,
-              hal::ptr<hal::awaitable_serial> const& p_serial);
+              hal::ptr<hal::serial> const& p_serial);
 
   ~smart_motor()
   {
@@ -109,34 +104,32 @@ public:
 // in impl file
 struct smart_motor::impl
 {
-  hal::ptr<hal::awaitable_serial> serial;
+  hal::ptr<hal::serial> serial;
   hal::u8 address = 0;
 };
 
 smart_motor::smart_motor(private_key,
                          hal::allocator p_allocator,
-                         hal::ptr<hal::awaitable_serial> const& p_serial)
+                         hal::ptr<hal::serial> const& p_serial)
   : pimpl(p_allocator, smart_motor::impl{ .serial = p_serial, .address = 0 })
 {
   smart_motor_exists = true;
   std::println("Hello, World!");
 }
 
-async::future<hal::ptr<smart_motor>> smart_motor::create(
-  [[maybe_unused]] async::context& p_ctx,
-  hal::allocator p_allocator,
-  hal::ptr<hal::awaitable_serial> const& p_serial)
+hal::ptr<smart_motor> smart_motor::create(hal::allocator p_allocator,
+                                          hal::ptr<hal::serial> const& p_serial)
 {
   return hal::allocate<smart_motor>(
     p_allocator, private_key{}, p_allocator, p_serial);
 }
 
-class test_awaitable_serial : public hal::awaitable_serial
+class test_serial : public hal::serial
 {
 public:
-  static hal::ptr<test_awaitable_serial> create(hal::allocator p_allocator)
+  static hal::ptr<test_serial> create(hal::allocator p_allocator)
   {
-    return hal::allocate<test_awaitable_serial>(p_allocator);
+    return hal::allocate<test_serial>(p_allocator);
   }
 
   hal::serial::settings configured_settings{};
@@ -144,21 +137,14 @@ public:
   hal::usize last_data_out_size{};
   std::array<hal::byte, 256> rx_buffer{};
   hal::usize rx_cursor{ 0 };
-  hal::serial_event last_event{};
-  bool wait_for_called{ false };
 
 private:
-  async::future<void> driver_configure(
-    async::context&,
-    hal::serial::settings const& p_settings) override
+  void driver_configure(hal::serial::settings const& p_settings) override
   {
     configured_settings = p_settings;
-    return {};
   }
 
-  async::future<void> driver_write(
-    async::context&,
-    mem::scatter_span<hal::byte const> p_data) override
+  void driver_write(mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {
@@ -170,7 +156,6 @@ private:
         last_data_out_size++;
       }
     }
-    return {};
   }
 
   hal::circular_span<hal::byte const> driver_receive_buffer() override
@@ -182,28 +167,19 @@ private:
   {
     return rx_cursor;
   }
-
-  async::future<void> driver_wait_for(async::context&,
-                                      hal::serial_event p_event) override
-  {
-    last_event = p_event;
-    wait_for_called = true;
-    return {};
-  }
 };
 
 int main()
 {
   tracking_allocator tracker;
   hal::allocator alloc{ &tracker };
-  auto serial = test_awaitable_serial::create(alloc);
-  async::inplace_context<1024> ctx;
+  auto serial = test_serial::create(alloc);
   using namespace boost::ut;
 
   auto const allocations_before_create = tracker.allocations.size();
   std::vector<tracking_allocator::record> motor_allocations;
   {
-    auto motor = smart_motor::create(ctx, alloc, serial);
+    auto motor = smart_motor::create(alloc, serial);
     motor_allocations.assign(
       tracker.allocations.begin() +
         static_cast<std::ptrdiff_t>(allocations_before_create),

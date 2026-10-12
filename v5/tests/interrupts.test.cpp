@@ -38,7 +38,7 @@ class test_callback : public hal::timed_callback
 public:
   int call_count = 0;
 
-  void callback() override
+  void callback() noexcept override
   {
     call_count++;
   }

@@ -15,7 +15,6 @@
 export module hal:analog;
 
 export import :units;
-export import async_context;
 
 namespace hal::inline v5 {
 /**
@@ -67,19 +66,18 @@ public:
    * sample of all 1s, the maximum adc sample value, will return as 0xFFFF (the
    * maximum value for a u16 integer).
    *
-   * @param p_context - async context for the operation
-   * @return async::future<u16> - the sampled adc value upscaled to u16
+   * @return u16 - the sampled adc value upscaled to u16
    */
-  [[nodiscard]] async::future<u16> read(async::context& p_context)
+  [[nodiscard]] u16 read()
   {
-    return driver_read(p_context);
+    return driver_read();
   }
 
 protected:
   ~adc16() = default;
 
 private:
-  virtual async::future<u16> driver_read(async::context& p_context) = 0;
+  virtual u16 driver_read() = 0;
 };
 
 /**
@@ -113,19 +111,18 @@ public:
    * See `hal::adc16` for details about how ADCs with precision below 24 are
    * upscaled to match the necessary precision.
    *
-   * @param p_context - async context for the operation
-   * @return async::future<u32> - the sampled adc value upscaled to 24-bits
+   * @return u32 - the sampled adc value upscaled to 24-bits
    */
-  [[nodiscard]] async::future<u32> read(async::context& p_context)
+  [[nodiscard]] u32 read()
   {
-    return driver_read(p_context);
+    return driver_read();
   }
 
 protected:
   ~adc24() = default;
 
 private:
-  virtual async::future<u32> driver_read(async::context& p_context) = 0;
+  virtual u32 driver_read() = 0;
 };
 /**
  * @brief 16-bit Digital to Analog Converter (DAC) hardware abstraction
@@ -161,22 +158,19 @@ public:
    * to the most significant bits of the u16 value. This preserves the most
    * significant information about the intended dac percentage value.
    *
-   * @param p_context - async context for the operation
    * @param p_percentage - value from 0 (0x0000) to 65535 (0xFFFF) representing
    * the proportion of the output voltage from the Vss to Vcc.
    */
-  [[nodiscard]] async::future<void> write(async::context& p_context,
-                                          u16 p_percentage)
+  void write(u16 p_percentage)
   {
-    return driver_write(p_context, p_percentage);
+    driver_write(p_percentage);
   }
 
 protected:
   ~dac16() = default;
 
 private:
-  virtual async::future<void> driver_write(async::context& p_context,
-                                           u16 p_percentage) = 0;
+  virtual void driver_write(u16 p_percentage) = 0;
 };
 
 // NOTE: If a dac24, for dac precisions between 17 and 24, is desired by

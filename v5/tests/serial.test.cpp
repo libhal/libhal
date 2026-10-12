@@ -14,13 +14,11 @@
 
 #include <array>
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 
 #include <boost/ut.hpp>
 
 import hal;
-import async_context;
 
 using namespace mp_units::si::unit_symbols;
 
@@ -35,17 +33,12 @@ public:
   hal::usize rx_cursor{ 0 };
 
 private:
-  async::future<void> driver_configure(
-    async::context&,
-    hal::serial::settings const& p_settings) override
+  void driver_configure(hal::serial::settings const& p_settings) override
   {
     configured_settings = p_settings;
-    return {};
   }
 
-  async::future<void> driver_write(
-    async::context&,
-    mem::scatter_span<hal::byte const> p_data) override
+  void driver_write(mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
     for (auto const& span : p_data) {
@@ -57,7 +50,6 @@ private:
         last_data_out_size++;
       }
     }
-    return {};
   }
 
   hal::circular_span<hal::byte const> driver_receive_buffer() override
@@ -71,59 +63,37 @@ private:
   }
 };
 
-class test_awaitable_serial : public hal::awaitable_serial
+class test_serial_interrupt : public hal::serial_interrupt
 {
 public:
-  hal::serial::settings configured_settings{};
-  std::array<hal::byte, 256> last_data_out{};
-  hal::usize last_data_out_size{};
-  std::array<hal::byte, 256> rx_buffer{};
-  hal::usize rx_cursor{ 0 };
-  hal::serial_event last_event{};
-  bool wait_for_called{ false };
+  mem::optional_ptr<hal::serial_receive_callback> stored_callback;
+
+  /// Simulate the driver's ISR reporting a receive event
+  void simulate_event(hal::serial_event p_event)
+  {
+    if (stored_callback.has_value()) {
+      stored_callback.value()->callback(p_event);
+    }
+  }
 
 private:
-  async::future<void> driver_configure(
-    async::context&,
-    hal::serial::settings const& p_settings) override
+  void driver_on_receive(
+    mem::optional_ptr<hal::serial_receive_callback> const& p_callback) override
   {
-    configured_settings = p_settings;
-    return {};
+    stored_callback = p_callback;
   }
+};
 
-  async::future<void> driver_write(
-    async::context&,
-    mem::scatter_span<hal::byte const> p_data) override
-  {
-    last_data_out_size = 0;
-    for (auto const& span : p_data) {
-      for (auto byte : span) {
-        if (last_data_out_size >= last_data_out.size()) {
-          break;
-        }
-        last_data_out[last_data_out_size] = byte;
-        last_data_out_size++;
-      }
-    }
-    return {};
-  }
+class recording_receive_callback : public hal::serial_receive_callback
+{
+public:
+  int call_count = 0;
+  hal::serial_event last_event{};
 
-  hal::circular_span<hal::byte const> driver_receive_buffer() override
+  void callback(hal::serial_event p_event) noexcept override
   {
-    return rx_buffer;
-  }
-
-  hal::usize driver_receive_cursor() override
-  {
-    return rx_cursor;
-  }
-
-  async::future<void> driver_wait_for(async::context&,
-                                      hal::serial_event p_event) override
-  {
+    call_count++;
     last_event = p_event;
-    wait_for_called = true;
-    return {};
   }
 };
 
@@ -133,7 +103,6 @@ void serial_configure_test() noexcept
 
   "configure() passes settings to driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     hal::serial::settings expected_settings{
       .baud_rate = 9600 * Hz,
@@ -142,7 +111,7 @@ void serial_configure_test() noexcept
     };
 
     // Exercise
-    test.configure(ctx, expected_settings);
+    test.configure(expected_settings);
 
     // Verify
     expect(expected_settings == test.configured_settings);
@@ -150,12 +119,11 @@ void serial_configure_test() noexcept
 
   "configure() with default settings"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     hal::serial::settings default_settings{};
 
     // Exercise
-    test.configure(ctx, default_settings);
+    test.configure(default_settings);
 
     // Verify
     expect((115200 * Hz) == test.configured_settings.baud_rate);
@@ -167,7 +135,6 @@ void serial_configure_test() noexcept
 
   "configure() with odd parity and two stop bits"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     hal::serial::settings settings{
       .baud_rate = 38400 * Hz,
@@ -176,7 +143,7 @@ void serial_configure_test() noexcept
     };
 
     // Exercise
-    test.configure(ctx, settings);
+    test.configure(settings);
 
     // Verify
     expect(settings == test.configured_settings);
@@ -189,12 +156,11 @@ void serial_write_test() noexcept
 
   "write() sends data to driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     std::array<hal::byte, 4> write_buffer = { 0x01, 0x02, 0x03, 0x04 };
 
     // Exercise
-    test.write(ctx, { write_buffer });
+    test.write({ write_buffer });
 
     // Verify
     expect(that % 4 == test.last_data_out_size);
@@ -202,11 +168,10 @@ void serial_write_test() noexcept
 
   "write() with empty data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
 
     // Exercise
-    test.write(ctx, {});
+    test.write({});
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -214,14 +179,13 @@ void serial_write_test() noexcept
 
   "write() data content is correct"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     std::array<hal::byte, 3> write_buffer = { hal::byte{ 0xAA },
                                               hal::byte{ 0xBB },
                                               hal::byte{ 0xCC } };
 
     // Exercise
-    test.write(ctx, { write_buffer });
+    test.write({ write_buffer });
 
     // Verify
     expect(that % 0xAA == test.last_data_out[0]);
@@ -231,12 +195,11 @@ void serial_write_test() noexcept
 
   "write() single byte"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_serial test;
     std::array<hal::byte, 1> write_buffer = { hal::byte{ 0xFF } };
 
     // Exercise
-    test.write(ctx, { write_buffer });
+    test.write({ write_buffer });
 
     // Verify
     expect(that % 1 == test.last_data_out_size);
@@ -321,63 +284,53 @@ void serial_receive_cursor_test() noexcept
   };
 }
 
-void awaitable_serial_wait_for_test() noexcept
+void serial_interrupt_test() noexcept
 {
   using namespace boost::ut;
 
-  "wait_for() with rx event calls driver"_test = [&]() {
+  "on_receive() delivers rx event to callback"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
-    test_awaitable_serial test;
+    test_serial_interrupt test;
+    auto callback = mem::make_strong_ptr<recording_receive_callback>(
+      std::pmr::new_delete_resource());
 
     // Exercise
-    test.wait_for(ctx, hal::serial_event::rx);
+    test.on_receive(callback);
+    test.simulate_event(hal::serial_event::rx);
 
     // Verify
-    expect(test.wait_for_called);
-    expect(hal::serial_event::rx == test.last_event);
+    expect(that % 1 == callback->call_count);
+    expect(hal::serial_event::rx == callback->last_event);
   };
 
-  "wait_for() with idle event calls driver"_test = [&]() {
+  "on_receive() delivers idle event to callback"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
-    test_awaitable_serial test;
+    test_serial_interrupt test;
+    auto callback = mem::make_strong_ptr<recording_receive_callback>(
+      std::pmr::new_delete_resource());
 
     // Exercise
-    test.wait_for(ctx, hal::serial_event::idle);
+    test.on_receive(callback);
+    test.simulate_event(hal::serial_event::idle);
 
     // Verify
-    expect(test.wait_for_called);
-    expect(hal::serial_event::idle == test.last_event);
+    expect(that % 1 == callback->call_count);
+    expect(hal::serial_event::idle == callback->last_event);
   };
 
-  "awaitable_serial inherits serial configure()"_test = [&]() {
+  "on_receive() with empty callback stops delivery"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
-    test_awaitable_serial test;
-    hal::serial::settings expected_settings{
-      .baud_rate = 57600 * Hz,
-    };
+    test_serial_interrupt test;
+    auto callback = mem::make_strong_ptr<recording_receive_callback>(
+      std::pmr::new_delete_resource());
+    test.on_receive(callback);
 
     // Exercise
-    test.configure(ctx, expected_settings);
+    test.on_receive(mem::optional_ptr<hal::serial_receive_callback>{});
+    test.simulate_event(hal::serial_event::rx);
 
     // Verify
-    expect(expected_settings == test.configured_settings);
-  };
-
-  "awaitable_serial inherits serial write()"_test = [&]() {
-    // Setup
-    async::inplace_context<1024> ctx;
-    test_awaitable_serial test;
-    std::array<hal::byte, 2> write_buffer = { hal::byte{ 0x12 },
-                                              hal::byte{ 0x34 } };
-
-    // Exercise
-    test.write(ctx, { write_buffer });
-
-    // Verify
-    expect(that % 2 == test.last_data_out_size);
+    expect(that % 0 == callback->call_count);
   };
 }
 
@@ -389,5 +342,5 @@ int main()
   serial_write_test();
   serial_receive_buffer_test();
   serial_receive_cursor_test();
-  awaitable_serial_wait_for_test();
+  serial_interrupt_test();
 }

@@ -14,7 +14,6 @@
 
 export module hal:spi;
 
-export import async_context;
 export import strong_ptr;
 export import scatter_span;
 
@@ -195,16 +194,14 @@ public:
    * On construction, the default settings are defined by the default values
    * within the `settings` structure.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_settings - settings to configure the spi bus to when control is
    * acquired by this channel.
    * @throws hal::operation_not_supported - if the mode cannot be accommodated
    * by the spi bus hardware or implementation of spi.
    */
-  [[nodiscard]] async::future<void> configure(async::context& p_context,
-                                              settings const& p_settings)
+  void configure(settings const& p_settings)
   {
-    return driver_configure(p_context, p_settings);
+    driver_configure(p_settings);
   }
 
   /**
@@ -221,13 +218,12 @@ public:
    * frequency passed to `configure()` and the actual clock frequency the bus
    * will be set to.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @return u32 - the approximate clock rate of this spi channel when
    * `chip_select(true)` is called.
    */
-  [[nodiscard]] async::future<hertz> clock_rate(async::context& p_context)
+  [[nodiscard]] hertz clock_rate()
   {
-    return driver_clock_rate(p_context);
+    return driver_clock_rate();
   }
 
   /**
@@ -276,18 +272,16 @@ public:
    * On construction, the chip select state should be as if this API was called
    * with `false`.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_select - if set to true will acquire exclusive access to the spi
    * bus and asserts chip select. If another channel already has exclusive
    * access over the spi bus, then this function waits until access is made
-   * available. Implementations are encouraged to utilize `hal::io_waiter` for
-   * this. When set to false, releases exclusive control over the bus and
-   * de-asserts chip select.
+   * available. Implementations are encouraged to block through a
+   * `hal::notifier` for this. When set to false, releases exclusive control
+   * over the bus and de-asserts chip select.
    */
-  [[nodiscard]] async::future<void> chip_select(async::context& p_context,
-                                                bool p_select)
+  void chip_select(bool p_select)
   {
-    return driver_chip_select(p_context, p_select);
+    driver_chip_select(p_select);
   }
 
   /**
@@ -313,7 +307,6 @@ public:
    * This temporary access ensures that this API is always safe to call without
    * concern of bus contention.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_data_out - buffer to write data to the bus. If this is set to
    * null/empty then writing is ignored and the p_filler will be written to
    * the bus. If the length is less than p_data_in, then p_filler will be
@@ -326,13 +319,11 @@ public:
    * @param p_filler - filler data placed on the bus in place of actual write
    * data when p_data_out has been exhausted.
    */
-  [[nodiscard]] async::future<void> transfer(
-    async::context& p_context,
-    mem::scatter_span<byte const> p_data_out,
-    mem::scatter_span<byte> p_data_in = {},
-    byte p_filler = default_filler)
+  void transfer(mem::scatter_span<byte const> p_data_out,
+                mem::scatter_span<byte> p_data_in = {},
+                byte p_filler = default_filler)
   {
-    return driver_transfer(p_context, p_data_out, p_data_in, p_filler);
+    driver_transfer(p_data_out, p_data_in, p_filler);
   }
 
   /**
@@ -340,11 +331,10 @@ public:
    *
    * Calls `chip_select(true)`
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    */
-  [[nodiscard]] async::future<void> lock(async::context& p_context)
+  void lock()
   {
-    return chip_select(p_context, true);
+    chip_select(true);
   }
 
   /**
@@ -352,26 +342,21 @@ public:
    *
    * Calls `chip_select(false)`
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    */
-  [[nodiscard]] async::future<void> unlock(async::context& p_context)
+  void unlock()
   {
-    return chip_select(p_context, false);
+    chip_select(false);
   }
 
 protected:
   ~spi_channel() = default;
 
 private:
-  virtual async::future<void> driver_configure(async::context&,
-                                               settings const& p_settings) = 0;
-  virtual async::future<hertz> driver_clock_rate(async::context&) = 0;
-  virtual async::future<void> driver_chip_select(async::context&,
-                                                 bool p_select) = 0;
-  virtual async::future<void> driver_transfer(
-    async::context&,
-    mem::scatter_span<byte const> p_data_out,
-    mem::scatter_span<byte> p_data_in,
-    byte p_filler) = 0;
+  virtual void driver_configure(settings const& p_settings) = 0;
+  virtual hertz driver_clock_rate() = 0;
+  virtual void driver_chip_select(bool p_select) = 0;
+  virtual void driver_transfer(mem::scatter_span<byte const> p_data_out,
+                               mem::scatter_span<byte> p_data_in,
+                               byte p_filler) = 0;
 };
 }  // namespace hal::inline v5

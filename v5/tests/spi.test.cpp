@@ -14,13 +14,11 @@
 
 #include <array>
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 
 #include <boost/ut.hpp>
 
 import hal;
-import async_context;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
@@ -39,31 +37,24 @@ public:
   hal::byte last_filler{ hal::spi_channel::default_filler };
 
 private:
-  async::future<void> driver_configure(
-    async::context&,
-    hal::spi_channel::settings const& p_settings) override
+  void driver_configure(hal::spi_channel::settings const& p_settings) override
   {
     configured_settings = p_settings;
-    return {};
   }
 
-  async::future<hal::hertz> driver_clock_rate(async::context&) override
+  hal::hertz driver_clock_rate() override
   {
     return reported_clock_rate;
   }
 
-  async::future<void> driver_chip_select(async::context&,
-                                         bool p_select) override
+  void driver_chip_select(bool p_select) override
   {
     chip_selected = p_select;
-    return {};
   }
 
-  async::future<void> driver_transfer(
-    async::context&,
-    mem::scatter_span<hal::byte const> p_data_out,
-    mem::scatter_span<hal::byte> p_data_in,
-    hal::byte p_filler) override
+  void driver_transfer(mem::scatter_span<hal::byte const> p_data_out,
+                       mem::scatter_span<hal::byte> p_data_in,
+                       hal::byte p_filler) override
   {
     last_filler = p_filler;
 
@@ -82,8 +73,6 @@ private:
     for (auto const& span : p_data_in) {
       last_data_in_size += span.size();
     }
-
-    return {};
   }
 };
 
@@ -93,7 +82,6 @@ void spi_configure_test() noexcept
 
   "configure() passes settings to driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     hal::spi_channel::settings expected_settings{
       .clock_rate = 1 * MHz,
@@ -101,7 +89,7 @@ void spi_configure_test() noexcept
     };
 
     // Exercise
-    std::ignore = test.configure(ctx, expected_settings);
+    test.configure(expected_settings);
 
     // Verify
     expect(expected_settings == test.configured_settings);
@@ -109,12 +97,11 @@ void spi_configure_test() noexcept
 
   "configure() with default settings"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     hal::spi_channel::settings default_settings{};
 
     // Exercise
-    std::ignore = test.configure(ctx, default_settings);
+    test.configure(default_settings);
 
     // Verify
     expect((100 * kHz) == test.configured_settings.clock_rate);
@@ -128,13 +115,12 @@ void spi_clock_rate_test() noexcept
 
   "clock_rate() returns value from driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     auto const expected_freq = 4'000'000 * si::hertz;
     test.reported_clock_rate = expected_freq;
 
     // Exercise
-    auto rate = test.clock_rate(ctx).value();
+    auto rate = test.clock_rate();
 
     // Verify
     expect(expected_freq == rate);
@@ -147,11 +133,10 @@ void spi_chip_select_test() noexcept
 
   "chip_select(true) asserts chip select"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
 
     // Exercise
-    std::ignore = test.chip_select(ctx, true);
+    test.chip_select(true);
 
     // Verify
     expect(test.chip_selected);
@@ -159,12 +144,11 @@ void spi_chip_select_test() noexcept
 
   "chip_select(false) de-asserts chip select"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
-    std::ignore = test.chip_select(ctx, true);
+    test.chip_select(true);
 
     // Exercise
-    std::ignore = test.chip_select(ctx, false);
+    test.chip_select(false);
 
     // Verify
     expect(not test.chip_selected);
@@ -177,11 +161,10 @@ void spi_lock_unlock_test() noexcept
 
   "lock() asserts chip select"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
 
     // Exercise
-    std::ignore = test.lock(ctx);
+    test.lock();
 
     // Verify
     expect(test.chip_selected);
@@ -189,12 +172,11 @@ void spi_lock_unlock_test() noexcept
 
   "unlock() de-asserts chip select"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
-    std::ignore = test.lock(ctx);
+    test.lock();
 
     // Exercise
-    std::ignore = test.unlock(ctx);
+    test.unlock();
 
     // Verify
     expect(not test.chip_selected);
@@ -207,12 +189,11 @@ void spi_transfer_test() noexcept
 
   "transfer() with write-only data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 4> write_buffer = { 0x01, 0x02, 0x03, 0x04 };
 
     // Exercise
-    std::ignore = test.transfer(ctx, { write_buffer }, {});
+    test.transfer({ write_buffer }, {});
 
     // Verify
     expect(that % 4 == test.last_data_out_size);
@@ -221,12 +202,11 @@ void spi_transfer_test() noexcept
 
   "transfer() with read-only data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 8> read_buffer{};
 
     // Exercise
-    std::ignore = test.transfer(ctx, {}, { read_buffer });
+    test.transfer({}, { read_buffer });
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -235,13 +215,12 @@ void spi_transfer_test() noexcept
 
   "transfer() with write-and-read data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 3> write_buffer = { 0xAA, 0xBB, 0xCC };
     std::array<hal::byte, 5> read_buffer{};
 
     // Exercise
-    std::ignore = test.transfer(ctx, { write_buffer }, { read_buffer });
+    test.transfer({ write_buffer }, { read_buffer });
 
     // Verify
     expect(that % 3 == test.last_data_out_size);
@@ -250,11 +229,10 @@ void spi_transfer_test() noexcept
 
   "transfer() with empty data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
 
     // Exercise
-    std::ignore = test.transfer(ctx, {}, {});
+    test.transfer({}, {});
 
     // Verify
     expect(that % 0 == test.last_data_out_size);
@@ -263,11 +241,10 @@ void spi_transfer_test() noexcept
 
   "transfer() uses default filler when not specified"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
 
     // Exercise
-    std::ignore = test.transfer(ctx, {}, {});
+    test.transfer({}, {});
 
     // Verify
     expect(hal::spi_channel::default_filler == test.last_filler);
@@ -275,12 +252,11 @@ void spi_transfer_test() noexcept
 
   "transfer() uses custom filler when specified"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     hal::byte custom_filler{ 0x00 };
 
     // Exercise
-    std::ignore = test.transfer(ctx, {}, {}, custom_filler);
+    test.transfer({}, {}, custom_filler);
 
     // Verify
     expect(custom_filler == test.last_filler);
@@ -288,14 +264,13 @@ void spi_transfer_test() noexcept
 
   "transfer() write data content is correct"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_spi test;
     std::array<hal::byte, 3> write_buffer = { hal::byte{ 0x11 },
                                               hal::byte{ 0x22 },
                                               hal::byte{ 0x33 } };
 
     // Exercise
-    std::ignore = test.transfer(ctx, { write_buffer }, {});
+    test.transfer({ write_buffer }, {});
 
     // Verify
     expect(hal::byte{ 0x11 } == test.last_data_out[0]);

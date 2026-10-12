@@ -32,6 +32,13 @@ enum class edge_trigger : u8
   both = 2,
 };
 
+/**
+ * @brief Callback object invoked by an `edge_triggered_interrupt`
+ *
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine.
+ */
 struct edge_triggered_callback
 {
   /**
@@ -39,7 +46,7 @@ struct edge_triggered_callback
    *
    * @param p_state - the current logical state of the pin with
    */
-  virtual void callback(bool p_state) = 0;
+  virtual void callback(bool p_state) noexcept = 0;
 };
 
 /**
@@ -107,6 +114,13 @@ private:
     mem::optional_ptr<edge_triggered_callback> p_callback) = 0;
 };
 
+/**
+ * @brief Callback object invoked by a `timed_interrupt`
+ *
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine.
+ */
 struct timed_callback
 {
   /**
@@ -114,7 +128,7 @@ struct timed_callback
    * invoked
    *
    */
-  virtual void callback() = 0;
+  virtual void callback() noexcept = 0;
 };
 
 /**

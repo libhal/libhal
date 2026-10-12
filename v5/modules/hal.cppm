@@ -16,7 +16,6 @@ export module hal;
 
 // Core 3rd party libraries
 export import strong_ptr;
-export import async_context;
 export import scatter_span;
 
 // Types, definitions, and containers
@@ -31,6 +30,7 @@ export import :pwm;
 export import :gpio;
 export import :sensors;
 export import :interrupts;
+export import :waiter;
 export import :steady_clock;
 export import :i2c;
 export import :spi;

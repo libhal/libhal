@@ -14,13 +14,11 @@
 
 #include <array>
 #include <chrono>
-#include <coroutine>
 #include <memory_resource>
 
 #include <boost/ut.hpp>
 
 import hal;
-import async_context;
 
 using namespace mp_units::si::unit_symbols;
 
@@ -36,19 +34,14 @@ public:
   hal::usize last_data_in_size{};
 
 private:
-  async::future<void> driver_configure(
-    async::context&,
-    hal::i2c::settings const& p_settings) override
+  void driver_configure(hal::i2c::settings const& p_settings) override
   {
     configured_settings = p_settings;
-    return {};
   }
 
-  async::future<void> driver_transaction(
-    async::context&,
-    hal::byte p_address,
-    mem::scatter_span<hal::byte const> p_data_out,
-    mem::scatter_span<hal::byte> p_data_in) override
+  void driver_transaction(hal::byte p_address,
+                          mem::scatter_span<hal::byte const> p_data_out,
+                          mem::scatter_span<hal::byte> p_data_in) override
   {
     last_address = p_address;
 
@@ -67,8 +60,6 @@ private:
     for (auto const& span : p_data_in) {
       last_data_in_size += span.size();
     }
-
-    return {};
   }
 };
 
@@ -78,14 +69,13 @@ void i2c_configure_test() noexcept
 
   "configure() passes settings to driver"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::i2c::settings expected_settings{
       .clock_rate = 400 * kHz,
     };
 
     // Exercise
-    auto result = test.configure(ctx, expected_settings);
+    test.configure(expected_settings);
 
     // Verify
     expect(expected_settings == test.configured_settings);
@@ -93,12 +83,11 @@ void i2c_configure_test() noexcept
 
   "configure() with default settings"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::i2c::settings default_settings{};
 
     // Exercise
-    std::ignore = test.configure(ctx, default_settings);
+    test.configure(default_settings);
 
     // Verify
     expect((100 * kHz) == test.configured_settings.clock_rate);
@@ -111,13 +100,12 @@ void i2c_transaction_test() noexcept
 
   "transaction() with write-only data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::byte address = 0x42;
     std::array<hal::byte, 4> write_buffer = { 0x01, 0x02, 0x03, 0x04 };
 
     // Exercise
-    std::ignore = test.transaction(ctx, address, { write_buffer }, {});
+    test.transaction(address, { write_buffer }, {});
 
     // Verify
     expect(that % address == test.last_address);
@@ -127,13 +115,12 @@ void i2c_transaction_test() noexcept
 
   skip / "transaction() with read-only data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::byte address = 0x43;
     std::array<hal::byte, 8> read_data{};
 
     // Exercise
-    std::ignore = test.transaction(ctx, address, {}, { read_data });
+    test.transaction(address, {}, { read_data });
 
     // Verify
     expect(that % address == test.last_address);
@@ -143,15 +130,13 @@ void i2c_transaction_test() noexcept
 
   "transaction() with write-then-read data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::byte address = 0x44;
     std::array<hal::byte, 2> write_buffer = { 0xA0, 0xB0 };
     std::array<hal::byte, 4> read_data{};
 
     // Exercise
-    std::ignore =
-      test.transaction(ctx, address, { write_buffer }, { read_data });
+    test.transaction(address, { write_buffer }, { read_data });
 
     // Verify
     expect(that % address == test.last_address);
@@ -161,12 +146,11 @@ void i2c_transaction_test() noexcept
 
   skip / "transaction() with empty data"_test = [&]() {
     // Setup
-    async::inplace_context<1024> ctx;
     test_i2c test;
     hal::byte address = 0x45;
 
     // Exercise
-    std::ignore = test.transaction(ctx, address, {}, {});
+    test.transaction(address, {}, {});
 
     // Verify
     expect(that % address == test.last_address);

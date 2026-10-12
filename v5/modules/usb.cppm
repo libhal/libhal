@@ -22,8 +22,8 @@ module;
 
 export module hal:usb;
 
-export import async_context;
 export import scatter_span;
+export import strong_ptr;
 
 import :units;
 
@@ -263,15 +263,12 @@ public:
   /**
    * @brief Stall or un-stall an endpoint
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_should_stall - set to true to stall this endpoint, set to false to
    * un-stall the endpoint.
-   * @return async::future<void> - completes when the stall operation is
-   * complete
    */
-  async::future<void> stall(async::context& p_context, bool p_should_stall)
+  void stall(bool p_should_stall)
   {
-    return driver_stall(p_context, p_should_stall);
+    driver_stall(p_should_stall);
   }
 
   /**
@@ -299,13 +296,10 @@ public:
    * transactions. The host controller will typically re-initialize the endpoint
    * when the next data transfer occurs.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<void> - completes when the reset operation is
-   * complete
    */
-  async::future<void> reset(async::context& p_context)
+  void reset()
   {
-    return driver_reset(p_context);
+    driver_reset();
   }
 
 protected:
@@ -313,9 +307,8 @@ protected:
 
 private:
   [[nodiscard]] virtual endpoint_info driver_info() const = 0;
-  virtual async::future<void> driver_stall(async::context& p_context,
-                                           bool p_should_stall) = 0;
-  virtual async::future<void> driver_reset(async::context& p_context) = 0;
+  virtual void driver_stall(bool p_should_stall) = 0;
+  virtual void driver_reset() = 0;
 };
 
 /**
@@ -488,6 +481,24 @@ export struct lpm_support
 };
 
 /**
+ * @brief Callback object invoked by a `control_endpoint` on bus events
+ *
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine. Do not call endpoint APIs from within the callback; latch the event
+ * and handle it from the enumerator's own context.
+ */
+export struct bus_event_callback
+{
+  /**
+   * @brief Invoked when a bus-level event occurs
+   *
+   * @param p_event - the bus event that occurred
+   */
+  virtual void callback(bus_event p_event) noexcept = 0;
+};
+
+/**
  * @brief USB Control Endpoint Interface
  *
  * This class represents the control endpoint of a USB device. The control
@@ -516,15 +527,12 @@ public:
    * it, thus the responsibility to initiate enumeration is on the control
    * endpoint.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_should_connect - set to true to connect, set to false to
    * disconnect.
-   * @return async::future<void> - completes when the connect operation is
-   * complete
    */
-  async::future<void> connect(async::context& p_context, bool p_should_connect)
+  void connect(bool p_should_connect)
   {
-    return driver_connect(p_context, p_should_connect);
+    driver_connect(p_should_connect);
   }
 
   /**
@@ -533,13 +541,11 @@ public:
    * Used to set the device address during the USB enumeration process. This
    * address must come from a USB request on the control endpoint by the HOST.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_address The address assigned to this device from the HOST
-   * @return async::future<void> - completes when the address is set
    */
-  async::future<void> set_address(async::context& p_context, u8 p_address)
+  void set_address(u8 p_address)
   {
-    return driver_set_address(p_context, p_address);
+    driver_set_address(p_address);
   }
 
   /**
@@ -552,19 +558,15 @@ public:
    * `flush()` OR call this API with an empty p_data field:
    *
    * ```C++
-   * co_await usb.write(context, {}); // Finishes the transfer with an ZLP or
-   * the last of the data
+   * usb.write({}); // Finishes the transfer with an ZLP or the last of the data
    * ```
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_data - a scatter span of bytes to be written to the endpoint
    * memory and sent over USB.
-   * @return async::future<void> - completes when the data is written
    */
-  async::future<void> write(async::context& p_context,
-                            mem::scatter_span<byte const> p_data)
+  void write(mem::scatter_span<byte const> p_data)
   {
-    return driver_write(p_context, p_data);
+    driver_write(p_data);
   }
 
   /**
@@ -581,29 +583,28 @@ public:
    * If a caller wants to drain all of the data from the endpoint's memory, then
    * the caller should continually call read until it returns an empty span.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_buffer - a scatter span of bytes to fill with data
-   * @return async::future<usize> - completes with the number of bytes read into
+   * @return usize - the number of bytes read into
    * the buffers provided by p_buffer.
    */
-  [[nodiscard]] async::future<usize> read(async::context& p_context,
-                                          mem::scatter_span<byte> p_buffer)
+  [[nodiscard]] usize read(mem::scatter_span<byte> p_buffer)
   {
-    return driver_read(p_context, p_buffer);
+    return driver_read(p_buffer);
   }
 
   /**
-   * @brief Suspend until the next bus-level event occurs
+   * @brief Set the callback invoked when a bus-level event occurs
    *
-   * Used by the enumerator to wait until a USB bus event occurs.
+   * Used by the enumerator to learn about USB bus events. The enumerator
+   * typically latches the event in its callback and processes it later from
+   * its own `poll()`/task context, outside of the interrupt.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<bus_event> - completes with the @ref bus_event that
-   *         occurred
+   * @param p_callback - the callback to invoke on bus events. Pass an empty
+   * optional to disable the callback.
    */
-  async::future<bus_event> on_bus_event(async::context& p_context)
+  void on_bus_event(mem::optional_ptr<bus_event_callback> const& p_callback)
   {
-    return driver_on_bus_event(p_context);
+    driver_on_bus_event(p_callback);
   }
 
   /**
@@ -624,10 +625,9 @@ public:
    * @param p_enabled - true if the host has granted remote wakeup permission,
    *                    false if the host has revoked it.
    */
-  async::future<void> remote_wakeup_enable(async::context& p_context,
-                                           bool p_enabled)
+  void remote_wakeup_enable(bool p_enabled)
   {
-    return driver_remote_wakeup_enable(p_context, p_enabled);
+    driver_remote_wakeup_enable(p_enabled);
   }
 
   /**
@@ -642,10 +642,9 @@ public:
    * revoked, or the hardware isn't capable of performing a wake K-state on the
    * bus.
    */
-  [[nodiscard]] async::future<bool> remote_wakeup_granted(
-    async::context& p_context)
+  [[nodiscard]] bool remote_wakeup_granted()
   {
-    return driver_remote_wakeup_granted(p_context);
+    return driver_remote_wakeup_granted();
   }
 
   /**
@@ -669,10 +668,9 @@ public:
    * @param p_accept - `true` to acknowledge the L1 sleep request and allow the
    *                 device to enter L1; `false` to reject it and remain in L0.
    */
-  async::future<void> acknowledge_sleep(async::context& p_context,
-                                        bool p_accept)
+  void acknowledge_sleep(bool p_accept)
   {
-    return driver_acknowledge_sleep(p_context, p_accept);
+    driver_acknowledge_sleep(p_accept);
   }
 
   /**
@@ -699,24 +697,16 @@ public:
   }
 
 private:
-  virtual async::future<void> driver_connect(async::context& p_context,
-                                             bool p_should_connect) = 0;
-  virtual async::future<void> driver_set_address(async::context& p_context,
-                                                 u8 p_address) = 0;
-  virtual async::future<void> driver_write(
-    async::context& p_context,
-    mem::scatter_span<byte const> p_data) = 0;
-  virtual async::future<usize> driver_read(
-    async::context& p_context,
-    mem::scatter_span<byte> p_buffer) = 0;
-  virtual async::future<bus_event> driver_on_bus_event(
-    async::context& p_context) = 0;
-  virtual async::future<void> driver_remote_wakeup_enable(async::context&,
-                                                          bool) = 0;
-  virtual async::future<bool> driver_remote_wakeup_granted(async::context&) = 0;
+  virtual void driver_connect(bool p_should_connect) = 0;
+  virtual void driver_set_address(u8 p_address) = 0;
+  virtual void driver_write(mem::scatter_span<byte const> p_data) = 0;
+  virtual usize driver_read(mem::scatter_span<byte> p_buffer) = 0;
+  virtual void driver_on_bus_event(
+    mem::optional_ptr<bus_event_callback> const& p_callback) = 0;
+  virtual void driver_remote_wakeup_enable(bool) = 0;
+  virtual bool driver_remote_wakeup_granted() = 0;
 
-  virtual async::future<void> driver_acknowledge_sleep(async::context&,
-                                                       bool) = 0;
+  virtual void driver_acknowledge_sleep(bool) = 0;
   virtual lpm_support driver_supports_lpm() = 0;
 };
 
@@ -741,27 +731,34 @@ public:
    * `flush()` OR call this API with an empty p_data field:
    *
    * ```C++
-   * co_await usb.write(context, {}); // Finishes the transfer with an ZLP or
-   * the last of the data
+   * usb.write({}); // Finishes the transfer with an ZLP or the last of the data
    * ```
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_data - a scatter span of bytes to be written to the endpoint
    * memory and sent over USB.
-   * @return async::future<void> - completes when the data is written
    * @throws hal::operation_not_permitted - if the USB is suspended and a write
    * is attempted.
    */
-  async::future<void> write(async::context& p_context,
-                            mem::scatter_span<byte const> p_data)
+  void write(mem::scatter_span<byte const> p_data)
   {
-    return driver_write(p_context, p_data);
+    driver_write(p_data);
   }
 
 private:
-  virtual async::future<void> driver_write(
-    async::context& p_context,
-    mem::scatter_span<byte const> p_data) = 0;
+  virtual void driver_write(mem::scatter_span<byte const> p_data) = 0;
+};
+
+/**
+ * @brief Callback object invoked by an `out_endpoint` when data is available
+ *
+ * The callback runs in interrupt context. It must be short, must not block,
+ * and must not throw: an exception cannot unwind out of an interrupt service
+ * routine. Read the data with `out_endpoint::read()` outside of the callback.
+ */
+export struct receive_callback
+{
+  /// Invoked when data is available in the OUT endpoint
+  virtual void callback() noexcept = 0;
 };
 
 /**
@@ -776,24 +773,20 @@ export class out_endpoint : public endpoint
 {
 public:
   /**
-   * @brief Suspend until data is available on the endpoint
+   * @brief Set the callback invoked when data is available on the endpoint
    *
-   * Implementations are only required to support unblocking a single context
-   * and if a 2nd context attempt to await this function, it will be blocked by
-   * sync.
+   * When data arrives, the endpoint shall be set to NAK all requests from the
+   * HOST until the contents are read via the read() API, then the callback is
+   * invoked. Once all data has been read from the endpoint, the endpoint will
+   * become valid once again and can ACK the host if it wants to transmit more
+   * data.
    *
-   * After this function completes, the endpoint shall be set to NAK all
-   * requests from the HOST until the contents are read via the read() API. Once
-   * all data has been read from the endpoint, the endpoint will become valid
-   * once again and can ACK the host if it wants to transmit more data.
-   *
-   * @param p_context - async context to be unblocked when the bus event occurs.
-   * @return async::future<void> - completes when data is available in the
-   *         endpoint
+   * @param p_callback - the callback to invoke when data is available. Pass an
+   * empty optional to disable the callback.
    */
-  async::future<void> on_receive(async::context& p_context)
+  void on_receive(mem::optional_ptr<receive_callback> const& p_callback)
   {
-    return driver_on_receive(p_context);
+    driver_on_receive(p_callback);
   }
 
   /**
@@ -810,23 +803,20 @@ public:
    * If a caller wants to drain all of the data from the endpoint's memory, then
    * the caller should continually call read until it returns an empty span.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_buffer - buffer to fill with data
-   * @return async::future<usize> - completes with the number of bytes read from
+   * @return usize - the number of bytes read from
    * the OUT endpoint. The size will be 0 if no more data was present in the
    * endpoint.
    */
-  [[nodiscard]] async::future<usize> read(async::context& p_context,
-                                          mem::scatter_span<byte> p_buffer)
+  [[nodiscard]] usize read(mem::scatter_span<byte> p_buffer)
   {
-    return driver_read(p_context, p_buffer);
+    return driver_read(p_buffer);
   }
 
 private:
-  virtual async::future<void> driver_on_receive(async::context& p_context) = 0;
-  virtual async::future<usize> driver_read(
-    async::context& p_context,
-    mem::scatter_span<byte> p_buffer) = 0;
+  virtual void driver_on_receive(
+    mem::optional_ptr<receive_callback> const& p_callback) = 0;
+  virtual usize driver_read(mem::scatter_span<byte> p_buffer) = 0;
 };
 
 /**
@@ -1308,18 +1298,16 @@ public:
    * Reads data that was sent by the host during a host-to-device (OUT) control
    * transfer. The data is copied into the provided buffer from the endpoint.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_buffer - scatter span of byte buffers to fill with data from the
    * endpoint
-   * @return async::future<usize> - completes with the number of bytes read into
+   * @return usize - the number of bytes read into
    * the provided buffers. Value is 0 if there is no data available within the
    * endpoint.
    * @throws hal::operation_not_permitted - See class documentation.
    */
-  async::future<usize> read(async::context& p_context,
-                            mem::scatter_span<byte> p_buffer)
+  usize read(mem::scatter_span<byte> p_buffer)
   {
-    return driver_read(p_context, p_buffer);
+    return driver_read(p_buffer);
   }
 
   /**
@@ -1328,29 +1316,23 @@ public:
    * Writes data to be sent to the host during a device-to-host (IN) control
    * transfer. The data is copied from the provided buffer to the endpoint.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_buffer - scatter span of const byte buffers containing data to
    * write to the endpoint
-   * @return async::future<usize> - completes with the number of bytes written
+   * @return usize - the number of bytes written
    * from the provided buffers
    * @throws hal::operation_not_permitted - See class documentation.
    */
-  async::future<usize> write(async::context& p_context,
-                             mem::scatter_span<byte const> p_buffer)
+  usize write(mem::scatter_span<byte const> p_buffer)
   {
-    return driver_write(p_context, p_buffer);
+    return driver_write(p_buffer);
   }
 
 protected:
   ~endpoint_io() = default;
 
 private:
-  virtual async::future<usize> driver_read(
-    async::context& p_context,
-    mem::scatter_span<byte> p_buffer) = 0;
-  virtual async::future<usize> driver_write(
-    async::context& p_context,
-    mem::scatter_span<byte const> p_buffer) = 0;
+  virtual usize driver_read(mem::scatter_span<byte> p_buffer) = 0;
+  virtual usize driver_write(mem::scatter_span<byte const> p_buffer) = 0;
 };
 
 /**
@@ -1420,21 +1402,18 @@ public:
    * endpoint I/O interface. This function may be called multiple times during
    * (re)enumeration.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_start - the starting values for interface numbers and string
    * indexes. The `string` field should be cached by the interface in order to
    * allow `write_string_descriptor` to work correctly.
    * @param p_endpoint - endpoint I/O interface used to write descriptor data to
    * the host.
-   * @return async::future<descriptor_count> - completes with the descriptor
+   * @return descriptor_count - the descriptor
    * count
    */
-  [[nodiscard]] async::future<descriptor_count> write_descriptors(
-    async::context& p_context,
-    descriptor_start p_start,
-    endpoint_io& p_endpoint)
+  [[nodiscard]] descriptor_count write_descriptors(descriptor_start p_start,
+                                                   endpoint_io& p_endpoint)
   {
-    return driver_write_descriptors(p_context, p_start, p_endpoint);
+    return driver_write_descriptors(p_start, p_endpoint);
   }
 
   /**
@@ -1448,21 +1427,18 @@ public:
    * String descriptors use the USB string descriptor format with length
    * and descriptor type fields.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_index - Which string index's descriptor should be written.
    * @param p_endpoint - endpoint I/O interface used to write the string
    * descriptor to the host.
    *
-   * @return async::future<bool> - completes with true if the string was located
+   * @return bool - true if the string was located
    * and written via the endpoint I/O.
    * @returns false - if the string requested does not belong to this interface.
    */
-  [[nodiscard]] async::future<bool> write_string_descriptor(
-    async::context& p_context,
-    u8 p_index,
-    endpoint_io& p_endpoint)
+  [[nodiscard]] bool write_string_descriptor(u8 p_index,
+                                             endpoint_io& p_endpoint)
   {
-    return driver_write_string_descriptor(p_context, p_index, p_endpoint);
+    return driver_write_string_descriptor(p_index, p_endpoint);
   }
   /**
    * @brief Handle USB requests directed to this interface or its endpoints
@@ -1494,23 +1470,20 @@ public:
    * undo state changes is advised. If cleanup requires a catch block, the
    * exception must be rethrown via `throw;` before exiting.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
    * @param p_setup - Setup request from the host.
    * @param p_endpoint - endpoint I/O interface for reading or writing data to
    * the host via the control endpoint during the data phase of the control
    * transfer.
-   * @return async::future<bool> - completes with true if the request was
+   * @return bool - true if the request was
    * handled by the interface.
    * @return false - if the request could not be handled by interface.
    * @throws hal::operation_not_permitted - If a new setup packet is received
    * before the current control transfer completes. This exception must not be
    * caught by the implementation; it is intended for the enumerator.
    */
-  async::future<bool> handle_request(async::context& p_context,
-                                     setup_packet const& p_setup,
-                                     endpoint_io& p_endpoint)
+  bool handle_request(setup_packet const& p_setup, endpoint_io& p_endpoint)
   {
-    return driver_handle_request(p_context, p_setup, p_endpoint);
+    return driver_handle_request(p_setup, p_endpoint);
   }
 
   /**
@@ -1553,34 +1526,24 @@ public:
    *   link power states entered. Behavior mirrors `sleep` for interface
    *   purposes.
    *
-   * @param p_context - async context for coroutine suspension and resumption.
-   * @return async::future<host_event> - completes with the @ref host_event
-   *         that occurred
+   * @param p_event - the host event that occurred
    */
-  async::future<void> handle_host_event(async::context& p_context,
-                                        host_event p_event)
+  void handle_host_event(host_event p_event)
   {
-    return driver_handle_host_event(p_context, p_event);
+    driver_handle_host_event(p_event);
   }
 
 protected:
   ~interface() = default;
 
 private:
-  virtual async::future<descriptor_count> driver_write_descriptors(
-    async::context& p_context,
+  virtual descriptor_count driver_write_descriptors(
     descriptor_start p_start,
     endpoint_io& p_endpoint) = 0;
-  virtual async::future<bool> driver_write_string_descriptor(
-    async::context& p_context,
-    u8 p_index,
-    endpoint_io& p_endpoint) = 0;
-  virtual async::future<bool> driver_handle_request(
-    async::context& p_context,
-    setup_packet const& p_setup,
-    endpoint_io& p_endpoint) = 0;
-  virtual async::future<void> driver_handle_host_event(
-    async::context& p_context,
-    host_event p_event) = 0;
+  virtual bool driver_write_string_descriptor(u8 p_index,
+                                              endpoint_io& p_endpoint) = 0;
+  virtual bool driver_handle_request(setup_packet const& p_setup,
+                                     endpoint_io& p_endpoint) = 0;
+  virtual void driver_handle_host_event(host_event p_event) = 0;
 };
 }  // namespace hal::inline v5::usb
