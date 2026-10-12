@@ -35,7 +35,7 @@ class libhal_conan(ConanFile):
                    "peripherals and devices using modern C++")
     topics = ("peripherals", "hardware", "abstraction", "devices", "hal")
     settings = "compiler", "build_type", "os", "arch"
-    exports_sources = "modules/*", "tests/*", "CMakeLists.txt", "LICENSE"
+    exports_sources = "modules/*", "include/*", "tests/*", "CMakeLists.txt", "LICENSE"
     package_type = "static-library"
     shared = False
 

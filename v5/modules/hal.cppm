@@ -38,6 +38,8 @@ export import :serial;
 export import :servo;
 export import :motor;
 export import :memory;
+export import :lifetime;
+export import :subscription;
 export import :containers;
 export import :usb;
 
