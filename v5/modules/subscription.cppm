@@ -19,8 +19,6 @@ module;
 #include <type_traits>
 #include <utility>
 
-#include <libhal/lifetime_macros.hpp>
-
 export module hal:subscription;
 
 namespace hal::inline v5 {
@@ -37,7 +35,7 @@ namespace hal::inline v5 {
  * constant callable (member function pointer or captureless lambda) invoked
  * as Unsubscribe(source). It must be noexcept: it runs from a destructor.
  */
-export class [[nodiscard]] HAL_VIEW subscription
+export class [[nodiscard]] [[gsl::Pointer]] subscription
 {
 public:
   /**
@@ -49,8 +47,8 @@ public:
    * @return subscription - the new registration handle
    */
   template<auto Unsubscribe, class Source>
-  [[nodiscard]] static subscription make(
-    Source& p_source HAL_LIFETIMEBOUND) noexcept
+  [[nodiscard]] static subscription make(Source& p_source
+                                         [[clang::lifetimebound]]) noexcept
   {
     static_assert(
       std::is_nothrow_invocable_v<decltype(Unsubscribe), Source&>,

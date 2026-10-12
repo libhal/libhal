@@ -54,15 +54,6 @@ target_link_libraries(libhal
         mp-units::mp-units
 )
 
-# Macros don't cross `import`, so the lifetime attribute macros ship as a
-# header that consumers include in their global module fragment.
-include(GNUInstallDirs)
-target_include_directories(libhal PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
 libhal_apply_compile_options(libhal)
 libhal_install_library(libhal NAMESPACE libhal)
 libhal_add_tests(libhal

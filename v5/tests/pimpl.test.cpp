@@ -3,8 +3,6 @@
 #include <print>
 #include <vector>
 
-#include <libhal/lifetime_macros.hpp>
-
 #include <boost/ut.hpp>
 
 import hal;
@@ -82,11 +80,12 @@ public:
   // Create factory function. The motor borrows the serial port, so it must
   // not outlive it.
   static smart_motor create(hal::allocator p_allocator,
-                            hal::ref<hal::serial> p_serial HAL_LIFETIMEBOUND);
+                            hal::ref<hal::serial> p_serial
+                            [[clang::lifetimebound]]);
 
   smart_motor(private_key,
               hal::allocator p_allocator,
-              hal::ref<hal::serial> p_serial HAL_LIFETIMEBOUND);
+              hal::ref<hal::serial> p_serial [[clang::lifetimebound]]);
 
   ~smart_motor()
   {

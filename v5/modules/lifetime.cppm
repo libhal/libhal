@@ -21,7 +21,11 @@ module;
 #include <type_traits>
 #include <utility>
 
-#include <libhal/lifetime_macros.hpp>
+// Set to 1 to enable the debug-only runtime lifetime checks in `hal::ref`.
+// This changes `hal::ref`'s ABI, so every part of an image must agree.
+#if !defined(HAL_LIFETIME_CHECKS)
+#define HAL_LIFETIME_CHECKS 0
+#endif
 
 export module hal:lifetime;
 
@@ -186,7 +190,7 @@ public:
   }
 
   /**
-   * @brief Unchecked escape hatch; greppable on purpose
+   * @brief Unchecked escape hatch, named so it is easy to search for
    *
    * @param p_ref - object the caller guarantees is never destroyed or freed
    * @return static_ref - reference to p_ref
@@ -394,12 +398,12 @@ public:
   // destroyed at the end of the full-expression, so rvalue access is deleted.
 
   /// @return T& - the leased object
-  [[nodiscard]] T& operator*() const& noexcept HAL_LIFETIMEBOUND
+  [[nodiscard]] T& operator*() const& noexcept [[clang::lifetimebound]]
   {
     return *m_ptr;
   }
   /// @return T* - the leased object
-  [[nodiscard]] T* operator->() const& noexcept HAL_LIFETIMEBOUND
+  [[nodiscard]] T* operator->() const& noexcept [[clang::lifetimebound]]
   {
     return m_ptr;
   }
@@ -436,9 +440,10 @@ private:
  *  - from lease<U>&:     tied to the lease via lifetimebound (Clang)
  *
  * Rejected outright: temporaries, temporary leases, unique_ptr, raw pointers.
- * Take it by value with HAL_LIFETIMEBOUND in constructors that capture it:
+ * Take it by value with [[clang::lifetimebound]] in constructors that capture
+ * it:
  *
- *   explicit sensor(hal::ref<hal::i2c> p_bus HAL_LIFETIMEBOUND);
+ *   explicit sensor(hal::ref<hal::i2c> p_bus [[clang::lifetimebound]]);
  *
  * gsl::Pointer makes Clang treat ref as a view, so lifetimebound on a by-value
  * ref parameter ties to what it points at rather than to the ref itself.
@@ -446,7 +451,7 @@ private:
  * @tparam T - the referenced type
  */
 export template<class T>
-class HAL_POINTER(T) ref
+class [[gsl::Pointer(T)]] ref
 {
 public:
   /**
@@ -465,7 +470,7 @@ public:
    *
    * @param p_ref - object to reference
    */
-  constexpr ref(T& p_ref HAL_LIFETIMEBOUND) noexcept
+  constexpr ref(T& p_ref [[clang::lifetimebound]]) noexcept
     : m_ptr(&p_ref)
   {
     HAL_LIFETIME_CHECK(this, m_ptr);
@@ -477,7 +482,7 @@ public:
    * @param p_lease - lease of a type convertible to T
    */
   template<pointer_convertible_to<T> U>
-  constexpr ref(lease<U> const& p_lease HAL_LIFETIMEBOUND) noexcept
+  constexpr ref(lease<U> const& p_lease [[clang::lifetimebound]]) noexcept
     : m_ptr(&*p_lease)
   {
     HAL_LIFETIME_CHECK(this, m_ptr);

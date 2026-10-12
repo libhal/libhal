@@ -168,8 +168,7 @@ void timed_interrupt_test() noexcept
     // Exercise
     bool threw = false;
     try {
-      auto subscription2 =
-        test.schedule(callback2, hal::time_duration{ 2000 });
+      auto subscription2 = test.schedule(callback2, hal::time_duration{ 2000 });
     } catch (hal::subscription_busy const&) {
       threw = true;
     }

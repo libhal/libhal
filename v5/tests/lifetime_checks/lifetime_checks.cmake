@@ -35,8 +35,6 @@ target_sources(libhal_lifetime_checked PUBLIC
 )
 target_compile_features(libhal_lifetime_checked PUBLIC cxx_std_23)
 target_compile_definitions(libhal_lifetime_checked PUBLIC HAL_LIFETIME_CHECKS=1)
-target_include_directories(libhal_lifetime_checked PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(libhal_lifetime_checked PRIVATE ${LIBHAL_LINKED})
 target_compile_options(libhal_lifetime_checked PRIVATE ${LIBHAL_CXX_FLAGS})
 

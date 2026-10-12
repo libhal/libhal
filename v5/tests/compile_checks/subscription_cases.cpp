@@ -18,8 +18,6 @@
 //   ERR_*   must be rejected by the compiler
 //   WARN_*  must be reported by Clang (built with -Werror -Wlifetime-safety)
 
-#include <libhal/lifetime_macros.hpp>
-
 import hal;
 
 struct fake_pin final : hal::edge_triggered_interrupt
@@ -46,8 +44,8 @@ private:
 class button_counter : public hal::edge_triggered_callback
 {
 public:
-  explicit button_counter(
-    hal::ref<hal::edge_triggered_interrupt> p_pin HAL_LIFETIMEBOUND)
+  explicit button_counter(hal::ref<hal::edge_triggered_interrupt> p_pin
+                          [[clang::lifetimebound]])
     : m_subscription(p_pin->on_trigger(*this))
   {
   }

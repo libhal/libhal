@@ -12,10 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <libhal/lifetime_macros.hpp>
-
 export module hal:interrupts;
 
 export import :units;
@@ -139,8 +135,9 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_trigger(
-    edge_triggered_callback& p_callback HAL_LIFETIMEBOUND) HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_trigger(edge_triggered_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_trigger(p_callback);
     return subscription::make<&edge_triggered_interrupt::driver_clear_trigger>(
@@ -278,10 +275,10 @@ public:
    * @throws hal::argument_out_of_domain - if p_delay cannot be achieved
    */
   [[nodiscard]] subscription schedule(timed_callback& p_callback
-                                        HAL_LIFETIMEBOUND,
+                                      [[clang::lifetimebound]],
                                       time_duration p_delay,
                                       timer_mode p_mode = timer_mode::one_shot)
-    HAL_LIFETIMEBOUND
+    [[clang::lifetimebound]]
   {
     driver_schedule(p_callback, p_delay, p_mode);
     return subscription::make<&unstable_timed_interrupt::driver_cancel>(*this);

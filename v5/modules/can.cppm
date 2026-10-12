@@ -17,8 +17,6 @@ module;
 #include <array>
 #include <optional>
 
-#include <libhal/lifetime_macros.hpp>
-
 export module hal:can;
 
 export import scatter_span;
@@ -289,7 +287,9 @@ public:
    * @brief Register a callback for the rest of the program
    *
    * The callback lives forever and occupies the one subscriber slot for the
-   * rest of the program. Messages received before a callback is installed are not reported, although they are still written into the receive buffer of the associated `can_transceiver`. Not callable from interrupt context (see
+   * rest of the program. Messages received before a callback is installed are
+   * not reported, although they are still written into the receive buffer of
+   * the associated `can_transceiver`. Not callable from interrupt context (see
    * class docs).
    *
    * @param p_callback - callback with static storage duration
@@ -303,15 +303,19 @@ public:
   /**
    * @brief Register a callback until the returned subscription is destroyed
    *
-   * Invoked when a message is received. Messages received before a callback is installed are not reported, although they are still written into the receive buffer of the associated `can_transceiver`. Not callable from interrupt context, and the
-   * subscription must not be destroyed there (see class docs).
+   * Invoked when a message is received. Messages received before a callback is
+   * installed are not reported, although they are still written into the
+   * receive buffer of the associated `can_transceiver`. Not callable from
+   * interrupt context, and the subscription must not be destroyed there (see
+   * class docs).
    *
    * @param p_callback - the callback to invoke
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_receive(can_receive_callback& p_callback HAL_LIFETIMEBOUND)
-    HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_receive(can_receive_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);
     return subscription::make<&can_interrupt::driver_clear_receive>(*this);
@@ -432,8 +436,9 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_bus_off(
-    can_bus_off_callback& p_callback HAL_LIFETIMEBOUND) HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_bus_off(can_bus_off_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_bus_off(p_callback);
     return subscription::make<&can_bus_manager::driver_clear_bus_off>(*this);

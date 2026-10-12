@@ -26,7 +26,8 @@
 //     auto a = reinterpret_cast<char const*>(p);
 //     return a >= _sstack && a < _estack;
 //   }
-//   void violation(void const*, void const*) noexcept { hal::halt(); /* or bkpt */ }
+//   void violation(void const*, void const*) noexcept { hal::halt(); /* or bkpt
+//   */ }
 //
 // (RTOS task stacks live in .bss, so with an RTOS in_stack_memory needs the
 // current task's stack bounds instead.)

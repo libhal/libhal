@@ -23,8 +23,6 @@
 #include <type_traits>
 #include <utility>
 
-#include <libhal/lifetime_macros.hpp>
-
 #include <boost/ut.hpp>
 
 import hal;
@@ -66,7 +64,7 @@ struct fake_i2c final : i2c
 class sensor
 {
 public:
-  explicit sensor(hal::ref<i2c> p_bus HAL_LIFETIMEBOUND)
+  explicit sensor(hal::ref<i2c> p_bus [[clang::lifetimebound]])
     : m_bus(p_bus)
   {
   }
@@ -192,7 +190,8 @@ void lifetime_test()
     // Exercise
     auto* placed = new (buffer) fake_i2c{ 1 };
     std::destroy_at(placed);
-    auto* constructed = std::construct_at(reinterpret_cast<fake_i2c*>(buffer), 2);
+    auto* constructed =
+      std::construct_at(reinterpret_cast<fake_i2c*>(buffer), 2);
     std::destroy_at(constructed);
     std::optional<fake_i2c> optional_bus;
     optional_bus.emplace(3);

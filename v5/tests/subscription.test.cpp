@@ -19,8 +19,6 @@
 #include <type_traits>
 #include <utility>
 
-#include <libhal/lifetime_macros.hpp>
-
 #include <boost/ut.hpp>
 
 import hal;
@@ -68,9 +66,9 @@ private:
 class button_counter : public hal::edge_triggered_callback
 {
 public:
-  explicit button_counter(
-    hal::ref<hal::edge_triggered_interrupt> p_pin HAL_LIFETIMEBOUND,
-    hal::edge_trigger p_edge = hal::edge_trigger::rising)
+  explicit button_counter(hal::ref<hal::edge_triggered_interrupt> p_pin
+                          [[clang::lifetimebound]],
+                          hal::edge_trigger p_edge = hal::edge_trigger::rising)
     : m_subscription(subscribe(*p_pin, p_edge, *this))
   {
   }

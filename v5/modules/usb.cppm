@@ -20,8 +20,6 @@ module;
 #include <optional>
 #include <span>
 
-#include <libhal/lifetime_macros.hpp>
-
 export module hal:usb;
 
 export import scatter_span;
@@ -619,8 +617,9 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_bus_event(bus_event_callback& p_callback HAL_LIFETIMEBOUND)
-    HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_bus_event(bus_event_callback& p_callback
+                                          [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_bus_event(p_callback);
     return subscription::make<&control_endpoint::driver_clear_bus_event>(*this);
@@ -835,8 +834,9 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_receive(receive_callback& p_callback HAL_LIFETIMEBOUND)
-    HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_receive(receive_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);
     return subscription::make<&out_endpoint::driver_clear_receive>(*this);

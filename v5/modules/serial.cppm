@@ -16,8 +16,6 @@ module;
 
 #include <span>
 
-#include <libhal/lifetime_macros.hpp>
-
 export module hal:serial;
 
 export import scatter_span;
@@ -263,8 +261,9 @@ public:
    * @brief Register a callback for the rest of the program
    *
    * The callback lives forever and occupies the one subscriber slot for the
-   * rest of the program. Receive events before a callback is installed are not reported, although the data is still written into the receive buffer. Not callable from interrupt context (see
-   * class docs).
+   * rest of the program. Receive events before a callback is installed are not
+   * reported, although the data is still written into the receive buffer. Not
+   * callable from interrupt context (see class docs).
    *
    * @param p_callback - callback with static storage duration
    * @throws hal::subscription_busy - if a subscriber is already registered
@@ -277,15 +276,18 @@ public:
   /**
    * @brief Register a callback until the returned subscription is destroyed
    *
-   * Invoked on serial receive events. Receive events before a callback is installed are not reported, although the data is still written into the receive buffer. Not callable from interrupt context, and the
-   * subscription must not be destroyed there (see class docs).
+   * Invoked on serial receive events. Receive events before a callback is
+   * installed are not reported, although the data is still written into the
+   * receive buffer. Not callable from interrupt context, and the subscription
+   * must not be destroyed there (see class docs).
    *
    * @param p_callback - the callback to invoke
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback HAL_LIFETIMEBOUND)
-    HAL_LIFETIMEBOUND
+  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);
     return subscription::make<&serial_interrupt::driver_clear_receive>(*this);

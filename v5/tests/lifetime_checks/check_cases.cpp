@@ -21,8 +21,6 @@
 #include <memory_resource>
 #include <thread>
 
-#include <libhal/lifetime_macros.hpp>
-
 import hal;
 
 struct i2c : hal::no_bare_new_mixin
@@ -49,7 +47,7 @@ struct fake_i2c final : i2c
 class sensor
 {
 public:
-  explicit sensor(hal::ref<i2c> p_bus HAL_LIFETIMEBOUND)
+  explicit sensor(hal::ref<i2c> p_bus [[clang::lifetimebound]])
     : m_bus(p_bus)
   {
   }
