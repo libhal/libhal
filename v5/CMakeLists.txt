@@ -77,4 +77,9 @@ libhal_add_tests(libhal
         sensors
         pimpl
         waiter
+        lifetime
+        subscription
 )
+
+include(tests/compile_checks/compile_checks.cmake)
+include(tests/lifetime_checks/lifetime_checks.cmake)
