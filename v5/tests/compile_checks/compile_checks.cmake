@@ -89,6 +89,8 @@ foreach(CASE ERR_BARE_NEW ERR_MAKE_UNIQUE)
     libhal_compile_check(lifetime_cases.cpp ${CASE}
         "deleted function 'operator new'")
 endforeach()
+libhal_compile_check(lifetime_cases.cpp ERR_DELETE
+    "'operator delete' has been explicitly marked deleted")
 foreach(CASE WARN_RETURN_SENSOR_LOCAL WARN_RETURN_SENSOR_LOCAL_LEASE
              WARN_INTERMEDIATE_REF)
     libhal_compile_check(lifetime_cases.cpp ${CASE} "${RETURNS_STACK}")

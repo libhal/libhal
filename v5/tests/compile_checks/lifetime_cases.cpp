@@ -189,6 +189,15 @@ int main()
   auto* p = new fake_i2c{ 1 };
   return p->read();
 }
+#elif defined(CASE_ERR_DELETE)
+// Deleting through the class would destroy the object and skip freeing it.
+int main()
+{
+  auto* p = ::new fake_i2c{ 1 };
+  int const value = p->read();
+  delete p;
+  return value;
+}
 #elif defined(CASE_ERR_MAKE_UNIQUE)
 int main()
 {

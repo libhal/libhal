@@ -106,10 +106,15 @@ concept pointer_convertible_to = std::is_convertible_v<From*, To*>;
 /**
  * @brief Mixin that blocks `new T` and `std::make_unique<T>()`
  *
- * Inherit from this in interface bases (hal::i2c, hal::spi, ...). Allocator
- * and placement paths (std::construct_at, pmr, std::optional, static_slot,
- * `::new`) still work because they use the global placement form
- * `::new (p) T(...)`, which skips class-scope lookup.
+ * Opt-in: inherit from this in drivers that should never live on the heap,
+ * such as platform drivers that own a fixed peripheral and live in static
+ * storage or a static_slot. Allocator and placement paths (std::construct_at,
+ * pmr, std::optional, static_slot, `new (buffer) T`) still work.
+ *
+ * `delete p` is also rejected, so an object created with an explicit `::new`
+ * can't be released through the class (which would otherwise destroy it and
+ * silently leak its memory). Because of that, a class using this mixin can't
+ * have a virtual destructor.
  */
 export struct no_bare_new_mixin
 {
@@ -129,10 +134,8 @@ export struct no_bare_new_mixin
   {
     return p_ptr;
   }
-  /// No-op: these objects are never allocated with a bare `new`.
-  static void operator delete(void*) noexcept
-  {
-  }
+  /// Deleted: these objects are never allocated with a bare `new`.
+  static void operator delete(void*) = delete;
 
 protected:
   ~no_bare_new_mixin() = default;
