@@ -48,7 +48,7 @@ private:
     allocate_count++;
     last_allocated_bytes = p_bytes;
     last_allocated_ptr = m_upstream->allocate(p_bytes, p_alignment);
-    allocations.push_back({ last_allocated_ptr, p_bytes });
+    allocations.push_back({ .ptr = last_allocated_ptr, .bytes = p_bytes });
     return last_allocated_ptr;
   }
 
@@ -60,7 +60,7 @@ private:
     deallocate_count++;
     last_deallocated_ptr = p_ptr;
     last_deallocated_bytes = p_bytes;
-    deallocations.push_back({ p_ptr, p_bytes });
+    deallocations.push_back({ .ptr = p_ptr, .bytes = p_bytes });
     m_upstream->deallocate(p_ptr, p_bytes, p_alignment);
   }
 
