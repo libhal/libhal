@@ -63,24 +63,32 @@ private:
   }
 };
 
-class test_serial_interrupt : public hal::serial_interrupt
+// Follows the single-subscriber contract: one callback at a time.
+class test_serial_interrupt final : public hal::serial_interrupt
 {
 public:
-  mem::optional_ptr<hal::serial_receive_callback> stored_callback;
+  hal::serial_receive_callback* stored_callback = nullptr;
 
   /// Simulate the driver's ISR reporting a receive event
   void simulate_event(hal::serial_event p_event)
   {
-    if (stored_callback.has_value()) {
-      stored_callback.value()->callback(p_event);
+    if (stored_callback) {
+      stored_callback->callback(p_event);
     }
   }
 
 private:
-  void driver_on_receive(
-    mem::optional_ptr<hal::serial_receive_callback> const& p_callback) override
+  void driver_on_receive(hal::serial_receive_callback& p_callback) override
   {
-    stored_callback = p_callback;
+    if (stored_callback) {
+      throw hal::subscription_busy{};
+    }
+    stored_callback = &p_callback;
+  }
+
+  void driver_clear_receive() noexcept override
+  {
+    stored_callback = nullptr;
   }
 };
 
@@ -291,46 +299,67 @@ void serial_interrupt_test() noexcept
   "on_receive() delivers rx event to callback"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(callback);
+    auto subscription = test.on_receive(callback);
     test.simulate_event(hal::serial_event::rx);
 
     // Verify
-    expect(that % 1 == callback->call_count);
-    expect(hal::serial_event::rx == callback->last_event);
+    expect(that % 1 == callback.call_count);
+    expect(hal::serial_event::rx == callback.last_event);
   };
 
   "on_receive() delivers idle event to callback"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(callback);
+    auto subscription = test.on_receive(callback);
     test.simulate_event(hal::serial_event::idle);
 
     // Verify
-    expect(that % 1 == callback->call_count);
-    expect(hal::serial_event::idle == callback->last_event);
+    expect(that % 1 == callback.call_count);
+    expect(hal::serial_event::idle == callback.last_event);
   };
 
-  "on_receive() with empty callback stops delivery"_test = [&]() {
+  "on_receive() subscription end stops delivery"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
-    test.on_receive(callback);
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(mem::optional_ptr<hal::serial_receive_callback>{});
+    {
+      auto subscription = test.on_receive(callback);
+    }
     test.simulate_event(hal::serial_event::rx);
 
     // Verify
-    expect(that % 0 == callback->call_count);
+    expect(that % 0 == callback.call_count);
+    expect(nullptr == test.stored_callback);
+  };
+
+  "on_receive() throws when a subscriber is registered"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    recording_receive_callback first;
+    recording_receive_callback second;
+    auto subscription = test.on_receive(first);
+
+    // Exercise
+    bool threw = false;
+    try {
+      auto subscription2 = test.on_receive(second);
+    } catch (hal::subscription_busy const&) {
+      threw = true;
+    }
+    test.simulate_event(hal::serial_event::rx);
+
+    // Verify
+    expect(threw);
+    expect(that % 1 == first.call_count);
+    expect(that % 0 == second.call_count);
   };
 }
 

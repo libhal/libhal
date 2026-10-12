@@ -16,6 +16,8 @@ module;
 
 #include <span>
 
+#include <libhal/lifetime_macros.hpp>
+
 export module hal:serial;
 
 export import strong_ptr;
@@ -23,6 +25,8 @@ export import scatter_span;
 
 export import :units;
 export import :containers;
+export import :lifetime;
+export import :subscription;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
@@ -231,6 +235,9 @@ export struct serial_receive_callback
    * @param p_event - the receive event that occurred
    */
   virtual void callback(serial_event p_event) noexcept = 0;
+
+protected:
+  ~serial_receive_callback() = default;
 };
 
 /**
@@ -242,31 +249,57 @@ export struct serial_receive_callback
  * `hal::serial`. Drivers that cannot natively signal RX events should not
  * implement it; poll `receive_cursor()` instead.
  *
- * Implementations of this interface are NOT sharable across multiple device or
- * application drivers. If shared, only the last callback set will be invoked.
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: on_receive() must not be called from interrupt context,
+ * including from inside a callback, and a subscription must not be destroyed
+ * there either. To change behavior, change state inside the callback itself
+ * rather than re-subscribing. This may be relaxed later.
  */
 export class serial_interrupt
 {
 public:
   /**
-   * @brief Set the callback invoked on serial receive events
+   * @brief Register a callback for the rest of the program
    *
-   * Any receive events that occur before a callback is installed are not
-   * reported, although the data is still written into the receive buffer.
+   * The callback lives forever and occupies the one subscriber slot for the
+   * rest of the program. Receive events before a callback is installed are not reported, although the data is still written into the receive buffer. Not callable from interrupt context (see
+   * class docs).
    *
-   * @param p_callback - the callback to invoke on receive events. Pass an empty
-   * optional to disable the callback.
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_receive(mem::optional_ptr<serial_receive_callback> const& p_callback)
+  void on_receive(static_ref<serial_receive_callback> p_callback)
+  {
+    driver_on_receive(*p_callback);
+  }
+
+  /**
+   * @brief Register a callback until the returned subscription is destroyed
+   *
+   * Invoked on serial receive events. Receive events before a callback is installed are not reported, although the data is still written into the receive buffer. Not callable from interrupt context, and the
+   * subscription must not be destroyed there (see class docs).
+   *
+   * @param p_callback - the callback to invoke
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   */
+  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback HAL_LIFETIMEBOUND)
+    HAL_LIFETIMEBOUND
   {
     driver_on_receive(p_callback);
+    return subscription::make<&serial_interrupt::driver_clear_receive>(*this);
   }
 
 protected:
   ~serial_interrupt() = default;
 
 private:
-  virtual void driver_on_receive(
-    mem::optional_ptr<serial_receive_callback> const& p_callback) = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_receive(serial_receive_callback& p_callback) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_receive() noexcept = 0;
 };
 }  // namespace hal::inline v5

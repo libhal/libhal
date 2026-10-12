@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <boost/ut.hpp>
-#include <memory_resource>
+#include <optional>
 #include <ostream>
+
+#include <boost/ut.hpp>
 
 import hal;
 
@@ -44,28 +45,43 @@ public:
   }
 };
 
-class test_timed_interrupt : public hal::timed_interrupt
+// Follows the single-subscriber contract: one registered callback at a time.
+class test_timed_interrupt final : public hal::unstable_timed_interrupt
 {
 public:
-  bool is_scheduled = false;
-  mem::optional_ptr<hal::timed_callback> stored_callback;
+  hal::timed_callback* stored_callback = nullptr;
   hal::time_duration stored_delay{ 0 };
   std::optional<hal::timer_mode> m_mode;
+
+  // Simulates the hardware timer expiring.
+  void fire()
+  {
+    if (stored_callback) {
+      stored_callback->callback();
+    }
+  }
 
 private:
   bool driver_scheduled() override
   {
-    return is_scheduled;
+    return stored_callback != nullptr;
   }
 
-  void driver_schedule(mem::optional_ptr<hal::timed_callback> const& p_callback,
+  void driver_schedule(hal::timed_callback& p_callback,
                        hal::time_duration p_delay,
                        hal::timer_mode p_mode) override
   {
-    stored_callback = p_callback;
+    if (stored_callback) {
+      throw hal::subscription_busy{};
+    }
+    stored_callback = &p_callback;
     stored_delay = p_delay;
-    is_scheduled = p_callback.has_value();
     m_mode = p_mode;
+  }
+
+  void driver_cancel() noexcept override
+  {
+    stored_callback = nullptr;
   }
 };
 
@@ -84,60 +100,46 @@ void timed_interrupt_test() noexcept
     expect(!result);
   };
 
-  "::schedule() - with callback"_test = []() {
+  "::schedule() - stores callback and delay"_test = []() {
     // Setup
     test_timed_interrupt test;
-    auto callback =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
+    test_callback callback;
     hal::time_duration delay{ 1000 };
 
     // Exercise
-    test.schedule(callback, delay);
+    auto subscription = test.schedule(callback, delay);
+    test.fire();
 
     // Verify
-    expect(test.stored_callback.has_value());
-    expect(callback == test.stored_callback.value());
+    expect(&callback == test.stored_callback);
     expect(that % delay == test.stored_delay);
-    expect(test.is_scheduled);
+    expect(test.scheduled());
+    expect(that % 1 == callback.call_count);
   };
 
-  "::schedule() - with nullptr"_test = []() {
+  "::schedule() - destroying the subscription cancels"_test = []() {
     // Setup
     test_timed_interrupt test;
-    auto callback =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
-    test.schedule(callback, hal::time_duration{ 1000 });
+    test_callback callback;
 
     // Exercise
-    test.schedule(nullptr, hal::time_duration{ 500 });
+    {
+      auto subscription = test.schedule(callback, hal::time_duration{ 1000 });
+    }
+    test.fire();
 
     // Verify
-    expect(!test.stored_callback.has_value());
-    expect(!test.is_scheduled);
-  };
-
-  "::scheduled() - true after scheduling"_test = []() {
-    // Setup
-    test_timed_interrupt test;
-    auto callback =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
-    test.schedule(callback, hal::time_duration{ 1000 });
-
-    // Exercise
-    auto result = test.scheduled();
-
-    // Verify
-    expect(result);
+    expect(!test.scheduled());
+    expect(that % 0 == callback.call_count);
   };
 
   "::schedule() - defaults to one_shot mode"_test = []() {
     // Setup
     test_timed_interrupt test;
-    auto callback =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
+    test_callback callback;
 
     // Exercise
-    test.schedule(callback, hal::time_duration{ 1000 });
+    auto subscription = test.schedule(callback, hal::time_duration{ 1000 });
 
     // Verify
     expect(that % hal::timer_mode::one_shot == test.m_mode.value());
@@ -146,37 +148,52 @@ void timed_interrupt_test() noexcept
   "::schedule() - with periodic mode"_test = []() {
     // Setup
     test_timed_interrupt test;
-    auto callback =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
+    test_callback callback;
 
     // Exercise
-    test.schedule(
+    auto subscription = test.schedule(
       callback, hal::time_duration{ 1000 }, hal::timer_mode::periodic);
 
     // Verify
     expect(that % hal::timer_mode::periodic == test.m_mode.value());
   };
 
-  "::schedule() - reschedule replaces previous"_test = []() {
+  "::schedule() - throws while a callback is registered"_test = []() {
     // Setup
     test_timed_interrupt test;
-    auto callback1 =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
-    auto callback2 =
-      mem::make_strong_ptr<test_callback>(std::pmr::new_delete_resource());
-    hal::time_duration delay1{ 1000 };
-    hal::time_duration delay2{ 2000 };
-
-    test.schedule(callback1, delay1);
+    test_callback callback1;
+    test_callback callback2;
+    auto subscription = test.schedule(callback1, hal::time_duration{ 1000 });
 
     // Exercise
-    test.schedule(callback2, delay2);
+    bool threw = false;
+    try {
+      auto subscription2 =
+        test.schedule(callback2, hal::time_duration{ 2000 });
+    } catch (hal::subscription_busy const&) {
+      threw = true;
+    }
 
     // Verify
-    expect(test.stored_callback.has_value());
-    expect(callback2 == test.stored_callback.value());
-    expect(that % delay2 == test.stored_delay);
-    expect(test.is_scheduled);
+    expect(threw);
+    expect(&callback1 == test.stored_callback);
+  };
+
+  "::schedule() - reschedule after the subscription ends"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    test_callback callback1;
+    test_callback callback2;
+    {
+      auto subscription = test.schedule(callback1, hal::time_duration{ 1000 });
+    }
+
+    // Exercise
+    auto subscription = test.schedule(callback2, hal::time_duration{ 2000 });
+
+    // Verify
+    expect(&callback2 == test.stored_callback);
+    expect(that % hal::time_duration{ 2000 } == test.stored_delay);
   };
 };
 
