@@ -96,11 +96,6 @@ class pimpl
 protected:
   using destroy_fn_t = void(void*, allocator) noexcept;
 
-  static consteval bool needs_destruction()
-  {
-    return not std::is_trivially_destructible_v<typename Derived::impl>;
-  }
-
   /// Access the mutable implementation object
   ///
   /// Returns a reference to the implementation struct allocated by
@@ -139,12 +134,12 @@ protected:
 
   ~pimpl() noexcept
   {
-    // This check exists in the event that `initialize_pimpl` was never called
-    if constexpr (needs_destruction()) {
-      if (m_impl != nullptr) {
-        using impl_type = typename Derived::impl;
-        allocator(m_allocator).delete_object(static_cast<impl_type*>(m_impl));
-      }
+    // The impl memory must always be returned to the allocator, even when the
+    // impl is trivially destructible. This check exists in the event that the
+    // impl was never allocated.
+    if (m_impl != nullptr) {
+      using impl_type = typename Derived::impl;
+      allocator(m_allocator).delete_object(static_cast<impl_type*>(m_impl));
     }
   }
 
