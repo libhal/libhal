@@ -188,7 +188,7 @@ void notifier_test() noexcept
     // Setup
     provider_guard guard;
     hal::notifier notifier;
-    hal::notifier::scope operation(notifier, []() noexcept {});
+    hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
 
     // Exercise
     notifier.notify();
@@ -228,10 +228,10 @@ void notifier_test() noexcept
 
     // Exercise
     {
-      hal::notifier::scope operation(notifier, []() noexcept {});
+      hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
     }
     {
-      hal::notifier::scope operation(notifier, []() noexcept {});
+      hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
       notifier.notify();
     }
 
@@ -254,7 +254,7 @@ void notifier_test() noexcept
 
     // Exercise
     {
-      hal::notifier::scope operation(notifier, []() noexcept {});
+      hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
       while (not operation_done) {
         operation.block();
       }
@@ -269,7 +269,7 @@ void notifier_test() noexcept
     // Setup
     provider_guard guard;
     hal::notifier notifier;
-    hal::notifier::scope operation(notifier, []() noexcept {});
+    hal::notifier::scope operation(notifier, hal::notifier::no_disarm{});
 
     // Exercise
     bool const timed_out = not operation.block_for(10ms);

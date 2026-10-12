@@ -246,8 +246,7 @@ private:
  *
  * The callback runs in interrupt context. It must be short, must not block,
  * and must not throw: an exception cannot unwind out of an interrupt service
- * routine. To wake a context waiting on a message, call
- * `hal::notifier::notify()` from the callback.
+ * routine.
  */
 export struct can_receive_callback
 {

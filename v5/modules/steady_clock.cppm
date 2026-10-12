@@ -53,6 +53,9 @@ public:
   /**
    * @brief Get the current value of the steady clock
    *
+   * The count only ever increases. It can only wrap back to zero by
+   * overflowing the 64-bit boundary.
+   *
    * @return u64 - Number of counts that the steady clock has
    * counted since it started.
    */

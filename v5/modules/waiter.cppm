@@ -256,17 +256,21 @@ export void busy_wait_without_yielding_for(steady_clock& p_clock,
                       nanoseconds_per_second);
 
   auto const start = p_clock.uptime();
-  while (p_clock.uptime() - start < ticks) {
+  while ((p_clock.uptime() - start) < ticks) {
     continue;
   }
 }
 
 /**
- * @brief The one-pointer handle a peripheral driver owns.
+ * @brief A single-pointer slot that passes a completion event to the context
+ * waiting on it.
  *
- * A notifier connects a driver's completion source (usually its ISR) to the
- * waiter of the context currently blocked on the driver. While no operation is
- * in progress, the notifier points at nothing and `notify()` does nothing.
+ * When an operation starts, the waiting context's waiter is placed in the
+ * slot. Whatever completes the operation, usually an ISR, calls `notify()`,
+ * which wakes that waiter. While no operation is in progress, the slot is
+ * empty and `notify()` does nothing.
+ *
+ * Each peripheral driver owns one notifier per operation it can wait on.
  *
  * Usage inside a driver:
  *
@@ -310,6 +314,31 @@ export class notifier
 {
 public:
   /**
+   * @brief A disarm action that does nothing.
+   *
+   * Only for hardware that is known to stop notifying on its own once the
+   * operation ends, for example a peripheral that disables its interrupt when
+   * the transfer completes. If the hardware can still fire after the operation
+   * ends, write a real disarm action instead. A notification that lands after
+   * the scope ends is harmless to the waiter, but leaving the interrupt armed
+   * wastes CPU time and can mask bugs.
+   *
+   * Passing this is always explicit, so a reader of the driver can see that
+   * disarming was considered and deliberately skipped:
+   *
+   * @code
+   * hal::notifier::scope operation(m_notifier, hal::notifier::no_disarm{});
+   * @endcode
+   */
+  struct no_disarm
+  {
+    /// Does nothing.
+    void operator()() const noexcept
+    {
+    }
+  };
+
+  /**
    * @brief RAII capture of the calling context's waiter for one operation.
    *
    * On construction, stores `current_waiter()` into the notifier. On
@@ -322,8 +351,9 @@ public:
    * @tparam Disarm - a callable invoked with no arguments that stops the
    * hardware from notifying for this operation, typically by disabling an
    * interrupt. It must be noexcept because it runs in a destructor, including
-   * during stack unwinding. Pass an empty lambda if the hardware disarms itself
-   * on completion.
+   * during stack unwinding. A disarm action is required. Pass
+   * `hal::notifier::no_disarm{}` only when the hardware is known to stop
+   * notifying on its own once the operation ends.
    */
   template<class Disarm>
   class scope
@@ -429,8 +459,13 @@ public:
    */
   void notify() noexcept
   {
-    // Read the slot exactly once. The volatile qualifier keeps the compiler
-    // from re-reading it between the null check and the call.
+    // Load the slot once into a local. Because the slot is volatile, the
+    // compiler must emit exactly one load here, so it cannot load the slot
+    // again between the null check and the call. The C++ standard does not
+    // make this load safe against a concurrent write from an interrupt. It is
+    // safe in practice because an aligned, pointer-sized load is a single
+    // instruction on every supported target, so this sees either the old
+    // pointer or the new one, never a mix of the two.
     waiter* const target = m_waiter;
     if (target != nullptr) {
       target->notify();

@@ -36,14 +36,17 @@ public:
     revolutions max;  ///< Maximum position in revolutions
   };
 
-protected:
-  ~basic_servo() = default;
   /**
    * @brief Enable or disable the servo
    *
    * When disabled, the servo will go limp as if power was removed. The servo
    * may enter a low-power braking mode, but should not actively control
    * position.
+   *
+   * Calling this is not required to control the servo. A servo must be usable
+   * directly after construction, so calling `enable(true)` after construction
+   * does nothing. `enable(true)` is only needed to re-enable a servo after
+   * `enable(false)` was called.
    *
    * @param p_state - true to enable, false to disable
    */
@@ -75,6 +78,9 @@ protected:
   {
     return driver_position_range();
   }
+
+protected:
+  ~basic_servo() = default;
 
 private:
   virtual void driver_enable(bool p_state) = 0;

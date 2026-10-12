@@ -37,8 +37,7 @@ enum class edge_trigger : u8
  *
  * The callback runs in interrupt context. It must be short, must not block,
  * and must not throw: an exception cannot unwind out of an interrupt service
- * routine. To wake a context waiting on the edge, call
- * `hal::notifier::notify()` from the callback.
+ * routine.
  */
 struct edge_triggered_callback
 {

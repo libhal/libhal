@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <chrono>
-#include <memory_resource>
 #include <print>
 
 import hal;
@@ -52,23 +51,26 @@ private:
   }
 };
 
-int app_main(hal::pwm16_channel& p_pwm, hal::steady_clock& p_clock)
+int main()
 {
   try {
+    test_pwm pwm;
+    simulated_steady_clock clock;
+
     auto const pwm_frequency_int =
-      p_pwm.frequency().numerical_value_in(mp_units::si::hertz);
+      pwm.frequency().numerical_value_in(mp_units::si::hertz);
     std::println("PWM frequency = {}", pwm_frequency_int);
-    p_pwm.duty_cycle(1 << 15);
-    p_pwm.duty_cycle(1 << 14);
-    p_pwm.duty_cycle(1 << 13);
-    p_pwm.duty_cycle(1 << 12);
+    pwm.duty_cycle(1 << 15);
+    pwm.duty_cycle(1 << 14);
+    pwm.duty_cycle(1 << 13);
+    pwm.duty_cycle(1 << 12);
 
     auto const clock_frequency_int =
-      p_clock.frequency().numerical_value_in(mp_units::si::hertz);
+      clock.frequency().numerical_value_in(mp_units::si::hertz);
     std::println("Steady clock frequency = {}", clock_frequency_int);
-    auto const uptime_before = p_clock.uptime();
-    hal::busy_wait_without_yielding_for(p_clock, 5us);
-    auto const uptime_after = p_clock.uptime();
+    auto const uptime_before = clock.uptime();
+    hal::busy_wait_without_yielding_for(clock, 5us);
+    auto const uptime_after = clock.uptime();
     std::println("Steady clock uptime = {} -> {}", uptime_before, uptime_after);
   } catch (hal::argument_out_of_domain const& p_errc) {
     std::println("Caught argument_out_of_domain error successfully!");
@@ -78,16 +80,4 @@ int app_main(hal::pwm16_channel& p_pwm, hal::steady_clock& p_clock)
     return -1;
   }
   return 0;
-}
-
-int main()
-{
-  try {
-    auto pwm = mem::make_strong_ptr<test_pwm>(std::pmr::new_delete_resource());
-    auto clock = mem::make_strong_ptr<simulated_steady_clock>(
-      std::pmr::new_delete_resource());
-    return app_main(*pwm, *clock);
-  } catch (...) {
-    return -2;
-  }
 }

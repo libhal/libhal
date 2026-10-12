@@ -221,8 +221,7 @@ export enum class serial_event : u8 {
  * The callback runs in interrupt context. It must be short, must not block,
  * and must not throw: an exception cannot unwind out of an interrupt service
  * routine. Read data through `serial::receive_buffer()` outside of the
- * callback. To wake a context waiting on received data, call
- * `hal::notifier::notify()` from the callback.
+ * callback.
  */
 export struct serial_receive_callback
 {

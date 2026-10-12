@@ -154,8 +154,8 @@ public:
   /**
    * @brief Reads the most up to date angular velocity from the sensor
    *
-   * @return angular_velocity - angular velocity measured in
-   * degrees / second
+   * @return angular_velocity - angular velocity measured in revolutions per
+   * second
    */
   [[nodiscard]] angular_velocity read()
   {
@@ -232,7 +232,7 @@ public:
   /**
    * @brief Read the current angle measured by the device
    *
-   * @return degrees - measured rotation angle
+   * @return revolutions - measured rotation angle in revolutions
    */
   [[nodiscard]] revolutions read()
   {
@@ -338,7 +338,8 @@ public:
   /**
    * @brief Read the latest magnetic field strength sensed by the device
    *
-   * @return read_t - measured magnetic field strength data
+   * @return read_t - measured magnetic field strength on each axis, in
+   * teslas
    */
   [[nodiscard]] read_t read()
   {
@@ -386,7 +387,8 @@ public:
   /**
    * @brief Read the latest angular velocity sensed by the device
    *
-   * @return read_t - measured angular velocity data
+   * @return read_t - measured angular velocity on each axis, in revolutions
+   * per second
    */
   [[nodiscard]] read_t read()
   {
