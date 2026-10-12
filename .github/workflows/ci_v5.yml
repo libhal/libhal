@@ -36,4 +36,6 @@ jobs:
       modules_support_needed: true
       coroutine_support_needed: true
       dir: v5
+      llvm_profile: hal/tc/llvm-23
+      conan_version: 2.33.0  # first release that knows clang 23
     secrets: inherit
