@@ -14,6 +14,7 @@
 
 module;
 
+#include <exception>
 #include <system_error>
 #include <type_traits>
 
@@ -65,9 +66,14 @@ inline constexpr bool invalid_option = invalid_option_t<options...>::value;
  * exactly the same from day one. This class should not be changed or modified
  * at any point in the code.
  *
+ * The virtual destructor stands in for the vtable pointer that
+ * hal::exception gets from deriving from std::exception.
  */
 export class exception_abi_origin_v0
 {
+public:
+  virtual ~exception_abi_origin_v0() = default;
+
 private:
   exception_abi_origin_v0()
   {
@@ -91,8 +97,10 @@ private:
  * @ingroup Error
  * @brief Base exception class for all hal related exceptions
  *
+ * Derives from std::exception, so `catch (std::exception const&)` also
+ * catches libhal errors, and what() describes the error.
  */
-export class exception
+export class exception : public std::exception
 {
 public:
   constexpr exception(std::errc p_error_code, void const* p_instance)
@@ -171,6 +179,45 @@ public:
     return m_error_code;
   }
 
+  /**
+   * @brief Short description of the error, based on its error code
+   *
+   * @return char const* - a string with static storage duration
+   */
+  [[nodiscard]] char const* what() const noexcept override
+  {
+    // hal::unknown carries no error code, and 0 is not a std::errc value.
+    if (m_error_code == std::errc{}) {
+      return "hal::unknown";
+    }
+    switch (m_error_code) {
+      case std::errc::no_such_device:
+        return "hal::no_such_device";
+      case std::errc::io_error:
+        return "hal::io_error";
+      case std::errc::resource_unavailable_try_again:
+        return "hal::resource_unavailable_try_again";
+      case std::errc::device_or_resource_busy:
+        return "hal::device_or_resource_busy";
+      case std::errc::timed_out:
+        return "hal::timed_out";
+      case std::errc::operation_not_supported:
+        return "hal::operation_not_supported";
+      case std::errc::operation_not_permitted:
+        return "hal::operation_not_permitted";
+      case std::errc::argument_out_of_domain:
+        return "hal::argument_out_of_domain";
+      case std::errc::message_size:
+        return "hal::message_size";
+      case std::errc::not_connected:
+        return "hal::not_connected";
+      case std::errc::invalid_argument:
+        return "hal::out_of_range";
+      default:
+        return "hal::exception";
+    }
+  }
+
 private:
   void const* m_instance = nullptr;
   std::errc m_error_code{};
@@ -186,9 +233,6 @@ private:
 };
 
 static_assert(sizeof(exception_abi_origin_v0) == sizeof(exception));
-static_assert(std::is_trivially_destructible_v<exception>,
-              "hal::exception MUST be trivially "
-              "destructible.");
 
 // Disabled for now with the "&& 0" as it seems to fail on GCC 12.3.
 #if __cpp_lib_is_layout_compatible == 201907L && 0
