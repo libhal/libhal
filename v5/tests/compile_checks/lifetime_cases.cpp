@@ -65,10 +65,10 @@ private:
 
 [[maybe_unused]] static fake_i2c g_bus{ 7 };
 
-[[maybe_unused]] static hal::lease<fake_i2c> acquire_i2c1()
+[[maybe_unused]] static hal::owner<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_optional<fake_i2c> storage;
-  return storage.emplace(1);
+  static constinit hal::reusable<fake_i2c> storage;
+  return emplace(storage, 1);
 }
 
 [[maybe_unused]] static hal::owner<fake_i2c> make_bus()
@@ -117,8 +117,8 @@ int main()
   hal::static_ref<fake_i2c> r{ t_bus };
   return r->read();
 }
-#elif defined(CASE_ERR_STATIC_REF_FROM_LEASE)
-// A leased object is static storage but NOT static lifetime.
+#elif defined(CASE_ERR_STATIC_REF_FROM_REUSABLE)
+// An object in a reusable is in static storage but NOT of static lifetime.
 int main()
 {
   auto l = acquire_i2c1();
@@ -155,41 +155,9 @@ int main()
 {
   return f()->read();
 }
-#elif defined(CASE_ERR_REF_FROM_TEMP_LEASE)
-int main()
-{
-  sensor s(acquire_i2c1());  // lease dies at ';' -> driver destroyed
-  return s.read();
-}
-#elif defined(CASE_ERR_DEREF_TEMP_LEASE)
-int main()
-{
-  sensor s(*acquire_i2c1());
-  return s.read();
-}
-#elif defined(CASE_ERR_ARROW_TEMP_LEASE)
-int main()
-{
-  return acquire_i2c1()->read();
-}
-#elif defined(CASE_ERR_LEASE_COPY)
-int main()
-{
-  auto a = acquire_i2c1();
-  auto b = a;
-  return b->read();
-}
-#elif defined(CASE_ERR_LEASE_MOVE_ASSIGN)
-int main()
-{
-  auto a = acquire_i2c1();
-  hal::lease<fake_i2c> b = std::move(a);
-  b = std::move(a);
-  return 0;
-}
-#elif defined(CASE_ERR_LEASE_RESET_REMOVED)
-// Leases end only by scope: an early reset() is invisible to the analysis
-// while a composite still borrows the leased object.
+#elif defined(CASE_ERR_OWNER_RESET_REMOVED)
+// Owners end only by scope: an early reset() is invisible to the analysis
+// while a composite still borrows the owned object.
 int main()
 {
   auto l = acquire_i2c1();
@@ -229,6 +197,26 @@ int main()
   b = make_bus();
   return 0;
 }
+#elif defined(CASE_ERR_EMPLACE_LOCAL_STORAGE)
+// emplace() takes the storage as a static_ref, so a local is rejected.
+int main()
+{
+  hal::reusable<fake_i2c> storage;  // forgot static
+  auto bus = emplace(storage, 1);
+  return bus->read();
+}
+#elif defined(CASE_ERR_EMPLACE_RUNTIME_STORAGE_PARAM)
+// A reference parameter is never a constant, even if it names a static.
+hal::owner<fake_i2c> fill(hal::reusable<fake_i2c>& p_storage)
+{
+  return emplace(p_storage, 1);
+}
+int main()
+{
+  static constinit hal::reusable<fake_i2c> storage;
+  auto bus = fill(storage);
+  return bus->read();
+}
 #elif defined(CASE_ERR_BARE_NEW)
 int main()
 {
@@ -257,16 +245,6 @@ sensor f()
 {
   fake_i2c l{ 1 };
   return sensor(l);
-}
-int main()
-{
-  return f().read();
-}
-#elif defined(CASE_WARN_RETURN_SENSOR_LOCAL_LEASE)
-sensor f()
-{
-  auto l = acquire_i2c1();
-  return sensor(l);  // lease destroyed at return
 }
 int main()
 {

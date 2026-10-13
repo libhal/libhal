@@ -67,10 +67,10 @@ foreach(CASE CATCH_STUDENT_FORGOT_STATIC CATCH_STATIC_REF_ESCAPE
     libhal_lifetime_check(${CASE} CAUGHT)
 endforeach()
 foreach(CASE CLEAN_LOCAL_TO_LOCAL CLEAN_LOCAL_TO_LOCAL_IN_STD_THREAD
-             CLEAN_STATIC_TO_STATIC CLEAN_LOCAL_TO_STATIC CLEAN_APP_WITH_LEASE
+             CLEAN_STATIC_TO_STATIC CLEAN_LOCAL_TO_STATIC CLEAN_APP_WITH_OWNER
              CLEAN_STATIC_APP_WITH_STATIC_BUS
-             # Known miss: the leased driver lives in static_optional storage (.bss), so
+             # Known miss: the owned driver lives in reusable storage (.bss), so
              # the target looks static.
-             MISS_STATIC_SENSOR_ON_LOCAL_LEASE)
+             MISS_STATIC_SENSOR_ON_LOCAL_OWNER)
     libhal_lifetime_check(${CASE} CLEAN)
 endforeach()

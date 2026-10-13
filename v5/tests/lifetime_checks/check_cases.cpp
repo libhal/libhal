@@ -70,10 +70,10 @@ private:
   static fake_i2c bus{ 2 };
   return hal::static_ref<fake_i2c>{ bus };
 }
-[[maybe_unused]] static hal::lease<fake_i2c> acquire_i2c1()
+[[maybe_unused]] static hal::owner<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_optional<fake_i2c> storage;
-  return storage.emplace(1);
+  static constinit hal::reusable<fake_i2c> storage;
+  return emplace(storage, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -183,10 +183,10 @@ int main()
   return s.read() == 2 ? 0 : 1;
 }
 
-#elif defined(CASE_CLEAN_APP_WITH_LEASE)
+#elif defined(CASE_CLEAN_APP_WITH_OWNER)
 struct app
 {
-  hal::lease<i2c> bus = acquire_i2c1();
+  hal::owner<i2c> bus = acquire_i2c1();
   sensor s{ bus };
 };
 int main()
@@ -212,8 +212,8 @@ int main()
   return a.s.read() == 4 ? 0 : 1;
 }
 
-#elif defined(CASE_MISS_STATIC_SENSOR_ON_LOCAL_LEASE)
-// The leased driver lives in static_optional storage (.bss), so the target
+#elif defined(CASE_MISS_STATIC_SENSOR_ON_LOCAL_OWNER)
+// The owned driver lives in reusable storage (.bss), so the target
 // looks static.
 sensor& get_sensor()
 {

@@ -32,18 +32,19 @@ module;
 export module hal:lifetime;
 
 /**
- * Non-owning references with compile-time lifetime checks, plus static
- * storage for reusable peripherals whose lifetime is controlled at runtime.
+ * References with compile-time lifetime checks, and one owner type for
+ * objects whose lifetime is controlled at runtime.
  *
+ * Borrowing:
  *  static_ref<T>      proven static storage (consteval), or assume_static()
- *  ref<T>             borrow of static, automatic, or leased objects
- *  static_optional<T> std::optional-like static storage; emplace() leases
- *  lease<T>           RAII owner of a static_optional's object; destroying it
- *                     empties the static_optional
- *  owner<T>           RAII owner of an object allocated from a
- *                     std::pmr::memory_resource; may hold a derived type
- *  no_bare_new_mixin  mixin that blocks `new T` / make_unique but not
- *                     allocators
+ *  ref<T>             borrow of a static, local, or owned object
+ *
+ * Owning:
+ *  owner<T>           RAII owner; destroying it ends the object
+ *  reusable<T>        static storage for one T; emplace() returns its owner
+ *  make_owner<T>()    allocates a T from a memory resource; returns its owner
+ *
+ *  no_bare_new_mixin  opt-in mixin that blocks `new T` / make_unique
  */
 
 #if HAL_LIFETIME_CHECKS
@@ -116,9 +117,8 @@ concept pointer_convertible_to = std::is_convertible_v<From*, To*>;
  *
  * Opt-in: inherit from this in drivers that should never live on the heap,
  * such as platform drivers that own a fixed peripheral and live in static
- * storage or a static_optional. Allocator and placement paths
- * (std::construct_at, pmr, std::optional, static_optional, `new (buffer) T`)
- * still work.
+ * storage or a reusable. Allocator and placement paths (std::construct_at,
+ * pmr, std::optional, reusable, `new (buffer) T`) still work.
  *
  * `delete p` is also rejected, so an object created with an explicit `::new`
  * can't be released through the class (which would otherwise destroy it and
@@ -233,262 +233,66 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// static_optional / lease
-// ---------------------------------------------------------------------------
-
-/// @brief Thrown by static_optional::emplace() when it already holds a value.
-export struct already_leased : std::exception
-{
-  /// @return char const* - description of the error
-  [[nodiscard]] char const* what() const noexcept override
-  {
-    return "hal::static_optional is already leased";
-  }
-};
-
-export template<class T>
-class lease;
-
-/**
- * @brief Type-erased base of static_optional<T>, used by lease<T>
- */
-export class static_optional_base
-{
-public:
-  static_optional_base(static_optional_base const&) = delete;
-  static_optional_base& operator=(static_optional_base const&) = delete;
-
-  /// @return true - if it currently holds a leased object
-  [[nodiscard]] constexpr bool has_value() const noexcept
-  {
-    return m_has_value;
-  }
-
-protected:
-  using destroy_fn = void (*)(static_optional_base&) noexcept;
-
-  constexpr explicit static_optional_base(destroy_fn p_destroy) noexcept
-    : m_destroy(p_destroy)
-  {
-  }
-  ~static_optional_base() = default;
-
-  [[noreturn]] static void busy()
-  {
-#if defined(__cpp_exceptions)
-    throw already_leased{};
-#else
-    std::terminate();
-#endif
-  }
-
-  destroy_fn m_destroy;
-  bool m_has_value = false;
-
-  template<class>
-  friend class lease;
-};
-
-/**
- * @brief A std::optional<T> in static memory that hands out leases
- *
- * Like std::optional, it is either empty or holds one T. emplace() constructs
- * T in place, but instead of a reference it returns a lease. When the lease is
- * destroyed, T's destructor runs, which is where a driver resets its
- * peripheral, and the static_optional is empty and can be emplaced again.
- * Declare it static, usually function-local inside the factory for that
- * peripheral:
- *
- *   hal::lease<stm32::i2c> acquire_i2c1() {
- *     static constinit hal::static_optional<stm32::i2c> storage;
- *     return storage.emplace(stm32::peripheral::i2c1);
- *   }
- *
- * @tparam T - the type it can hold
- */
-export template<class T>
-class static_optional : public static_optional_base
-{
-public:
-  /// Construct an empty static_optional (constinit-friendly)
-  constexpr static_optional() noexcept
-    : static_optional_base(&destroy)
-  {
-  }
-
-  /**
-   * @brief Construct T in place and lease it
-   *
-   * @param p_args - arguments forwarded to T's constructor
-   * @return lease<T> - owner of the new object
-   * @throws hal::already_leased - if it already holds a leased object
-   */
-  template<class... Args>
-  [[nodiscard]] lease<T> emplace(Args&&... p_args)
-  {
-    if (m_has_value) {
-      busy();
-    }
-    T* obj = std::construct_at(reinterpret_cast<T*>(m_storage.data()),
-                               std::forward<Args>(p_args)...);
-    m_has_value = true;  // only after construction succeeded
-    return lease<T>(obj, *this);
-  }
-
-private:
-  static void destroy(static_optional_base& p_base) noexcept
-  {
-    auto& self = static_cast<static_optional&>(p_base);
-    std::destroy_at(std::launder(reinterpret_cast<T*>(self.m_storage.data())));
-    self.m_has_value = false;
-  }
-
-  alignas(T) std::array<std::byte, sizeof(T)> m_storage{};
-};
-
-/**
- * @brief Unique owner of an object living in a static_optional
- *
- * Move-only, two pointers. lease<Derived> converts to lease<Base>; the
- * static_optional still destroys the complete Derived object, so Base needs no
- * virtual destructor. A lease ends only when it goes out of scope: there is no
- * reset(), because releasing a lease early is the one operation the lifetime
- * analysis cannot see while a composite still borrows it.
- *
- * @tparam T - the leased type
- */
-export template<class T>
-class lease
-{
-public:
-  /**
-   * @brief Take ownership from another lease
-   *
-   * @param p_other - lease that is left empty
-   */
-  lease(lease&& p_other) noexcept
-    : m_ptr(std::exchange(p_other.m_ptr, nullptr))
-    , m_origin(std::exchange(p_other.m_origin, nullptr))
-  {
-  }
-
-  /**
-   * @brief Take ownership from a lease of a derived type
-   *
-   * @param p_other - lease that is left empty
-   */
-  template<pointer_convertible_to<T> U>
-  lease(lease<U>&& p_other) noexcept
-    : m_ptr(std::exchange(p_other.m_ptr, nullptr))
-    , m_origin(std::exchange(p_other.m_origin, nullptr))
-  {
-  }
-
-  lease& operator=(lease&&) = delete;
-
-  /// Destroy the object (resetting the peripheral) and empty the
-  /// static_optional
-  ~lease()
-  {
-    if (auto* origin = std::exchange(m_origin, nullptr)) {
-      m_ptr = nullptr;
-      origin->m_destroy(*origin);
-    }
-  }
-
-  /// @return true - if this lease owns an object (it was not moved from)
-  [[nodiscard]] explicit operator bool() const noexcept
-  {
-    return m_ptr != nullptr;
-  }
-
-  // Dereferencing a temporary lease would hand out a reference to an object
-  // destroyed at the end of the full-expression, so rvalue access is deleted.
-
-  /// @return T& - the leased object
-  [[nodiscard]] T& operator*() const& noexcept [[clang::lifetimebound]]
-  {
-    return *m_ptr;
-  }
-  /// @return T* - the leased object
-  [[nodiscard]] T* operator->() const& noexcept [[clang::lifetimebound]]
-  {
-    return m_ptr;
-  }
-  T& operator*() const&& = delete;
-  T* operator->() const&& = delete;
-
-private:
-  constexpr lease(T* p_ptr, static_optional_base& p_origin) noexcept
-    : m_ptr(p_ptr)
-    , m_origin(&p_origin)
-  {
-  }
-
-  T* m_ptr;
-  static_optional_base* m_origin;
-
-  template<class>
-  friend class lease;
-  template<class>
-  friend class static_optional;
-};
-
-// ---------------------------------------------------------------------------
-// owner
+// owner, reusable, make_owner
 // ---------------------------------------------------------------------------
 
 export template<class T>
 class owner;
 
 /**
- * @brief Header placed in front of every object an owner<T> holds
+ * @brief Records how to end the object an owner<T> holds
  *
- * Records how to destroy the complete object and which memory resource to
- * return its storage to, so owner<Base> can destroy a Derived without a
- * virtual destructor.
+ * Internal. Each place an owner's object can live supplies one: a reusable<T>
+ * (destroy the object and mark the storage empty) or an allocation made by
+ * make_owner() (destroy the object and free the memory). Because the record,
+ * not the owner's type, knows the complete object, owner<Base> ends a Derived
+ * correctly without a virtual destructor.
  */
-export class owner_control
+class owner_control
 {
 public:
   owner_control(owner_control const&) = delete;
   owner_control& operator=(owner_control const&) = delete;
 
 protected:
-  using destroy_fn = void (*)(owner_control&) noexcept;
+  using release_fn = void (*)(owner_control&) noexcept;
 
-  constexpr owner_control(destroy_fn p_destroy,
-                          std::pmr::memory_resource& p_resource) noexcept
-    : m_destroy(p_destroy)
-    , m_resource(&p_resource)
+  constexpr explicit owner_control(release_fn p_release) noexcept
+    : m_release(p_release)
   {
   }
   ~owner_control() = default;
 
-  destroy_fn m_destroy;
-  std::pmr::memory_resource* m_resource;
+  release_fn m_release;
 
   template<class>
   friend class owner;
 };
 
+/// Internal: the only code allowed to create an owner<T>
+struct owner_access
+{
+  template<class T>
+  static constexpr owner<T> adopt(T* p_ptr, owner_control& p_control) noexcept
+  {
+    return owner<T>(p_ptr, p_control);
+  }
+};
+
 /**
- * @brief Unique owner of an object allocated from a memory resource
+ * @brief Unique owner of an object
  *
- * Like lease, but for objects that live in memory obtained from a
- * std::pmr::memory_resource rather than in a static_optional. Use it when a
- * factory must hand out an object whose concrete type stays private, for
- * example a manager returning `hal::owner<hal::serial>` while the type that
- * implements it is only defined in the manager's `.cpp`. The caller picks
- * where the memory comes from by choosing the allocator.
+ * Create one by filling a `hal::reusable<T>` with emplace(), or by allocating
+ * with `hal::make_owner<T>()`. Destroying the owner runs T's destructor, which
+ * is where a driver resets its peripheral, and then empties the reusable or
+ * frees the allocation.
  *
  * Move-only, two pointers, never empty except after being moved from.
  * owner<Derived> converts to owner<Base>; the complete Derived object is still
- * destroyed and its storage returned to the same resource, so Base needs no
- * virtual destructor. Like lease, an owner ends only when it goes out of
- * scope. To end one early, hold it in a std::optional.
- *
- * Create one with hal::make_owner<T>().
+ * ended correctly, so Base needs no virtual destructor. An owner ends only when
+ * it goes out of scope: there is no reset(), because ending it early is the one
+ * operation the lifetime analysis cannot see while a composite still borrows
+ * it. To end one early anyway, hold it in a std::optional.
  *
  * @tparam T - the owned type, or a base of it
  */
@@ -521,12 +325,12 @@ public:
 
   owner& operator=(owner&&) = delete;
 
-  /// Destroy the complete object and return its storage to its resource
+  /// End the complete object: destroy it, then empty or free its storage
   ~owner()
   {
     if (auto* control = std::exchange(m_control, nullptr)) {
       m_ptr = nullptr;
-      control->m_destroy(*control);
+      control->m_release(*control);
     }
   }
 
@@ -564,24 +368,112 @@ private:
 
   template<class>
   friend class owner;
-  template<class U, class... Args>
-  friend owner<U> make_owner(std::pmr::polymorphic_allocator<> p_allocator,
-                             Args&&... p_args);
+  friend struct owner_access;
 };
 
-/// Storage for an owner's object, placed right after its owner_control header
+/// @brief Thrown by emplace() when a reusable<T> already holds an object
+export struct reusable_busy : std::exception
+{
+  /// @return char const* - description of the error
+  [[nodiscard]] char const* what() const noexcept override
+  {
+    return "hal::reusable already holds an object";
+  }
+};
+
+/**
+ * @brief Storage for one T that can be created, destroyed, and created again
+ *
+ * Holds no object or one object. Fill it with emplace(), which constructs T in
+ * place and returns its owner. When the owner is destroyed, T's destructor
+ * runs, which is where a driver resets its peripheral, and the storage is
+ * empty again.
+ *
+ * A reusable<T> must have static storage duration, and emplace() enforces it:
+ * it takes the storage as a static_ref, so passing a local fails to compile.
+ * Declare it `static constinit`, usually inside the factory for that
+ * peripheral:
+ *
+ *   hal::owner<stm32::i2c> acquire_i2c1() {
+ *     static constinit hal::reusable<stm32::i2c> storage;
+ *     return emplace(storage, stm32::peripheral::i2c1);
+ *   }
+ *
+ * emplace() is found through the argument, so call it unqualified, as shown.
+ * Its other arguments are ordinary runtime values; only the storage must be
+ * static.
+ *
+ * @tparam T - the type it can hold
+ */
+export template<class T>
+class reusable : public owner_control
+{
+public:
+  /// Construct empty storage (constinit-friendly)
+  constexpr reusable() noexcept
+    : owner_control(&release)
+  {
+  }
+
+  /// @return true - if it currently holds an object
+  [[nodiscard]] constexpr bool has_value() const noexcept
+  {
+    return m_has_value;
+  }
+
+  /**
+   * @brief Construct a T in static storage and return its owner
+   *
+   * @param p_storage - the storage, which must have static storage duration.
+   * Passing a local or a runtime reference fails to compile.
+   * @param p_args - arguments forwarded to T's constructor
+   * @return owner<T> - owner of the new object
+   * @throws hal::reusable_busy - if the storage already holds an object
+   */
+  template<class... Args>
+  [[nodiscard]] friend owner<T> emplace(static_ref<reusable> p_storage,
+                                        Args&&... p_args)
+  {
+    auto& self = *p_storage;
+    if (self.m_has_value) {
+#if defined(__cpp_exceptions)
+      throw reusable_busy{};
+#else
+      std::terminate();
+#endif
+    }
+    T* object = std::construct_at(reinterpret_cast<T*>(self.m_storage.data()),
+                                  std::forward<Args>(p_args)...);
+    self.m_has_value = true;  // only after construction succeeded
+    return owner_access::adopt(object, self);
+  }
+
+private:
+  static void release(owner_control& p_control) noexcept
+  {
+    auto& self = static_cast<reusable&>(p_control);
+    std::destroy_at(std::launder(reinterpret_cast<T*>(self.m_storage.data())));
+    self.m_has_value = false;
+  }
+
+  alignas(T) std::array<std::byte, sizeof(T)> m_storage{};
+  bool m_has_value = false;
+};
+
+/// Internal: an allocation made by make_owner(), header first, then the object
 template<class T>
 class owner_block final : public owner_control
 {
 public:
   template<class... Args>
   explicit owner_block(std::pmr::memory_resource& p_resource, Args&&... p_args)
-    : owner_control(&destroy, p_resource)
+    : owner_control(&release)
     , object(std::forward<Args>(p_args)...)
+    , m_resource(&p_resource)
   {
   }
 
-  static void destroy(owner_control& p_control) noexcept
+  static void release(owner_control& p_control) noexcept
   {
     auto* self = static_cast<owner_block*>(&p_control);
     std::pmr::polymorphic_allocator<> allocator(self->m_resource);
@@ -589,10 +481,18 @@ public:
   }
 
   T object;
+
+private:
+  std::pmr::memory_resource* m_resource;
 };
 
 /**
  * @brief Allocate and construct a T, returning its owner
+ *
+ * Use this when the object's concrete type should stay private, for example a
+ * manager returning `hal::owner<hal::serial>` while the type that implements
+ * it is only defined in the manager's `.cpp`. The caller picks where the
+ * memory comes from by choosing the allocator.
  *
  * The object and a small header are allocated together from p_allocator's
  * memory resource. If T's constructor throws, the storage is freed and the
@@ -612,7 +512,7 @@ export template<class T, class... Args>
   try {
     auto* created =
       std::construct_at(storage, *resource, std::forward<Args>(p_args)...);
-    return owner<T>(&created->object, *created);
+    return owner_access::adopt(&created->object, *created);
   } catch (...) {
     p_allocator.deallocate_object(storage);
     throw;
@@ -630,11 +530,10 @@ export template<class T, class... Args>
  *
  *  - from static_ref<U>: proven static, no lifetime tie
  *  - from T&:            tied to the referent via lifetimebound (Clang)
- *  - from lease<U>&:     tied to the lease via lifetimebound (Clang)
  *  - from owner<U>&:     tied to the owner via lifetimebound (Clang)
  *
- * Rejected outright: temporaries, temporary leases and owners, unique_ptr, raw
- * pointers.
+ * Rejected outright: temporaries, temporary owners, unique_ptr, raw pointers.
+ *
  * Take it by value with [[clang::lifetimebound]] in constructors that capture
  * it:
  *
@@ -667,18 +566,6 @@ public:
    */
   constexpr ref(T& p_ref [[clang::lifetimebound]]) noexcept
     : m_ptr(&p_ref)
-  {
-    HAL_LIFETIME_CHECK(this, m_ptr);
-  }
-
-  /**
-   * @brief Borrow a leased object; the ref must not outlive the lease
-   *
-   * @param p_lease - lease of a type convertible to T
-   */
-  template<pointer_convertible_to<T> U>
-  constexpr ref(lease<U> const& p_lease [[clang::lifetimebound]]) noexcept
-    : m_ptr(&*p_lease)
   {
     HAL_LIFETIME_CHECK(this, m_ptr);
   }
@@ -726,8 +613,6 @@ public:
 #endif
 
   ref(T&&) = delete;
-  template<class U>
-  ref(lease<U>&&) = delete;
   template<class U>
   ref(owner<U>&&) = delete;
   template<class D>

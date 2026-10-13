@@ -95,6 +95,8 @@ private:
     auto const unsupported =
       static_cast<unsigned>(p_events) & ~static_cast<unsigned>(supported);
     if (unsupported != 0U) {
+      // hal::exception is deliberately not derived from std::exception.
+      // NOLINTNEXTLINE(bugprone-std-exception-baseclass)
       throw hal::operation_not_supported(this);
     }
     stored_callback = &p_callback;

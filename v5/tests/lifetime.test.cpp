@@ -43,8 +43,7 @@ struct i2c : hal::no_bare_new_mixin
   virtual int read() = 0;
 
 protected:
-  ~i2c() =
-    default;  // no virtual dtor needed; static_optional destroys the full type
+  ~i2c() = default;  // no virtual dtor needed; owner ends the full type
 };
 
 struct fake_i2c final : i2c
@@ -92,17 +91,17 @@ hal::static_ref<fake_i2c> get_static_bus()
   return hal::static_ref<fake_i2c>{ bus };
 }
 
-hal::lease<fake_i2c> acquire_i2c1()
+hal::owner<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_optional<fake_i2c> storage;
-  return storage.emplace(1);
+  static constinit hal::reusable<fake_i2c> storage;
+  return emplace(storage, 1);
 }
 
-// Typical application: owns its leases, composites borrow them. Members are
+// Typical application: owns its owners, composites borrow them. Members are
 // destroyed in reverse order, so the sensor goes before the bus.
 struct app
 {
-  hal::lease<i2c> bus = acquire_i2c1();
+  hal::owner<i2c> bus = acquire_i2c1();
   sensor s{ bus };
 };
 
@@ -196,18 +195,12 @@ struct throws_on_construct : hal::no_bare_new_mixin
   }
 };
 
-static_assert(sizeof(hal::owner<i2c>) == 2 * sizeof(void*));
-static_assert(not std::is_copy_constructible_v<hal::owner<i2c>>);
-static_assert(std::is_nothrow_move_constructible_v<hal::owner<i2c>>);
 static_assert(std::is_constructible_v<hal::owner<i2c>, hal::owner<fake_i2c>&&>);
 
 static_assert(sizeof(hal::ref<i2c>) == sizeof(void*));
 static_assert(sizeof(hal::static_ref<i2c>) == sizeof(void*));
-static_assert(sizeof(hal::lease<i2c>) == 2 * sizeof(void*));
 static_assert(std::is_trivially_copyable_v<hal::ref<i2c>>);
 static_assert(std::is_trivially_copyable_v<hal::static_ref<i2c>>);
-static_assert(not std::is_copy_constructible_v<hal::lease<i2c>>);
-static_assert(std::is_nothrow_move_constructible_v<hal::lease<i2c>>);
 
 void lifetime_test()
 {
@@ -291,7 +284,7 @@ void lifetime_test()
     expect(that % 3 == optional_bus->read());
   };
 
-  "static_optional is reused after each lease ends"_test = []() {
+  "reusable is reused after each owner ends"_test = []() {
     // Setup
     int const ctor_before = g_ctor;
     int const dtor_before = g_dtor;
@@ -300,14 +293,14 @@ void lifetime_test()
     for (int i = 0; i < 3; i++) {
       app a;
       expect(that % 1 == a.s.read());
-    }  // ~app: ~sensor, then ~lease -> ~fake_i2c (peripheral reset)
+    }  // ~app: ~sensor, then ~owner -> ~fake_i2c (peripheral reset)
 
     // Verify
     expect(that % 3 == g_ctor - ctor_before);
     expect(that % 3 == g_dtor - dtor_before);
   };
 
-  "static_optional throws while leased, frees at end of scope"_test = []() {
+  "reusable throws while held, empties at end of scope"_test = []() {
     // Setup
     bool threw = false;
 
@@ -316,10 +309,10 @@ void lifetime_test()
       auto first = acquire_i2c1();
       try {
         auto second = acquire_i2c1();
-      } catch (hal::already_leased const&) {
+      } catch (hal::reusable_busy const&) {
         threw = true;
       }
-    }  // first ends here, emptying the static_optional
+    }  // first ends here, emptying the reusable
     auto again = acquire_i2c1();
 
     // Verify
@@ -327,14 +320,27 @@ void lifetime_test()
     expect(that % 1 == again->read());
   };
 
-  "lease moves and upcasts"_test = []() {
+  "emplace() takes runtime arguments"_test = []() {
+    // Setup
+    static constinit hal::reusable<fake_i2c> storage;
+    int volatile runtime_port = 9;  // not a constant expression
+
+    // Exercise
+    auto bus = emplace(storage, static_cast<int>(runtime_port));
+
+    // Verify
+    expect(that % 9 == bus->read());
+    expect(storage.has_value());
+  };
+
+  "owner from reusable moves and upcasts"_test = []() {
     // Setup
     int const dtor_before = g_dtor;
 
     // Exercise
     {
       auto derived = acquire_i2c1();
-      hal::lease<i2c> base = std::move(derived);  // upcast, ownership moves
+      hal::owner<i2c> base = std::move(derived);  // upcast, ownership moves
       expect(not derived);  // NOLINT(bugprone-use-after-move): checking it
       expect(static_cast<bool>(base));
       expect(that % dtor_before == g_dtor);
@@ -344,19 +350,19 @@ void lifetime_test()
     expect(that % 1 == g_dtor - dtor_before);
   };
 
-  "failed construction leaves the static_optional empty"_test = []() {
+  "failed construction leaves the reusable empty"_test = []() {
     // Setup
-    static constinit hal::static_optional<throws_once> storage;
+    static constinit hal::reusable<throws_once> storage;
     bool threw = false;
 
     // Exercise
     try {
-      auto lease = storage.emplace();
+      auto held = emplace(storage);
     } catch (construct_error const&) {
       threw = true;
     }
     bool const has_value_after_throw = storage.has_value();
-    auto lease = storage.emplace();
+    auto held = emplace(storage);
 
     // Verify
     expect(threw);
