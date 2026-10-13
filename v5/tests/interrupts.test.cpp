@@ -45,17 +45,24 @@ public:
   }
 };
 
-// Follows the single-subscriber contract: one registered callback at a time.
-class test_timed_interrupt final : public hal::unstable_timed_interrupt
+// Follows the contract: one registered callback, armed independently.
+class test_timed_interrupt final : public hal::timed_interrupt
 {
 public:
   hal::timed_callback* stored_callback = nullptr;
   hal::time_duration stored_delay{ 0 };
   std::optional<hal::timer_mode> m_mode;
+  bool armed = false;
 
   // Simulates the hardware timer expiring.
   void fire()
   {
+    if (not armed) {
+      return;
+    }
+    if (m_mode == hal::timer_mode::one_shot) {
+      armed = false;
+    }
     if (stored_callback) {
       stored_callback->callback();
     }
@@ -64,25 +71,60 @@ public:
 private:
   bool driver_scheduled() override
   {
-    return stored_callback != nullptr;
+    return armed;
   }
 
-  void driver_schedule(hal::timed_callback& p_callback,
-                       hal::time_duration p_delay,
+  void driver_schedule(hal::time_duration p_delay,
                        hal::timer_mode p_mode) override
+  {
+    stored_delay = p_delay;
+    m_mode = p_mode;
+    armed = true;
+  }
+
+  void driver_cancel() noexcept override
+  {
+    armed = false;
+  }
+
+  void driver_on_expire(hal::timed_callback& p_callback) override
   {
     if (stored_callback) {
       throw hal::subscription_busy{};
     }
     stored_callback = &p_callback;
-    stored_delay = p_delay;
-    m_mode = p_mode;
   }
 
-  void driver_cancel() noexcept override
+  void driver_clear_expire() noexcept override
   {
+    armed = false;
     stored_callback = nullptr;
   }
+};
+
+// Re-arms its own one-shot timer from inside the callback, a fixed number of
+// times.
+class rearming_callback : public hal::timed_callback
+{
+public:
+  explicit rearming_callback(hal::timed_interrupt& p_timer)
+    : m_timer(&p_timer)
+  {
+  }
+
+  int call_count = 0;
+  int rearm_limit = 2;
+
+private:
+  void callback() noexcept override
+  {
+    call_count++;
+    if (call_count <= rearm_limit) {
+      m_timer->schedule(hal::time_duration{ 500 });
+    }
+  }
+
+  hal::timed_interrupt* m_timer;
 };
 
 void timed_interrupt_test() noexcept
@@ -100,75 +142,129 @@ void timed_interrupt_test() noexcept
     expect(!result);
   };
 
-  "::schedule() - stores callback and delay"_test = []() {
+  "::schedule() - arms the timer with the delay"_test = []() {
     // Setup
     test_timed_interrupt test;
     test_callback callback;
+    auto subscription = test.on_expire(callback);
     hal::time_duration delay{ 1000 };
 
     // Exercise
-    auto subscription = test.schedule(callback, delay);
+    test.schedule(delay);
+    bool const armed = test.scheduled();
     test.fire();
 
     // Verify
-    expect(&callback == test.stored_callback);
+    expect(armed);
     expect(that % delay == test.stored_delay);
-    expect(test.scheduled());
     expect(that % 1 == callback.call_count);
-  };
-
-  "::schedule() - destroying the subscription cancels"_test = []() {
-    // Setup
-    test_timed_interrupt test;
-    test_callback callback;
-
-    // Exercise
-    {
-      auto subscription = test.schedule(callback, hal::time_duration{ 1000 });
-    }
-    test.fire();
-
-    // Verify
-    expect(!test.scheduled());
-    expect(that % 0 == callback.call_count);
+    expect(!test.scheduled());  // one-shot stops after expiring
   };
 
   "::schedule() - defaults to one_shot mode"_test = []() {
     // Setup
     test_timed_interrupt test;
-    test_callback callback;
 
     // Exercise
-    auto subscription = test.schedule(callback, hal::time_duration{ 1000 });
+    test.schedule(hal::time_duration{ 1000 });
 
     // Verify
     expect(that % hal::timer_mode::one_shot == test.m_mode.value());
   };
 
-  "::schedule() - with periodic mode"_test = []() {
+  "::schedule() - periodic keeps firing until cancel()"_test = []() {
     // Setup
     test_timed_interrupt test;
     test_callback callback;
+    auto subscription = test.on_expire(callback);
 
     // Exercise
-    auto subscription = test.schedule(
-      callback, hal::time_duration{ 1000 }, hal::timer_mode::periodic);
+    test.schedule(hal::time_duration{ 1000 }, hal::timer_mode::periodic);
+    test.fire();
+    test.fire();
+    test.cancel();
+    test.fire();
 
     // Verify
     expect(that % hal::timer_mode::periodic == test.m_mode.value());
+    expect(that % 2 == callback.call_count);
+    expect(!test.scheduled());
   };
 
-  "::schedule() - throws while a callback is registered"_test = []() {
+  "::schedule() - re-arms a one-shot timer without re-registering"_test =
+    []() {
+      // Setup
+      test_timed_interrupt test;
+      test_callback callback;
+      auto subscription = test.on_expire(callback);
+
+      // Exercise
+      test.schedule(hal::time_duration{ 1000 });
+      test.fire();
+      test.schedule(hal::time_duration{ 2000 });
+      test.fire();
+
+      // Verify
+      expect(that % 2 == callback.call_count);
+      expect(that % hal::time_duration{ 2000 } == test.stored_delay);
+      expect(&callback == test.stored_callback);
+    };
+
+  "::schedule() - while armed restarts with the new delay"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    test.schedule(hal::time_duration{ 1000 }, hal::timer_mode::periodic);
+
+    // Exercise
+    test.schedule(hal::time_duration{ 3000 });
+
+    // Verify
+    expect(test.scheduled());
+    expect(that % hal::time_duration{ 3000 } == test.stored_delay);
+    expect(that % hal::timer_mode::one_shot == test.m_mode.value());
+  };
+
+  "::schedule() - callback can re-arm its own timer"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    rearming_callback callback(test);
+    auto subscription = test.on_expire(callback);
+
+    // Exercise
+    test.schedule(hal::time_duration{ 500 });
+    test.fire();
+    test.fire();
+    test.fire();
+    test.fire();  // the third call did not re-arm
+
+    // Verify
+    expect(that % 3 == callback.call_count);
+    expect(!test.scheduled());
+  };
+
+  "::schedule() - without a callback arms and fires into nothing"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+
+    // Exercise
+    test.schedule(hal::time_duration{ 1000 });
+    test.fire();
+
+    // Verify
+    expect(!test.scheduled());
+  };
+
+  "::on_expire() - throws while a callback is registered"_test = []() {
     // Setup
     test_timed_interrupt test;
     test_callback callback1;
     test_callback callback2;
-    auto subscription = test.schedule(callback1, hal::time_duration{ 1000 });
+    auto subscription = test.on_expire(callback1);
 
     // Exercise
     bool threw = false;
     try {
-      auto subscription2 = test.schedule(callback2, hal::time_duration{ 2000 });
+      auto subscription2 = test.on_expire(callback2);
     } catch (hal::subscription_busy const&) {
       threw = true;
     }
@@ -178,21 +274,43 @@ void timed_interrupt_test() noexcept
     expect(&callback1 == test.stored_callback);
   };
 
-  "::schedule() - reschedule after the subscription ends"_test = []() {
+  "::on_expire() - destroying the subscription cancels the timer"_test =
+    []() {
+      // Setup
+      test_timed_interrupt test;
+      test_callback callback;
+
+      // Exercise
+      {
+        auto subscription = test.on_expire(callback);
+        test.schedule(hal::time_duration{ 1000 });
+      }
+      test.fire();
+
+      // Verify
+      expect(!test.scheduled());
+      expect(nullptr == test.stored_callback);
+      expect(that % 0 == callback.call_count);
+    };
+
+  "::on_expire() - register again after the subscription ends"_test = []() {
     // Setup
     test_timed_interrupt test;
     test_callback callback1;
     test_callback callback2;
     {
-      auto subscription = test.schedule(callback1, hal::time_duration{ 1000 });
+      auto subscription = test.on_expire(callback1);
     }
 
     // Exercise
-    auto subscription = test.schedule(callback2, hal::time_duration{ 2000 });
+    auto subscription = test.on_expire(callback2);
+    test.schedule(hal::time_duration{ 2000 });
+    test.fire();
 
     // Verify
     expect(&callback2 == test.stored_callback);
-    expect(that % hal::time_duration{ 2000 } == test.stored_delay);
+    expect(that % 0 == callback1.call_count);
+    expect(that % 1 == callback2.call_count);
   };
 };
 

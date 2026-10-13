@@ -166,19 +166,19 @@ private:
 };
 
 /**
- * @brief Callback object invoked by an `unstable_timed_interrupt`
+ * @brief Callback object invoked by a `timed_interrupt`
  *
  * The callback runs in interrupt context. It must be short, must not block,
  * and must not throw: an exception cannot unwind out of an interrupt service
- * routine. It must not call schedule(), or destroy its own subscription or
- * owner, from inside the callback.
+ * routine. It may call `timed_interrupt::schedule()` and
+ * `timed_interrupt::cancel()` to re-arm or stop the timer. It must not call
+ * on_expire(), or destroy its own subscription or owner, from inside the
+ * callback.
  */
 struct timed_callback
 {
   /**
-   * @brief Callback invoked by interrupt after scheduled timed interrupt is
-   * invoked
-   *
+   * @brief Invoked by the timer's interrupt each time the timer expires
    */
   virtual void callback() noexcept = 0;
 
@@ -187,55 +187,56 @@ protected:
 };
 
 /**
- * @brief Determines whether a scheduled callback fires once or repeatedly
+ * @brief Determines whether an armed timer fires once or repeatedly
  */
 enum class timer_mode : u8
 {
-  /// The callback is invoked a single time after the delay elapses, then
-  /// the timer stops.
+  /// The timer expires a single time after the delay elapses, then stops.
   one_shot,
-  /// The callback is invoked after the delay elapses, then automatically
-  /// re-armed with the same delay, repeating indefinitely until its
+  /// The timer expires after the delay elapses, then automatically re-arms
+  /// with the same delay, repeating until cancel() is called or the
   /// subscription is destroyed.
   periodic
 };
 
 /**
- * @brief An abstraction for hardware timed interrupts. UNSTABLE.
- *
- * WARNING: this interface is expected to change soon, which is why its name
- * starts with `unstable_`. In particular, how a scheduled callback is replaced
- * by a new one is not settled.
+ * @brief An abstraction for hardware timed interrupts
  *
  * Use this interface for devices and peripherals that have timer like
  * capabilities, such that, when a timer's time has expired, an event,
  * interrupt, or signal is generated.
+ *
+ * Registering a callback and arming the timer are separate. on_expire()
+ * registers the one callback the timer calls. schedule() and cancel() arm and
+ * stop the timer as often as needed without touching the registration, so a
+ * one-shot timer is re-armed simply by calling schedule() again.
  *
  * Timer drivers tick period must be an integer multiple of 1 nanosecond,
  * meaning that the only tick period allowed are 1ns, 2ns, up to the maximum
  * holdable in a std::chrono::nanosecond type. sub-nanosecond tick periods are
  * not allowed.
  *
- * Contract: at most ONE registered callback at a time. A callback stays
- * registered until its subscription is destroyed, even after a one-shot timer
- * has fired, so scheduling again while a subscription is alive throws
- * hal::subscription_busy. To schedule a new callback, destroy the previous
- * subscription first.
+ * Contract: at most ONE registered callback at a time. Registering while one
+ * is active throws hal::subscription_busy.
  *
- * Interrupt context: never call schedule() from an interrupt service routine,
- * including from inside a callback, and never destroy a subscription there. To
- * change behavior, change state inside the callback object. To swap callbacks,
- * hold the subscription in a `std::optional<hal::subscription>`, then reset()
- * it and subscribe again from outside of interrupt context.
+ * Interrupt context: schedule(), cancel() and scheduled() may be called from
+ * an interrupt service routine, including from inside the callback, to re-arm
+ * or stop the timer. Never call on_expire() from an interrupt service routine,
+ * and never destroy a subscription there. To change behavior, change state
+ * inside the callback object. To swap callbacks, hold the subscription in a
+ * `std::optional<hal::subscription>`, then reset() it and register again from
+ * outside of interrupt context.
  */
-class unstable_timed_interrupt
+class timed_interrupt
 {
 public:
   /**
-   * @brief Determine if the timer is currently pending
+   * @brief Determine if the timer is currently armed
    *
-   * @return true - if a callback has been scheduled and has not been invoked
-   * yet, false otherwise.
+   * Safe to call from interrupt context.
+   *
+   * @return true - if the timer is armed and has not expired yet, or is armed
+   * in periodic mode. false otherwise.
    */
   [[nodiscard]] bool scheduled()
   {
@@ -243,7 +244,11 @@ public:
   }
 
   /**
-   * @brief Schedule a callback for the rest of the program
+   * @brief Arm the timer to expire after a delay
+   *
+   * If the timer is already armed, it is restarted with the new delay and
+   * mode. The timer is armed even if no callback is registered; in that case
+   * nothing is called when it expires.
    *
    * If the delay time result in a tick period of 0, then the timer will
    * execute after 1 tick period. For example, if the tick period is 1ms and
@@ -251,72 +256,91 @@ public:
    * 1ms. If the tick period is 1ms and the requested time is 2.5ms then the
    * event will be scheduled after 2 tick periods or in 2ms.
    *
-   * The registration is permanent: the subscriber slot stays taken for the rest
-   * of the program.
+   * Safe to call from interrupt context, including from inside the callback,
+   * as long as the delay is one the timer can achieve. An unachievable delay
+   * throws, and an exception cannot unwind out of an interrupt service
+   * routine.
    *
-   * @warning Never call schedule() from an interrupt service routine,
-   * including from inside a callback. It throws `hal::subscription_busy` if a
-   * subscriber is already registered, and an exception cannot unwind out of
-   * an interrupt service routine.
-   *
-   * @param p_callback - callback with static storage duration
    * @param p_delay - the amount of time until the timer expires
-   * @param p_mode - whether the callback fires once or repeatedly, see
+   * @param p_mode - whether the timer expires once or repeatedly, see
    * `timer_mode`
-   * @throws hal::subscription_busy - if a callback is already registered
    * @throws hal::argument_out_of_domain - if p_delay cannot be achieved
    */
-  void schedule(static_ref<timed_callback> p_callback,
-                time_duration p_delay,
-                timer_mode p_mode = timer_mode::one_shot)
+  void schedule(time_duration p_delay, timer_mode p_mode = timer_mode::one_shot)
   {
-    driver_schedule(*p_callback, p_delay, p_mode);
+    driver_schedule(p_delay, p_mode);
   }
 
   /**
-   * @brief Schedule a callback until the returned subscription is destroyed
+   * @brief Stop the timer if it is armed
    *
-   * Destroying the subscription cancels the timer if it is still pending. See
-   * the static_ref overload for how the delay is rounded to the tick period.
-   *
-   * @warning Never call schedule() from an interrupt service routine,
-   * including from inside a callback. It throws `hal::subscription_busy` if a
-   * subscriber is already registered, and an exception cannot unwind out of
-   * an interrupt service routine. Destroy the returned subscription outside
-   * of interrupt context too.
-   *
-   * @param p_callback - callback to invoke when the timer expires
-   * @param p_delay - the amount of time until the timer expires
-   * @param p_mode - whether the callback fires once or repeatedly, see
-   * `timer_mode`
-   * @return subscription - cancels and unregisters the callback when destroyed
-   * @throws hal::subscription_busy - if a callback is already registered
-   * @throws hal::argument_out_of_domain - if p_delay cannot be achieved
+   * Does nothing if the timer is not armed. The registered callback stays
+   * registered. Safe to call from interrupt context, including from inside
+   * the callback.
    */
-  [[nodiscard]] subscription schedule(timed_callback& p_callback
-                                      [[clang::lifetimebound]],
-                                      time_duration p_delay,
-                                      timer_mode p_mode = timer_mode::one_shot)
+  void cancel() noexcept
+  {
+    driver_cancel();
+  }
+
+  /**
+   * @brief Register a callback for the rest of the program
+   *
+   * The registration is permanent: the callback slot stays taken for the rest
+   * of the program. The timer can still be armed and stopped any number of
+   * times with schedule() and cancel().
+   *
+   * @warning Never call on_expire() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * callback is already registered, and an exception cannot unwind out of an
+   * interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a callback is already registered
+   */
+  void on_expire(static_ref<timed_callback> p_callback)
+  {
+    driver_on_expire(*p_callback);
+  }
+
+  /**
+   * @brief Register a callback until the returned subscription is destroyed
+   *
+   * Destroying the subscription also cancels the timer if it is armed.
+   *
+   * @warning Never call on_expire() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * callback is already registered, and an exception cannot unwind out of an
+   * interrupt service routine. Destroy the returned subscription outside of
+   * interrupt context too.
+   *
+   * @param p_callback - callback to invoke each time the timer expires
+   * @return subscription - cancels the timer and unregisters the callback when
+   * destroyed
+   * @throws hal::subscription_busy - if a callback is already registered
+   */
+  [[nodiscard]] subscription on_expire(timed_callback& p_callback
+                                       [[clang::lifetimebound]])
     [[clang::lifetimebound]]
   {
-    driver_schedule(p_callback, p_delay, p_mode);
-    return subscription::make<&unstable_timed_interrupt::driver_cancel>(*this);
+    driver_on_expire(p_callback);
+    return subscription::make<&timed_interrupt::driver_clear_expire>(*this);
   }
 
 protected:
-  ~unstable_timed_interrupt() = default;
+  ~timed_interrupt() = default;
 
 private:
   virtual bool driver_scheduled() = 0;
-  /// Store the callback and start the timer. Throw hal::subscription_busy if a
-  /// callback is already registered.
-  virtual void driver_schedule(timed_callback& p_callback,
-                               time_duration p_delay,
-                               timer_mode p_mode) = 0;
+  /// Arm or restart the timer. Must be callable from interrupt context.
+  virtual void driver_schedule(time_duration p_delay, timer_mode p_mode) = 0;
+  /// Stop the timer. Must be callable from interrupt context; must not throw.
+  virtual void driver_cancel() noexcept = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_expire(timed_callback& p_callback) = 0;
   /// Stop the timer and clear the callback. Called from a destructor; must not
   /// throw. The store must be atomic with respect to the ISR (single word
   /// store, or mask IRQ).
-  virtual void driver_cancel() noexcept = 0;
+  virtual void driver_clear_expire() noexcept = 0;
 };
-
 }  // namespace hal::inline v5
