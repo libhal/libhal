@@ -191,24 +191,23 @@ void timed_interrupt_test() noexcept
     expect(!test.scheduled());
   };
 
-  "::schedule() - re-arms a one-shot timer without re-registering"_test =
-    []() {
-      // Setup
-      test_timed_interrupt test;
-      test_callback callback;
-      auto subscription = test.on_expire(callback);
+  "::schedule() - re-arms a one-shot timer without re-registering"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    test_callback callback;
+    auto subscription = test.on_expire(callback);
 
-      // Exercise
-      test.schedule(hal::time_duration{ 1000 });
-      test.fire();
-      test.schedule(hal::time_duration{ 2000 });
-      test.fire();
+    // Exercise
+    test.schedule(hal::time_duration{ 1000 });
+    test.fire();
+    test.schedule(hal::time_duration{ 2000 });
+    test.fire();
 
-      // Verify
-      expect(that % 2 == callback.call_count);
-      expect(that % hal::time_duration{ 2000 } == test.stored_delay);
-      expect(&callback == test.stored_callback);
-    };
+    // Verify
+    expect(that % 2 == callback.call_count);
+    expect(that % hal::time_duration{ 2000 } == test.stored_delay);
+    expect(&callback == test.stored_callback);
+  };
 
   "::schedule() - while armed restarts with the new delay"_test = []() {
     // Setup
@@ -274,24 +273,23 @@ void timed_interrupt_test() noexcept
     expect(&callback1 == test.stored_callback);
   };
 
-  "::on_expire() - destroying the subscription cancels the timer"_test =
-    []() {
-      // Setup
-      test_timed_interrupt test;
-      test_callback callback;
+  "::on_expire() - destroying the subscription cancels the timer"_test = []() {
+    // Setup
+    test_timed_interrupt test;
+    test_callback callback;
 
-      // Exercise
-      {
-        auto subscription = test.on_expire(callback);
-        test.schedule(hal::time_duration{ 1000 });
-      }
-      test.fire();
+    // Exercise
+    {
+      auto subscription = test.on_expire(callback);
+      test.schedule(hal::time_duration{ 1000 });
+    }
+    test.fire();
 
-      // Verify
-      expect(!test.scheduled());
-      expect(nullptr == test.stored_callback);
-      expect(that % 0 == callback.call_count);
-    };
+    // Verify
+    expect(!test.scheduled());
+    expect(nullptr == test.stored_callback);
+    expect(that % 0 == callback.call_count);
+  };
 
   "::on_expire() - register again after the subscription ends"_test = []() {
     // Setup

@@ -96,7 +96,8 @@ class recording_receive_callback : public hal::serial_receive_callback
 {
 public:
   int call_count = 0;
-  hal::serial_event last_event{};
+  // Overwritten by every callback; tests only read it after one.
+  hal::serial_event last_event = hal::serial_event::idle;
 
   void callback(hal::serial_event p_event) noexcept override
   {

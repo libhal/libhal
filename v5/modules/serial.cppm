@@ -216,14 +216,14 @@ private:
 export enum class serial_event : u8 {
   /// The RX line went idle after receiving one or more bytes. The idle timeout
   /// is implementation-defined, typically one or a few character times.
-  idle = 1U << 0,
+  idle = 0b0001,
 
   /// At least half of `receive_buffer().size()` has been received since the
   /// last event. Unread data is approaching the buffer's capacity: read soon
   /// or it will be overwritten.
-  high_water = 1U << 1,
+  high_water = 0b0010,
 
-  // 1U << 2 is reserved for a future overrun flag.
+  // 0b0100 is reserved for a future overrun flag.
 };
 
 /**
@@ -236,8 +236,8 @@ export enum class serial_event : u8 {
 export constexpr serial_event operator|(serial_event p_lhs,
                                         serial_event p_rhs) noexcept
 {
-  return static_cast<serial_event>(static_cast<u8>(p_lhs) |
-                                   static_cast<u8>(p_rhs));
+  return static_cast<serial_event>(static_cast<unsigned>(p_lhs) |
+                                   static_cast<unsigned>(p_rhs));
 }
 
 /**
@@ -250,8 +250,8 @@ export constexpr serial_event operator|(serial_event p_lhs,
 export [[nodiscard]] constexpr bool has(serial_event p_events,
                                         serial_event p_flag) noexcept
 {
-  return (static_cast<u8>(p_events) & static_cast<u8>(p_flag)) ==
-         static_cast<u8>(p_flag);
+  return (static_cast<unsigned>(p_events) & static_cast<unsigned>(p_flag)) ==
+         static_cast<unsigned>(p_flag);
 }
 
 /**

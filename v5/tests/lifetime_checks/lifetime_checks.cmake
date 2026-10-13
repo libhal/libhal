@@ -52,6 +52,8 @@ function(libhal_lifetime_check CASE EXPECT)
     # warnings about it.
     target_compile_options(${TARGET} PRIVATE ${LIBHAL_CXX_FLAGS} -Wno-error)
     target_link_libraries(${TARGET} PRIVATE libhal_lifetime_checked)
+    # The CAUGHT cases contain bugs on purpose; keep clang-tidy off them.
+    set_target_properties(${TARGET} PROPERTIES CXX_CLANG_TIDY "")
     add_test(NAME ${TARGET} COMMAND ${TARGET})
     if(EXPECT STREQUAL "CAUGHT")
         set_tests_properties(${TARGET} PROPERTIES

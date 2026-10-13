@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <print>
 
 #if defined(__APPLE__)
 #include <mach-o/getsect.h>
@@ -57,7 +58,7 @@ address to_address(void const* p_pointer)
 // address near the top of its stack. Everything between the current frame
 // and that mark (plus some headroom for the caller frames above it) is that
 // thread's stack. Works for the main thread and any std::thread.
-constexpr std::size_t stack_headroom = 64 * 1024;
+constexpr std::size_t stack_headroom = std::size_t{ 64 } * 1024;
 thread_local address t_stack_top = 0;
 
 [[gnu::noinline]] address current_frame()
@@ -98,9 +99,9 @@ bool in_stack_memory(void const* p_address) noexcept
 
 void violation(void const* p_holder, void const* p_target) noexcept
 {
-  std::fprintf(stderr,
-               "hal lifetime violation: ref in static memory (%p) points to "
-               "stack memory (%p)\n",
+  std::println(stderr,
+               "hal lifetime violation: ref in static memory ({}) points to "
+               "stack memory ({})",
                p_holder,
                p_target);
   std::_Exit(3);  // distinct exit code so the test runner can detect it

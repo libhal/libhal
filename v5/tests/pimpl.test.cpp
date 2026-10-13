@@ -112,7 +112,7 @@ smart_motor::smart_motor(private_key,
 smart_motor smart_motor::create(hal::allocator p_allocator,
                                 hal::ref<hal::serial> p_serial)
 {
-  return smart_motor(private_key{}, p_allocator, p_serial);
+  return { private_key{}, p_allocator, p_serial };
 }
 
 class test_serial : public hal::serial

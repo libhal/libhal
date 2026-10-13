@@ -18,6 +18,8 @@
 //   CATCH_*  must exit with code 3 (violation detected at the bad binding)
 //   CLEAN_*  must exit with code 0 (no false positive)
 //   MISS_*   known misses: exit 0
+#include <array>
+#include <cstddef>
 #include <memory_resource>
 #include <thread>
 
@@ -47,11 +49,14 @@ struct fake_i2c final : i2c
 class sensor
 {
 public:
+  // By value is the documented pattern for refs. With HAL_LIFETIME_CHECKS the
+  // copy constructor runs the check, which is why it is not trivial here.
+  // NOLINTNEXTLINE(performance-unnecessary-value-param)
   explicit sensor(hal::ref<i2c> p_bus [[clang::lifetimebound]])
     : m_bus(p_bus)
   {
   }
-  int read() const
+  [[nodiscard]] int read() const
   {
     return m_bus->read();
   }
@@ -60,7 +65,7 @@ private:
   hal::ref<i2c> m_bus;
 };
 
-[[maybe_unused]] static hal::static_ref<fake_i2c> get_static_bus()
+[[maybe_unused]] static hal::static_ref<fake_i2c> get_static_bus() noexcept
 {
   static fake_i2c bus{ 2 };
   return hal::static_ref<fake_i2c>{ bus };
@@ -112,10 +117,11 @@ int main()
 
 #elif defined(CASE_CATCH_ARENA_COMPOSITE_TO_LOCAL)
 // assume_static arena objects live in .bss and are treated as static.
-alignas(std::max_align_t) static std::byte arena_buf[256];
+alignas(std::max_align_t) static std::array<std::byte, 256> arena_buf{};
 int main()
 {
-  static std::pmr::monotonic_buffer_resource mr(arena_buf, sizeof arena_buf);
+  static std::pmr::monotonic_buffer_resource mr(arena_buf.data(),
+                                                arena_buf.size());
   std::pmr::polymorphic_allocator<> a(&mr);
   fake_i2c local{ 1 };
   auto* s = a.new_object<sensor>(local);
@@ -207,7 +213,8 @@ int main()
 }
 
 #elif defined(CASE_MISS_STATIC_SENSOR_ON_LOCAL_LEASE)
-// The leased driver lives in static_optional storage (.bss), so the target looks static.
+// The leased driver lives in static_optional storage (.bss), so the target
+// looks static.
 sensor& get_sensor()
 {
   auto l = acquire_i2c1();
