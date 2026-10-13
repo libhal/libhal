@@ -23,9 +23,10 @@ module;
 export module hal:usb;
 
 export import scatter_span;
-export import strong_ptr;
 
 import :units;
+export import :lifetime;
+export import :subscription;
 
 namespace hal::inline v5::usb {
 /**
@@ -496,6 +497,9 @@ export struct bus_event_callback
    * @param p_event - the bus event that occurred
    */
   virtual void callback(bus_event p_event) noexcept = 0;
+
+protected:
+  ~bus_event_callback() = default;
 };
 
 /**
@@ -513,6 +517,14 @@ export struct bus_event_callback
  * - Responding to standard USB requests
  * - Sending and receiving control data
  *
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: never call on_bus_event() from an interrupt service
+ * routine, including from inside a callback, and never destroy a subscription
+ * there. To change behavior, change state inside the callback object. To swap
+ * callbacks, hold the subscription in a `std::optional<hal::subscription>`,
+ * then reset() it and subscribe again from outside of interrupt context.
  */
 export class control_endpoint : public endpoint
 {
@@ -593,18 +605,47 @@ public:
   }
 
   /**
-   * @brief Set the callback invoked when a bus-level event occurs
+   * @brief Register a callback invoked when a bus-level event occurs
    *
    * Used by the enumerator to learn about USB bus events. The enumerator
    * typically latches the event in its callback and processes it later from
    * its own `poll()`/task context, outside of the interrupt.
    *
-   * @param p_callback - the callback to invoke on bus events. Pass an empty
-   * optional to disable the callback.
+   * @warning Never call on_bus_event() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
+   *
+   * @param p_callback - the callback to invoke
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_bus_event(mem::optional_ptr<bus_event_callback> const& p_callback)
+  [[nodiscard]] subscription on_bus_event(bus_event_callback& p_callback
+                                          [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_bus_event(p_callback);
+    return subscription::make<&control_endpoint::driver_clear_bus_event>(*this);
+  }
+
+  /**
+   * @brief Register a callback for the rest of the program
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_bus_event() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   */
+  void on_bus_event(static_ref<bus_event_callback> p_callback)
+  {
+    driver_on_bus_event(*p_callback);
   }
 
   /**
@@ -701,8 +742,11 @@ private:
   virtual void driver_set_address(u8 p_address) = 0;
   virtual void driver_write(mem::scatter_span<byte const> p_data) = 0;
   virtual usize driver_read(mem::scatter_span<byte> p_buffer) = 0;
-  virtual void driver_on_bus_event(
-    mem::optional_ptr<bus_event_callback> const& p_callback) = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_bus_event(bus_event_callback& p_callback) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_bus_event() noexcept = 0;
   virtual void driver_remote_wakeup_enable(bool) = 0;
   virtual bool driver_remote_wakeup_granted() = 0;
 
@@ -759,6 +803,9 @@ export struct receive_callback
 {
   /// Invoked when data is available in the OUT endpoint
   virtual void callback() noexcept = 0;
+
+protected:
+  ~receive_callback() = default;
 };
 
 /**
@@ -768,12 +815,21 @@ export struct receive_callback
  * specify the exact endpoint type. This interface is a convince interface for
  * common APIs. It is not meant to be used directly by drivers. Use the
  * interfaces that inherit from this interface.
+ *
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: never call on_receive() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class out_endpoint : public endpoint
 {
 public:
   /**
-   * @brief Set the callback invoked when data is available on the endpoint
+   * @brief Register a callback invoked when data is available on the endpoint
    *
    * When data arrives, the endpoint shall be set to NAK all requests from the
    * HOST until the contents are read via the read() API, then the callback is
@@ -781,12 +837,41 @@ public:
    * become valid once again and can ACK the host if it wants to transmit more
    * data.
    *
-   * @param p_callback - the callback to invoke when data is available. Pass an
-   * empty optional to disable the callback.
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
+   *
+   * @param p_callback - the callback to invoke
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_receive(mem::optional_ptr<receive_callback> const& p_callback)
+  [[nodiscard]] subscription on_receive(receive_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);
+    return subscription::make<&out_endpoint::driver_clear_receive>(*this);
+  }
+
+  /**
+   * @brief Register a callback for the rest of the program
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   */
+  void on_receive(static_ref<receive_callback> p_callback)
+  {
+    driver_on_receive(*p_callback);
   }
 
   /**
@@ -814,8 +899,11 @@ public:
   }
 
 private:
-  virtual void driver_on_receive(
-    mem::optional_ptr<receive_callback> const& p_callback) = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_receive(receive_callback& p_callback) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_receive() noexcept = 0;
   virtual usize driver_read(mem::scatter_span<byte> p_buffer) = 0;
 };
 

@@ -63,24 +63,49 @@ private:
   }
 };
 
-class test_serial_interrupt : public hal::serial_interrupt
+// Follows the single-subscriber contract: one callback at a time.
+class test_serial_interrupt final : public hal::serial_interrupt
 {
 public:
-  mem::optional_ptr<hal::serial_receive_callback> stored_callback;
+  static constexpr hal::serial_event all_events =
+    hal::serial_event::idle | hal::serial_event::high_water;
 
-  /// Simulate the driver's ISR reporting a receive event
-  void simulate_event(hal::serial_event p_event)
+  hal::serial_receive_callback* stored_callback = nullptr;
+  hal::serial_event supported = all_events;
+  hal::serial_event requested = all_events;
+
+  /// Simulate the driver's ISR detecting conditions. Like a real driver, it
+  /// only reports the requested ones, and never calls with zero flags.
+  void simulate_event(hal::serial_event p_events)
   {
-    if (stored_callback.has_value()) {
-      stored_callback.value()->callback(p_event);
+    auto const raw =
+      static_cast<unsigned>(p_events) & static_cast<unsigned>(requested);
+    if (stored_callback && raw != 0U) {
+      stored_callback->callback(static_cast<hal::serial_event>(raw));
     }
   }
 
 private:
-  void driver_on_receive(
-    mem::optional_ptr<hal::serial_receive_callback> const& p_callback) override
+  void driver_on_receive(hal::serial_receive_callback& p_callback,
+                         hal::serial_event p_events) override
   {
-    stored_callback = p_callback;
+    if (stored_callback) {
+      throw hal::subscription_busy{};
+    }
+    auto const unsupported =
+      static_cast<unsigned>(p_events) & ~static_cast<unsigned>(supported);
+    if (unsupported != 0U) {
+      // hal::exception is deliberately not derived from std::exception.
+      // NOLINTNEXTLINE(bugprone-std-exception-baseclass)
+      throw hal::operation_not_supported(this);
+    }
+    stored_callback = &p_callback;
+    requested = p_events;
+  }
+
+  void driver_clear_receive() noexcept override
+  {
+    stored_callback = nullptr;
   }
 };
 
@@ -88,7 +113,8 @@ class recording_receive_callback : public hal::serial_receive_callback
 {
 public:
   int call_count = 0;
-  hal::serial_event last_event{};
+  // Overwritten by every callback; tests only read it after one.
+  hal::serial_event last_event = hal::serial_event::idle;
 
   void callback(hal::serial_event p_event) noexcept override
   {
@@ -96,6 +122,12 @@ public:
     last_event = p_event;
   }
 };
+
+static_assert(static_cast<hal::u8>(hal::serial_event::idle) == 0b01);
+static_assert(static_cast<hal::u8>(hal::serial_event::high_water) == 0b10);
+static_assert((hal::serial_event::idle | hal::serial_event::high_water) &
+              hal::serial_event::idle);
+static_assert(not(hal::serial_event::idle & hal::serial_event::high_water));
 
 void serial_configure_test() noexcept
 {
@@ -288,49 +320,130 @@ void serial_interrupt_test() noexcept
 {
   using namespace boost::ut;
 
-  "on_receive() delivers rx event to callback"_test = [&]() {
+  "on_receive() delivers high_water event to callback"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(callback);
-    test.simulate_event(hal::serial_event::rx);
+    auto subscription =
+      test.on_receive(callback, test_serial_interrupt::all_events);
+    test.simulate_event(hal::serial_event::high_water);
 
     // Verify
-    expect(that % 1 == callback->call_count);
-    expect(hal::serial_event::rx == callback->last_event);
+    expect(that % 1 == callback.call_count);
+    expect((callback.last_event & hal::serial_event::high_water));
+    expect(not(callback.last_event & hal::serial_event::idle));
   };
 
   "on_receive() delivers idle event to callback"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(callback);
+    auto subscription =
+      test.on_receive(callback, test_serial_interrupt::all_events);
     test.simulate_event(hal::serial_event::idle);
 
     // Verify
-    expect(that % 1 == callback->call_count);
-    expect(hal::serial_event::idle == callback->last_event);
+    expect(that % 1 == callback.call_count);
+    expect((callback.last_event & hal::serial_event::idle));
   };
 
-  "on_receive() with empty callback stops delivery"_test = [&]() {
+  "on_receive() delivers combined flags in one call"_test = [&]() {
     // Setup
     test_serial_interrupt test;
-    auto callback = mem::make_strong_ptr<recording_receive_callback>(
-      std::pmr::new_delete_resource());
-    test.on_receive(callback);
+    recording_receive_callback callback;
 
     // Exercise
-    test.on_receive(mem::optional_ptr<hal::serial_receive_callback>{});
-    test.simulate_event(hal::serial_event::rx);
+    auto subscription =
+      test.on_receive(callback, test_serial_interrupt::all_events);
+    test.simulate_event(hal::serial_event::high_water |
+                        hal::serial_event::idle);
 
     // Verify
-    expect(that % 0 == callback->call_count);
+    expect(that % 1 == callback.call_count);
+    expect((callback.last_event & hal::serial_event::high_water));
+    expect((callback.last_event & hal::serial_event::idle));
+  };
+
+  "on_receive() only delivers the requested flags"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    recording_receive_callback callback;
+
+    // Exercise
+    auto subscription = test.on_receive(callback, hal::serial_event::idle);
+    test.simulate_event(hal::serial_event::high_water);  // not requested
+    test.simulate_event(hal::serial_event::high_water |
+                        hal::serial_event::idle);
+
+    // Verify
+    expect(that % 1 == callback.call_count);
+    expect(callback.last_event & hal::serial_event::idle);
+    expect(not(callback.last_event & hal::serial_event::high_water));
+  };
+
+  "on_receive() throws for flags the driver cannot detect"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    test.supported = hal::serial_event::idle;
+    recording_receive_callback callback;
+    bool threw = false;
+
+    // Exercise
+    try {
+      auto subscription = test.on_receive(
+        callback, hal::serial_event::idle | hal::serial_event::high_water);
+    } catch (hal::operation_not_supported const&) {
+      threw = true;
+    }
+
+    // Verify
+    expect(threw);
+    expect(nullptr == test.stored_callback);
+  };
+
+  "on_receive() subscription end stops delivery"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    recording_receive_callback callback;
+
+    // Exercise
+    {
+      auto subscription =
+        test.on_receive(callback, test_serial_interrupt::all_events);
+    }
+    test.simulate_event(hal::serial_event::high_water);
+
+    // Verify
+    expect(that % 0 == callback.call_count);
+    expect(nullptr == test.stored_callback);
+  };
+
+  "on_receive() throws when a subscriber is registered"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    recording_receive_callback first;
+    recording_receive_callback second;
+    auto subscription =
+      test.on_receive(first, test_serial_interrupt::all_events);
+
+    // Exercise
+    bool threw = false;
+    try {
+      auto subscription2 =
+        test.on_receive(second, test_serial_interrupt::all_events);
+    } catch (hal::subscription_busy const&) {
+      threw = true;
+    }
+    test.simulate_event(hal::serial_event::high_water);
+
+    // Verify
+    expect(threw);
+    expect(that % 1 == first.call_count);
+    expect(that % 0 == second.call_count);
   };
 }
 

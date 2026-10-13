@@ -6,7 +6,6 @@
 #include <boost/ut.hpp>
 
 import hal;
-import strong_ptr;
 
 bool smart_motor_exists = false;
 
@@ -78,22 +77,15 @@ class smart_motor : public hal::pimpl<smart_motor>
 public:
   struct impl;  // forward declaration only
 
-  // Create Factory Function
-  static hal::ptr<smart_motor> create(hal::allocator p_allocator,
-                                      hal::ptr<hal::serial> const& p_serial);
-
-  // Position rotation with velocity + torque control
-  static hal::ptr<hal::veltor_servo> acquire_veltor_servo(hal::allocator);
-
-  // Continuous rotation with velocity + torque control
-  static hal::ptr<hal::motor> acquire_motor();
-
-  // Must start with `acquire_` and should either be name of interface or
-  // something descriptive like `acquire_rear_left_motor`.
+  // Create factory function. The motor borrows the serial port, so it must
+  // not outlive it.
+  static smart_motor create(hal::allocator p_allocator,
+                            hal::ref<hal::serial> p_serial
+                            [[clang::lifetimebound]]);
 
   smart_motor(private_key,
               hal::allocator p_allocator,
-              hal::ptr<hal::serial> const& p_serial);
+              hal::ref<hal::serial> p_serial [[clang::lifetimebound]]);
 
   ~smart_motor()
   {
@@ -104,34 +96,28 @@ public:
 // in impl file
 struct smart_motor::impl
 {
-  hal::ptr<hal::serial> serial;
+  hal::ref<hal::serial> serial;
   hal::u8 address = 0;
 };
 
 smart_motor::smart_motor(private_key,
                          hal::allocator p_allocator,
-                         hal::ptr<hal::serial> const& p_serial)
+                         hal::ref<hal::serial> p_serial)
   : pimpl(p_allocator, smart_motor::impl{ .serial = p_serial, .address = 0 })
 {
   smart_motor_exists = true;
   std::println("Hello, World!");
 }
 
-hal::ptr<smart_motor> smart_motor::create(hal::allocator p_allocator,
-                                          hal::ptr<hal::serial> const& p_serial)
+smart_motor smart_motor::create(hal::allocator p_allocator,
+                                hal::ref<hal::serial> p_serial)
 {
-  return hal::allocate<smart_motor>(
-    p_allocator, private_key{}, p_allocator, p_serial);
+  return { private_key{}, p_allocator, p_serial };
 }
 
 class test_serial : public hal::serial
 {
 public:
-  static hal::ptr<test_serial> create(hal::allocator p_allocator)
-  {
-    return hal::allocate<test_serial>(p_allocator);
-  }
-
   hal::serial::settings configured_settings{};
   std::array<hal::byte, 256> last_data_out{};
   hal::usize last_data_out_size{};
@@ -173,7 +159,7 @@ int main()
 {
   tracking_allocator tracker;
   hal::allocator alloc{ &tracker };
-  auto serial = test_serial::create(alloc);
+  test_serial serial;
   using namespace boost::ut;
 
   auto const allocations_before_create = tracker.allocations.size();

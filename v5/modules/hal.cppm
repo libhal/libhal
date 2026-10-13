@@ -15,7 +15,6 @@
 export module hal;
 
 // Core 3rd party libraries
-export import strong_ptr;
 export import scatter_span;
 
 // Types, definitions, and containers
@@ -38,6 +37,8 @@ export import :serial;
 export import :servo;
 export import :motor;
 export import :memory;
+export import :lifetime;
+export import :subscription;
 export import :containers;
 export import :usb;
 

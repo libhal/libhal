@@ -14,7 +14,6 @@
 
 export module hal:i2c;
 
-export import strong_ptr;
 export import scatter_span;
 
 export import :units;

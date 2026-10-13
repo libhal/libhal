@@ -20,9 +20,10 @@ module;
 export module hal:can;
 
 export import scatter_span;
-export import strong_ptr;
 import :units;
 import :containers;
+export import :lifetime;
+export import :subscription;
 
 namespace hal::inline v5 {
 /**
@@ -257,6 +258,9 @@ export struct can_receive_callback
    * the duration of the callback; copy it if it must be kept.
    */
   virtual void callback(can_message const& p_message) noexcept = 0;
+
+protected:
+  ~can_receive_callback() = default;
 };
 
 /**
@@ -268,33 +272,75 @@ export struct can_receive_callback
  * not implement this interface; use the cursor-based polling API via
  * `receive_buffer()` and `receive_cursor()` on `can_transceiver` instead.
  *
- * Implementations of this interface are NOT sharable across multiple device or
- * application drivers. If shared, only the last callback set will be invoked.
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: never call on_receive() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class can_interrupt
 {
 public:
   /**
-   * @brief Set the callback invoked when a message is received
+   * @brief Register a callback for the rest of the program
    *
-   * Messages received before a callback is installed are not reported to a
-   * callback, although they are still written into the receive buffer of the
-   * associated `can_transceiver`.
+   * Messages received before a callback is installed are not reported, although
+   * they are still written into the receive buffer of the associated
+   * `can_transceiver`.
    *
-   * @param p_callback - the callback to invoke on message reception. Pass an
-   * empty optional to disable the callback.
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_receive(mem::optional_ptr<can_receive_callback> const& p_callback)
+  void on_receive(static_ref<can_receive_callback> p_callback)
+  {
+    driver_on_receive(*p_callback);
+  }
+
+  /**
+   * @brief Register a callback until the returned subscription is destroyed
+   *
+   * The callback is invoked when a message is received. Messages received
+   * before a callback is installed are not reported, although they are still
+   * written into the receive buffer of the associated `can_transceiver`.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
+   *
+   * @param p_callback - the callback to invoke
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   */
+  [[nodiscard]] subscription on_receive(can_receive_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);
+    return subscription::make<&can_interrupt::driver_clear_receive>(*this);
   }
 
 protected:
   ~can_interrupt() = default;
 
 private:
-  virtual void driver_on_receive(
-    mem::optional_ptr<can_receive_callback> const& p_callback) = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_receive(can_receive_callback& p_callback) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_receive() noexcept = 0;
 };
 
 /**
@@ -323,6 +369,9 @@ export struct can_bus_off_callback
 {
   /// Invoked when the CAN device enters the bus-off state
   virtual void callback() noexcept = 0;
+
+protected:
+  ~can_bus_off_callback() = default;
 };
 
 /**
@@ -332,6 +381,14 @@ export struct can_bus_off_callback
  * applications drivers. Generally a single application or process should
  * control the CAN bus.
  *
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: never call on_bus_off() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class can_bus_manager
 {
@@ -371,7 +428,7 @@ public:
   }
 
   /**
-   * @brief Set the callback invoked when the device enters bus-off
+   * @brief Register a callback invoked when the device enters bus-off
    *
    * The BUS-OFF state for CAN is denoted by the occurrence of too many
    * transmission errors (TEC > 255) causing the CAN controller to disconnect
@@ -383,12 +440,43 @@ public:
    * the `send()` API will throw the `hal::operation_not_permitted` exception
    * and the `receive_cursor()` API will not update until `bus_on()` is called.
    *
-   * @param p_callback - the callback to invoke when the device enters bus-off.
-   * Pass an empty optional to disable the callback.
+   * Use the static_ref overload to register for the rest of the program.
+   *
+   * @warning Never call on_bus_off() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
+   *
+   * @param p_callback - the callback to invoke when the device enters bus-off
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_bus_off(mem::optional_ptr<can_bus_off_callback> const& p_callback)
+  [[nodiscard]] subscription on_bus_off(can_bus_off_callback& p_callback
+                                        [[clang::lifetimebound]])
+    [[clang::lifetimebound]]
   {
     driver_on_bus_off(p_callback);
+    return subscription::make<&can_bus_manager::driver_clear_bus_off>(*this);
+  }
+
+  /**
+   * @brief Register a bus-off callback for the rest of the program
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_bus_off() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   */
+  void on_bus_off(static_ref<can_bus_off_callback> p_callback)
+  {
+    driver_on_bus_off(*p_callback);
   }
 
   /**
@@ -422,8 +510,11 @@ protected:
 private:
   virtual void driver_baud_rate(hal::u32 p_hertz) = 0;
   virtual void driver_filter_mode(can_message_acceptance p_accept) = 0;
-  virtual void driver_on_bus_off(
-    mem::optional_ptr<can_bus_off_callback> const& p_callback) = 0;
+  /// Store the callback. Throw hal::subscription_busy if one is already set.
+  virtual void driver_on_bus_off(can_bus_off_callback& p_callback) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_bus_off() noexcept = 0;
   virtual void driver_bus_on() = 0;
 };
 

@@ -19,7 +19,6 @@ project(libhal LANGUAGES CXX)
 # Source: https://github.com/libhal/libhal-cmake-util
 find_package(LibhalCMakeUtil REQUIRED)
 
-find_package(strong_ptr REQUIRED)
 find_package(mp-units REQUIRED)
 find_package(scatter_span REQUIRED)
 
@@ -45,11 +44,12 @@ libhal_add_library(libhal
         modules/serial.cppm
         modules/memory.cppm
         modules/containers.cppm
+        modules/lifetime.cppm
+        modules/subscription.cppm
 )
 
 target_link_libraries(libhal
     PRIVATE
-        libhal::strong_ptr
         libhal::scatter_span
         mp-units::mp-units
 )
@@ -68,4 +68,9 @@ libhal_add_tests(libhal
         sensors
         pimpl
         waiter
+        lifetime
+        subscription
 )
+
+include(tests/compile_checks/compile_checks.cmake)
+include(tests/lifetime_checks/lifetime_checks.cmake)

@@ -54,24 +54,32 @@ private:
   }
 };
 
-class test_can_interrupt : public hal::can_interrupt
+// Follows the single-subscriber contract: one callback at a time.
+class test_can_interrupt final : public hal::can_interrupt
 {
 public:
-  mem::optional_ptr<hal::can_receive_callback> stored_callback;
+  hal::can_receive_callback* stored_callback = nullptr;
 
   /// Simulate the driver's ISR receiving a message
   void simulate_receive(hal::can_message const& p_message)
   {
-    if (stored_callback.has_value()) {
-      stored_callback.value()->callback(p_message);
+    if (stored_callback) {
+      stored_callback->callback(p_message);
     }
   }
 
 private:
-  void driver_on_receive(
-    mem::optional_ptr<hal::can_receive_callback> const& p_callback) override
+  void driver_on_receive(hal::can_receive_callback& p_callback) override
   {
-    stored_callback = p_callback;
+    if (stored_callback) {
+      throw hal::subscription_busy{};
+    }
+    stored_callback = &p_callback;
+  }
+
+  void driver_clear_receive() noexcept override
+  {
+    stored_callback = nullptr;
   }
 };
 
@@ -104,7 +112,7 @@ class test_can_bus_manager : public hal::can_bus_manager
 public:
   hal::u32 last_baud_rate{ 0 };
   hal::can_message_acceptance last_filter_mode{};
-  mem::optional_ptr<hal::can_bus_off_callback> bus_off_callback;
+  hal::can_bus_off_callback* bus_off_callback = nullptr;
   bool bus_on_called{ false };
 
 private:
@@ -118,10 +126,17 @@ private:
     last_filter_mode = p_accept;
   }
 
-  void driver_on_bus_off(
-    mem::optional_ptr<hal::can_bus_off_callback> const& p_callback) override
+  void driver_on_bus_off(hal::can_bus_off_callback& p_callback) override
   {
-    bus_off_callback = p_callback;
+    if (bus_off_callback) {
+      throw hal::subscription_busy{};
+    }
+    bus_off_callback = &p_callback;
+  }
+
+  void driver_clear_bus_off() noexcept override
+  {
+    bus_off_callback = nullptr;
   }
 
   void driver_bus_on() override
@@ -408,30 +423,49 @@ void can_bus_manager_test() noexcept
   "on_bus_off() passes callback to driver"_test = [&]() {
     // Setup
     test_can_bus_manager test;
-    auto callback = mem::make_strong_ptr<counting_bus_off_callback>(
-      std::pmr::new_delete_resource());
+    counting_bus_off_callback callback;
 
     // Exercise
-    test.on_bus_off(callback);
-    test.bus_off_callback.value()->callback();
+    auto subscription = test.on_bus_off(callback);
+    test.bus_off_callback->callback();
 
     // Verify
-    expect(test.bus_off_callback.has_value());
-    expect(that % 1 == callback->call_count);
+    expect(&callback == test.bus_off_callback);
+    expect(that % 1 == callback.call_count);
   };
 
-  "on_bus_off() with empty callback clears it"_test = [&]() {
+  "on_bus_off() subscription end clears it"_test = [&]() {
     // Setup
     test_can_bus_manager test;
-    auto callback = mem::make_strong_ptr<counting_bus_off_callback>(
-      std::pmr::new_delete_resource());
-    test.on_bus_off(callback);
+    counting_bus_off_callback callback;
 
     // Exercise
-    test.on_bus_off(mem::optional_ptr<hal::can_bus_off_callback>{});
+    {
+      auto subscription = test.on_bus_off(callback);
+    }
 
     // Verify
-    expect(not test.bus_off_callback.has_value());
+    expect(nullptr == test.bus_off_callback);
+  };
+
+  "on_bus_off() throws when a subscriber is registered"_test = [&]() {
+    // Setup
+    test_can_bus_manager test;
+    counting_bus_off_callback first;
+    counting_bus_off_callback second;
+    auto subscription = test.on_bus_off(first);
+
+    // Exercise
+    bool threw = false;
+    try {
+      auto subscription2 = test.on_bus_off(second);
+    } catch (hal::subscription_busy const&) {
+      threw = true;
+    }
+
+    // Verify
+    expect(threw);
+    expect(&first == test.bus_off_callback);
   };
 
   "bus_on() calls driver"_test = [&]() {
@@ -450,32 +484,31 @@ void can_interrupt_test() noexcept
   "on_receive() delivers received message to callback"_test = [&]() {
     // Setup
     test_can_interrupt test;
-    auto callback = mem::make_strong_ptr<counting_receive_callback>(
-      std::pmr::new_delete_resource());
+    counting_receive_callback callback;
     hal::can_message const message{ .id = 0x111, .length = 1 };
 
     // Exercise
-    test.on_receive(callback);
+    auto subscription = test.on_receive(callback);
     test.simulate_receive(message);
 
     // Verify
-    expect(that % 1 == callback->call_count);
-    expect(message == callback->last_message);
+    expect(that % 1 == callback.call_count);
+    expect(message == callback.last_message);
   };
 
-  "on_receive() with empty callback stops delivery"_test = [&]() {
+  "on_receive() subscription end stops delivery"_test = [&]() {
     // Setup
     test_can_interrupt test;
-    auto callback = mem::make_strong_ptr<counting_receive_callback>(
-      std::pmr::new_delete_resource());
-    test.on_receive(callback);
+    counting_receive_callback callback;
 
     // Exercise
-    test.on_receive(mem::optional_ptr<hal::can_receive_callback>{});
+    {
+      auto subscription = test.on_receive(callback);
+    }
     test.simulate_receive(hal::can_message{});
 
     // Verify
-    expect(that % 0 == callback->call_count);
+    expect(that % 0 == callback.call_count);
   };
 }
 

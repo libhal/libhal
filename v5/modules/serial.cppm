@@ -18,11 +18,12 @@ module;
 
 export module hal:serial;
 
-export import strong_ptr;
 export import scatter_span;
 
 export import :units;
 export import :containers;
+export import :lifetime;
+export import :subscription;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;
@@ -200,20 +201,64 @@ private:
   virtual usize driver_receive_cursor() = 0;
 };
 
-/// The set of serial receive events reported to a `serial_receive_callback`
+/**
+ * @brief Receive conditions reported to a `serial_receive_callback`
+ *
+ * The values are bit flags, and a single callback may report several at once.
+ * Test them with `operator&`, for example `if (p_events &
+ * hal::serial_event::idle)`, never by comparing for equality, so that flags
+ * added later do not break existing callbacks.
+ *
+ * An event means "check `receive_cursor()`", not "N bytes arrived". Events can
+ * arrive close together, for example `high_water` and `idle` when a burst ends
+ * right at the middle of the receive buffer, so callbacks must not count
+ * events to track data.
+ */
 export enum class serial_event : u8 {
-  /// New data has been written into the receive buffer. How much data each
-  /// event represents is implementation-defined: a single byte, a FIFO
-  /// threshold, or a DMA half/full transfer. Use `receive_cursor()` to find out
-  /// how much arrived.
-  rx = 0,
+  /// The RX line went idle after receiving one or more bytes. The idle timeout
+  /// is implementation-defined, typically one or a few character times.
+  idle = 1U << 0U,
 
-  /// The RX line has transitioned from active to idle after receiving one or
-  /// more bytes. Implementations without hardware idle detection must emulate
-  /// this, typically by monitoring cursor movement with a timer. The exact idle
-  /// timeout is implementation-defined.
-  idle = 1,
+  /// At least half of `receive_buffer().size()` has been received since the
+  /// last event. Unread data is approaching the buffer's capacity: read soon
+  /// or it will be overwritten.
+  high_water = 1U << 1U,
+
+  // 1U << 2U is reserved for a future overrun flag.
 };
+
+/**
+ * @brief Combine serial event flags
+ *
+ * @param p_lhs - flags to combine
+ * @param p_rhs - flags to combine
+ * @return serial_event - the union of both sets of flags
+ */
+export constexpr serial_event operator|(serial_event p_lhs,
+                                        serial_event p_rhs) noexcept
+{
+  auto const lhs = static_cast<unsigned>(p_lhs);
+  auto const rhs = static_cast<unsigned>(p_rhs);
+  return static_cast<serial_event>(lhs | rhs);
+}
+
+/**
+ * @brief Check whether a set of serial event flags contains any of some flags
+ *
+ * Returns bool rather than serial_event so it can be used directly in a
+ * condition: `if (p_events & hal::serial_event::idle)`.
+ *
+ * @param p_events - the flags reported to a callback
+ * @param p_flags - the flag, or flags, to look for
+ * @return true - if any flag in p_flags is set in p_events
+ */
+export [[nodiscard]] constexpr bool operator&(serial_event p_events,
+                                              serial_event p_flags) noexcept
+{
+  auto const events = static_cast<unsigned>(p_events);
+  auto const flags = static_cast<unsigned>(p_flags);
+  return (events & flags) != 0U;
+}
 
 /**
  * @brief Callback object invoked by a `serial_interrupt` on receive events
@@ -226,47 +271,120 @@ export enum class serial_event : u8 {
 export struct serial_receive_callback
 {
   /**
-   * @brief Invoked when a serial receive event occurs
+   * @brief Invoked when one or more serial receive conditions occur
    *
-   * @param p_event - the receive event that occurred
+   * @param p_events - the conditions that occurred, as bit flags. Never zero,
+   * and only ever flags that were requested in
+   * `serial_interrupt::on_receive()`.
    */
-  virtual void callback(serial_event p_event) noexcept = 0;
+  virtual void callback(serial_event p_events) noexcept = 0;
+
+protected:
+  ~serial_receive_callback() = default;
 };
 
 /**
  * @brief Serial receive event interrupt hardware abstraction
  *
- * Use this interface to run a callback when the serial port receives data or
- * its RX line goes idle. Drivers whose hardware can signal RX activity or line
- * idle conditions via interrupt should vend this interface alongside
- * `hal::serial`. Drivers that cannot natively signal RX events should not
- * implement it; poll `receive_cursor()` instead.
+ * Use this interface to run a callback when the serial port's RX line goes
+ * idle or its receive buffer is filling up. Drivers vend this interface
+ * alongside `hal::serial`.
  *
- * Implementations of this interface are NOT sharable across multiple device or
- * application drivers. If shared, only the last callback set will be invoked.
+ * Drivers whose hardware can signal these conditions via interrupt use it
+ * directly. Drivers whose hardware cannot can still implement this interface
+ * by taking a `hal::timed_interrupt` and running it in periodic mode to check
+ * the receive cursor: if the cursor moved and has since stopped, report
+ * `idle`; if at least half of the receive buffer has filled since the last
+ * event, report `high_water`. The tick period sets the idle timeout and how
+ * far the buffer can fill before it is noticed.
+ *
+ * Drivers must not invoke the callback once per received byte. The callback
+ * is invoked when the RX line goes idle, or after at least half of the
+ * receive buffer has filled since the last event. A driver may combine
+ * conditions found in the same interrupt into one call, but does not have to.
+ * If the application falls more than half a buffer behind, unread data is
+ * overwritten without notice.
+ *
+ * Contract: at most ONE subscriber at a time. Subscribing while one is active
+ * throws hal::subscription_busy.
+ *
+ * Interrupt context: never call on_receive() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class serial_interrupt
 {
 public:
   /**
-   * @brief Set the callback invoked on serial receive events
+   * @brief Register a callback for the rest of the program
    *
-   * Any receive events that occur before a callback is installed are not
-   * reported, although the data is still written into the receive buffer.
+   * Receive events before a callback is installed are not reported, although
+   * the data is still written into the receive buffer.
    *
-   * @param p_callback - the callback to invoke on receive events. Pass an empty
-   * optional to disable the callback.
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
+   *
+   * @param p_callback - callback with static storage duration
+   * @param p_events - the conditions to detect. The callback is only invoked
+   * with these flags.
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   * @throws hal::operation_not_supported - if the driver cannot detect one or
+   * more of the conditions in p_events
    */
-  void on_receive(mem::optional_ptr<serial_receive_callback> const& p_callback)
+  void on_receive(static_ref<serial_receive_callback> p_callback,
+                  serial_event p_events)
   {
-    driver_on_receive(p_callback);
+    driver_on_receive(*p_callback, p_events);
+  }
+
+  /**
+   * @brief Register a callback until the returned subscription is destroyed
+   *
+   * Invoked on serial receive events. Receive events before a callback is
+   * installed are not reported, although the data is still written into the
+   * receive buffer.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
+   *
+   * @param p_callback - the callback to invoke
+   * @param p_events - the conditions to detect. The callback is only invoked
+   * with these flags.
+   * @return subscription - unregisters the callback when destroyed
+   * @throws hal::subscription_busy - if a subscriber is already registered
+   * @throws hal::operation_not_supported - if the driver cannot detect one or
+   * more of the conditions in p_events
+   */
+  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback
+                                        [[clang::lifetimebound]],
+                                        serial_event p_events)
+    [[clang::lifetimebound]]
+  {
+    driver_on_receive(p_callback, p_events);
+    return subscription::make<&serial_interrupt::driver_clear_receive>(*this);
   }
 
 protected:
   ~serial_interrupt() = default;
 
 private:
-  virtual void driver_on_receive(
-    mem::optional_ptr<serial_receive_callback> const& p_callback) = 0;
+  /// Store the callback and enable detection of p_events. Throw
+  /// hal::subscription_busy if a callback is already set, or
+  /// hal::operation_not_supported if any flag in p_events can't be detected.
+  virtual void driver_on_receive(serial_receive_callback& p_callback,
+                                 serial_event p_events) = 0;
+  /// Clear the callback. Called from a destructor; must not throw. The store
+  /// must be atomic with respect to the ISR (single word store, or mask IRQ).
+  virtual void driver_clear_receive() noexcept = 0;
 };
 }  // namespace hal::inline v5

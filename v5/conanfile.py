@@ -97,7 +97,6 @@ class libhal_conan(ConanFile):
         self.tool_requires("libhal-cmake-util/[^5.0.7]")
 
     def requirements(self):
-        self.requires("strong_ptr/[^0.2.2]")
         self.requires("scatter_span/0.0.0")
         self.requires("mp-units/2.6.0@libhal",
                       options={
