@@ -19,7 +19,7 @@ module;
 
 export module hal:error;
 
-export import :units;
+import :units;
 
 /**
  * @defgroup Error Error

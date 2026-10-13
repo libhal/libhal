@@ -14,9 +14,9 @@
 
 export module hal:interrupts;
 
-export import :units;
-export import :lifetime;
-export import :subscription;
+import :units;
+import :lifetime;
+import :subscription;
 
 export namespace hal::inline v5 {
 

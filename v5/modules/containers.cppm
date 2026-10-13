@@ -19,7 +19,7 @@ module;
 
 export module hal:containers;
 
-export import :units;
+import :units;
 
 namespace hal::inline v5 {
 

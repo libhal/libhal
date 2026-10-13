@@ -39,7 +39,6 @@ export import :motor;
 export import :memory;
 export import :lifetime;
 export import :subscription;
-export import :containers;
 export import :usb;
 
 export namespace hal::inline v5 {

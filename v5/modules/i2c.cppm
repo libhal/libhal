@@ -16,7 +16,7 @@ export module hal:i2c;
 
 export import scatter_span;
 
-export import :units;
+import :units;
 
 namespace hal::inline v5 {
 /**

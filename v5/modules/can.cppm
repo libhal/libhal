@@ -22,8 +22,8 @@ export module hal:can;
 export import scatter_span;
 import :units;
 import :containers;
-export import :lifetime;
-export import :subscription;
+import :lifetime;
+import :subscription;
 
 namespace hal::inline v5 {
 /**

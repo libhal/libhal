@@ -21,8 +21,8 @@ module;
 
 export module hal:waiter;
 
-export import :units;
-export import :steady_clock;
+import :units;
+import :steady_clock;
 
 namespace hal::inline v5 {
 /**

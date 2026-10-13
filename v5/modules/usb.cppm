@@ -25,8 +25,8 @@ export module hal:usb;
 export import scatter_span;
 
 import :units;
-export import :lifetime;
-export import :subscription;
+import :lifetime;
+import :subscription;
 
 namespace hal::inline v5::usb {
 /**
