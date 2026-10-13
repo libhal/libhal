@@ -18,6 +18,7 @@ module;
 #include <cstddef>
 #include <exception>
 #include <memory>
+#include <memory_resource>
 #include <new>
 #include <type_traits>
 #include <utility>
@@ -39,6 +40,8 @@ export module hal:lifetime;
  *  static_optional<T> std::optional-like static storage; emplace() leases
  *  lease<T>           RAII owner of a static_optional's object; destroying it
  *                     empties the static_optional
+ *  owner<T>           RAII owner of an object allocated from a
+ *                     std::pmr::memory_resource; may hold a derived type
  *  no_bare_new_mixin  mixin that blocks `new T` / make_unique but not
  *                     allocators
  */
@@ -432,6 +435,191 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// owner
+// ---------------------------------------------------------------------------
+
+export template<class T>
+class owner;
+
+/**
+ * @brief Header placed in front of every object an owner<T> holds
+ *
+ * Records how to destroy the complete object and which memory resource to
+ * return its storage to, so owner<Base> can destroy a Derived without a
+ * virtual destructor.
+ */
+export class owner_control
+{
+public:
+  owner_control(owner_control const&) = delete;
+  owner_control& operator=(owner_control const&) = delete;
+
+protected:
+  using destroy_fn = void (*)(owner_control&) noexcept;
+
+  constexpr owner_control(destroy_fn p_destroy,
+                          std::pmr::memory_resource& p_resource) noexcept
+    : m_destroy(p_destroy)
+    , m_resource(&p_resource)
+  {
+  }
+  ~owner_control() = default;
+
+  destroy_fn m_destroy;
+  std::pmr::memory_resource* m_resource;
+
+  template<class>
+  friend class owner;
+};
+
+/**
+ * @brief Unique owner of an object allocated from a memory resource
+ *
+ * Like lease, but for objects that live in memory obtained from a
+ * std::pmr::memory_resource rather than in a static_optional. Use it when a
+ * factory must hand out an object whose concrete type stays private, for
+ * example a manager returning `hal::owner<hal::serial>` while the type that
+ * implements it is only defined in the manager's `.cpp`. The caller picks
+ * where the memory comes from by choosing the allocator.
+ *
+ * Move-only, two pointers, never empty except after being moved from.
+ * owner<Derived> converts to owner<Base>; the complete Derived object is still
+ * destroyed and its storage returned to the same resource, so Base needs no
+ * virtual destructor. Like lease, an owner ends only when it goes out of
+ * scope. To end one early, hold it in a std::optional.
+ *
+ * Create one with hal::make_owner<T>().
+ *
+ * @tparam T - the owned type, or a base of it
+ */
+export template<class T>
+class [[gsl::Owner(T)]] owner
+{
+public:
+  /**
+   * @brief Take ownership from another owner
+   *
+   * @param p_other - owner that is left empty
+   */
+  owner(owner&& p_other) noexcept
+    : m_ptr(std::exchange(p_other.m_ptr, nullptr))
+    , m_control(std::exchange(p_other.m_control, nullptr))
+  {
+  }
+
+  /**
+   * @brief Take ownership from an owner of a derived type
+   *
+   * @param p_other - owner that is left empty
+   */
+  template<pointer_convertible_to<T> U>
+  owner(owner<U>&& p_other) noexcept
+    : m_ptr(std::exchange(p_other.m_ptr, nullptr))
+    , m_control(std::exchange(p_other.m_control, nullptr))
+  {
+  }
+
+  owner& operator=(owner&&) = delete;
+
+  /// Destroy the complete object and return its storage to its resource
+  ~owner()
+  {
+    if (auto* control = std::exchange(m_control, nullptr)) {
+      m_ptr = nullptr;
+      control->m_destroy(*control);
+    }
+  }
+
+  /// @return true - if this owner holds an object (it was not moved from)
+  [[nodiscard]] explicit operator bool() const noexcept
+  {
+    return m_ptr != nullptr;
+  }
+
+  // Dereferencing a temporary owner would hand out a reference to an object
+  // destroyed at the end of the full-expression, so rvalue access is deleted.
+
+  /// @return T& - the owned object
+  [[nodiscard]] T& operator*() const& noexcept [[clang::lifetimebound]]
+  {
+    return *m_ptr;
+  }
+  /// @return T* - the owned object
+  [[nodiscard]] T* operator->() const& noexcept [[clang::lifetimebound]]
+  {
+    return m_ptr;
+  }
+  T& operator*() const&& = delete;
+  T* operator->() const&& = delete;
+
+private:
+  constexpr owner(T* p_ptr, owner_control& p_control) noexcept
+    : m_ptr(p_ptr)
+    , m_control(&p_control)
+  {
+  }
+
+  T* m_ptr;
+  owner_control* m_control;
+
+  template<class>
+  friend class owner;
+  template<class U, class... Args>
+  friend owner<U> make_owner(std::pmr::polymorphic_allocator<> p_allocator,
+                             Args&&... p_args);
+};
+
+/// Storage for an owner's object, placed right after its owner_control header
+template<class T>
+class owner_block final : public owner_control
+{
+public:
+  template<class... Args>
+  explicit owner_block(std::pmr::memory_resource& p_resource, Args&&... p_args)
+    : owner_control(&destroy, p_resource)
+    , object(std::forward<Args>(p_args)...)
+  {
+  }
+
+  static void destroy(owner_control& p_control) noexcept
+  {
+    auto* self = static_cast<owner_block*>(&p_control);
+    std::pmr::polymorphic_allocator<> allocator(self->m_resource);
+    allocator.delete_object(self);
+  }
+
+  T object;
+};
+
+/**
+ * @brief Allocate and construct a T, returning its owner
+ *
+ * The object and a small header are allocated together from p_allocator's
+ * memory resource. If T's constructor throws, the storage is freed and the
+ * exception propagates.
+ *
+ * @tparam T - the type to construct
+ * @param p_allocator - allocator to obtain the storage from
+ * @param p_args - arguments forwarded to T's constructor
+ * @return owner<T> - owner of the new object
+ */
+export template<class T, class... Args>
+[[nodiscard]] owner<T> make_owner(std::pmr::polymorphic_allocator<> p_allocator,
+                                  Args&&... p_args)
+{
+  auto* resource = p_allocator.resource();
+  auto* storage = p_allocator.allocate_object<owner_block<T>>();
+  try {
+    auto* created =
+      std::construct_at(storage, *resource, std::forward<Args>(p_args)...);
+    return owner<T>(&created->object, *created);
+  } catch (...) {
+    p_allocator.deallocate_object(storage);
+    throw;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ref
 // ---------------------------------------------------------------------------
 
@@ -443,8 +631,10 @@ private:
  *  - from static_ref<U>: proven static, no lifetime tie
  *  - from T&:            tied to the referent via lifetimebound (Clang)
  *  - from lease<U>&:     tied to the lease via lifetimebound (Clang)
+ *  - from owner<U>&:     tied to the owner via lifetimebound (Clang)
  *
- * Rejected outright: temporaries, temporary leases, unique_ptr, raw pointers.
+ * Rejected outright: temporaries, temporary leases and owners, unique_ptr, raw
+ * pointers.
  * Take it by value with [[clang::lifetimebound]] in constructors that capture
  * it:
  *
@@ -494,6 +684,18 @@ public:
   }
 
   /**
+   * @brief Borrow an owned object; the ref must not outlive the owner
+   *
+   * @param p_owner - owner of a type convertible to T
+   */
+  template<pointer_convertible_to<T> U>
+  constexpr ref(owner<U> const& p_owner [[clang::lifetimebound]]) noexcept
+    : m_ptr(&*p_owner)
+  {
+    HAL_LIFETIME_CHECK(this, m_ptr);
+  }
+
+  /**
    * @brief Convert from a ref of a derived type
    *
    * @param p_other - ref to a type convertible to T
@@ -515,8 +717,10 @@ public:
   }
   constexpr ref& operator=(ref const& p_other) noexcept
   {
-    m_ptr = p_other.m_ptr;
-    HAL_LIFETIME_CHECK(this, m_ptr);
+    if (this != &p_other) {
+      m_ptr = p_other.m_ptr;
+      HAL_LIFETIME_CHECK(this, m_ptr);
+    }
     return *this;
   }
 #endif
@@ -524,6 +728,8 @@ public:
   ref(T&&) = delete;
   template<class U>
   ref(lease<U>&&) = delete;
+  template<class U>
+  ref(owner<U>&&) = delete;
   template<class D>
   ref(std::unique_ptr<T, D> const&) = delete;
   ref(T*) = delete;

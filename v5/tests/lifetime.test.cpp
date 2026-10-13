@@ -16,7 +16,9 @@
 // dangling references Clang's lifetime safety analysis must catch, are in
 // tests/compile_checks/lifetime_cases.cpp.
 
+#include <array>
 #include <cstddef>
+#include <exception>
 #include <memory>
 #include <memory_resource>
 #include <optional>
@@ -29,6 +31,10 @@ import hal;
 
 namespace {
 
+// Thrown by test types whose constructor fails on purpose.
+struct construct_error : std::exception
+{};
+
 int g_ctor = 0;
 int g_dtor = 0;  // stands in for "peripheral reset"
 
@@ -37,12 +43,13 @@ struct i2c : hal::no_bare_new_mixin
   virtual int read() = 0;
 
 protected:
-  ~i2c() = default;  // no virtual dtor needed; static_optional destroys the full type
+  ~i2c() =
+    default;  // no virtual dtor needed; static_optional destroys the full type
 };
 
 struct fake_i2c final : i2c
 {
-  explicit fake_i2c(int p_port)
+  explicit fake_i2c(int p_port) noexcept
     : port(p_port)
   {
     ++g_ctor;
@@ -105,10 +112,94 @@ struct throws_once : hal::no_bare_new_mixin
   throws_once()
   {
     if (std::exchange(armed, false)) {
-      throw 42;
+      throw construct_error{};
     }
   }
 };
+
+// Counts allocations so tests can check that every owner frees its storage.
+class counting_resource final : public std::pmr::memory_resource
+{
+public:
+  int allocations = 0;
+  int deallocations = 0;
+
+private:
+  void* do_allocate(std::size_t p_bytes, std::size_t p_align) override
+  {
+    ++allocations;
+    return std::pmr::new_delete_resource()->allocate(p_bytes, p_align);
+  }
+  void do_deallocate(void* p_ptr,
+                     std::size_t p_bytes,
+                     std::size_t p_align) override
+  {
+    ++deallocations;
+    std::pmr::new_delete_resource()->deallocate(p_ptr, p_bytes, p_align);
+  }
+  [[nodiscard]] bool do_is_equal(
+    std::pmr::memory_resource const& p_other) const noexcept override
+  {
+    return this == &p_other;
+  }
+};
+
+// The interface is the second base, so a pointer to it differs from a pointer
+// to the complete object. Destroying through the wrong one would be caught by
+// ASan.
+struct tag_base
+{
+  int tag = 0x5a5a;
+};
+struct offset_i2c final
+  : tag_base
+  , i2c
+{
+  explicit offset_i2c(int p_port)
+    : port(p_port)
+  {
+    ++g_ctor;
+  }
+  offset_i2c(offset_i2c const&) = delete;
+  offset_i2c& operator=(offset_i2c const&) = delete;
+  ~offset_i2c()
+  {
+    ++g_dtor;
+  }
+  int read() override
+  {
+    return port;
+  }
+  int port;
+};
+
+// A manager hands out its resource through an owner, keeping the concrete
+// type (fake_i2c here) out of its public interface.
+class i2c_manager
+{
+public:
+  [[nodiscard]] hal::owner<i2c> acquire(
+    std::pmr::polymorphic_allocator<> p_allocator) [[clang::lifetimebound]]
+  {
+    return hal::make_owner<fake_i2c>(p_allocator, m_port);
+  }
+
+private:
+  int m_port = 8;
+};
+
+struct throws_on_construct : hal::no_bare_new_mixin
+{
+  throws_on_construct()
+  {
+    throw construct_error{};
+  }
+};
+
+static_assert(sizeof(hal::owner<i2c>) == 2 * sizeof(void*));
+static_assert(not std::is_copy_constructible_v<hal::owner<i2c>>);
+static_assert(std::is_nothrow_move_constructible_v<hal::owner<i2c>>);
+static_assert(std::is_constructible_v<hal::owner<i2c>, hal::owner<fake_i2c>&&>);
 
 static_assert(sizeof(hal::ref<i2c>) == sizeof(void*));
 static_assert(sizeof(hal::static_ref<i2c>) == sizeof(void*));
@@ -170,9 +261,9 @@ void lifetime_test()
 
   "assume_static() over a startup arena"_test = []() {
     // Setup
-    alignas(std::max_align_t) static std::byte arena_buffer[256];
-    static std::pmr::monotonic_buffer_resource resource(arena_buffer,
-                                                        sizeof arena_buffer);
+    alignas(std::max_align_t) static std::array<std::byte, 256> arena_buffer{};
+    static std::pmr::monotonic_buffer_resource resource(arena_buffer.data(),
+                                                        arena_buffer.size());
     std::pmr::polymorphic_allocator<> allocator(&resource);
     auto* bus = allocator.new_object<fake_i2c>(5);  // never freed
 
@@ -185,13 +276,13 @@ void lifetime_test()
 
   "no_bare_new_mixin still allows placement and allocator paths"_test = []() {
     // Setup
-    alignas(fake_i2c) static std::byte buffer[sizeof(fake_i2c)];
+    alignas(fake_i2c) static std::array<std::byte, sizeof(fake_i2c)> buffer{};
 
     // Exercise
-    auto* placed = new (buffer) fake_i2c{ 1 };
+    auto* placed = new (buffer.data()) fake_i2c{ 1 };
     std::destroy_at(placed);
     auto* constructed =
-      std::construct_at(reinterpret_cast<fake_i2c*>(buffer), 2);
+      std::construct_at(reinterpret_cast<fake_i2c*>(buffer.data()), 2);
     std::destroy_at(constructed);
     std::optional<fake_i2c> optional_bus;
     optional_bus.emplace(3);
@@ -244,7 +335,7 @@ void lifetime_test()
     {
       auto derived = acquire_i2c1();
       hal::lease<i2c> base = std::move(derived);  // upcast, ownership moves
-      expect(not derived);
+      expect(not derived);  // NOLINT(bugprone-use-after-move): checking it
       expect(static_cast<bool>(base));
       expect(that % dtor_before == g_dtor);
     }  // only base destroys, and it destroys the full fake_i2c
@@ -261,7 +352,7 @@ void lifetime_test()
     // Exercise
     try {
       auto lease = storage.emplace();
-    } catch (int) {
+    } catch (construct_error const&) {
       threw = true;
     }
     bool const has_value_after_throw = storage.has_value();
@@ -271,6 +362,105 @@ void lifetime_test()
     expect(threw);
     expect(not has_value_after_throw);
     expect(storage.has_value());
+  };
+
+  "owner allocates from the resource and frees on scope end"_test = []() {
+    // Setup
+    counting_resource resource;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      auto bus = hal::make_owner<fake_i2c>(&resource, 3);
+      sensor s(bus);
+      value = s.read();
+    }
+
+    // Verify
+    expect(that % 3 == value);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+    expect(that % 1 == g_dtor - dtor_before);
+  };
+
+  "owner upcast destroys the complete object"_test = []() {
+    // Setup
+    counting_resource resource;
+    int const dtor_before = g_dtor;
+
+    // Exercise
+    {
+      hal::owner<i2c> bus = hal::make_owner<offset_i2c>(&resource, 4);
+      expect(that % 4 == bus->read());
+    }
+
+    // Verify
+    expect(that % 1 == g_dtor - dtor_before);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "owner move leaves the source empty and frees once"_test = []() {
+    // Setup
+    counting_resource resource;
+
+    // Exercise
+    {
+      auto first = hal::make_owner<fake_i2c>(&resource, 5);
+      auto second = std::move(first);
+      expect(not first);  // NOLINT(bugprone-use-after-move): checking it
+      expect(static_cast<bool>(second));
+    }
+
+    // Verify
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "owner from a manager keeps the concrete type private"_test = []() {
+    // Setup
+    counting_resource resource;
+    i2c_manager manager;
+
+    // Exercise
+    auto bus = manager.acquire(&resource);
+    sensor s(bus);
+
+    // Verify
+    expect(that % 8 == s.read());
+  };
+
+  "make_owner frees the storage when construction throws"_test = []() {
+    // Setup
+    counting_resource resource;
+    bool threw = false;
+
+    // Exercise
+    try {
+      auto bad = hal::make_owner<throws_on_construct>(&resource);
+    } catch (construct_error const&) {
+      threw = true;
+    }
+
+    // Verify
+    expect(threw);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "std::optional<owner> ends an owner early"_test = []() {
+    // Setup
+    counting_resource resource;
+    std::optional<hal::owner<i2c>> bus;
+
+    // Exercise
+    bus.emplace(hal::make_owner<fake_i2c>(&resource, 6));
+    bool const held = bus.has_value();
+    bus.reset();
+
+    // Verify
+    expect(held);
+    expect(that % 1 == resource.deallocations);
   };
 }
 

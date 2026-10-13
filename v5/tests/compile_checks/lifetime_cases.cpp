@@ -19,6 +19,7 @@
 //   GAP_*   known misses: must compile cleanly, so a future fix shows up
 
 #include <memory>
+#include <memory_resource>
 #include <utility>
 
 import hal;
@@ -69,6 +70,21 @@ private:
   static constinit hal::static_optional<fake_i2c> storage;
   return storage.emplace(1);
 }
+
+[[maybe_unused]] static hal::owner<fake_i2c> make_bus()
+{
+  return hal::make_owner<fake_i2c>(std::pmr::new_delete_resource(), 1);
+}
+
+class i2c_manager
+{
+public:
+  [[nodiscard]] hal::owner<i2c> acquire(
+    std::pmr::polymorphic_allocator<> p_allocator) [[clang::lifetimebound]]
+  {
+    return hal::make_owner<fake_i2c>(p_allocator, 1);
+  }
+};
 
 // ---- must not compile -----------------------------------------------------
 #if defined(CASE_ERR_STATIC_REF_LOCAL)
@@ -181,6 +197,38 @@ int main()
   l.reset();
   return s.read();
 }
+#elif defined(CASE_ERR_REF_FROM_TEMP_OWNER)
+int main()
+{
+  sensor s(make_bus());  // owner dies at ';' -> driver destroyed
+  return s.read();
+}
+#elif defined(CASE_ERR_DEREF_TEMP_OWNER)
+int main()
+{
+  sensor s(*make_bus());
+  return s.read();
+}
+#elif defined(CASE_ERR_ARROW_TEMP_OWNER)
+int main()
+{
+  return make_bus()->read();
+}
+#elif defined(CASE_ERR_OWNER_COPY)
+int main()
+{
+  auto a = make_bus();
+  auto b = a;
+  return b->read();
+}
+#elif defined(CASE_ERR_OWNER_MOVE_ASSIGN)
+int main()
+{
+  auto a = make_bus();
+  hal::owner<fake_i2c> b = std::move(a);
+  b = make_bus();
+  return 0;
+}
 #elif defined(CASE_ERR_BARE_NEW)
 int main()
 {
@@ -248,6 +296,30 @@ sensor f()
 int main()
 {
   return f().read();
+}
+
+#elif defined(CASE_WARN_RETURN_SENSOR_LOCAL_OWNER)
+sensor f()
+{
+  auto bus = make_bus();
+  return sensor(bus);  // owner destroyed at return
+}
+int main()
+{
+  return f().read();
+}
+
+#elif defined(CASE_WARN_OWNER_OUTLIVES_MANAGER)
+// acquire() is lifetimebound, so the owner must not outlive the manager.
+hal::owner<i2c> f()
+{
+  i2c_manager manager;
+  return manager.acquire(std::pmr::new_delete_resource());
+}
+int main()
+{
+  auto bus = f();
+  return bus->read();
 }
 
 // ---- known gaps: compile cleanly -------------------------------------------

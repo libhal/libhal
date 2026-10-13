@@ -41,6 +41,9 @@ function(libhal_compile_check SOURCE CASE EXPECT)
     target_compile_options(${TARGET} PRIVATE
         ${LIBHAL_CXX_FLAGS} -Werror -Wlifetime-safety)
     target_link_libraries(${TARGET} PRIVATE libhal)
+    # The cases contain bugs on purpose. clang-tidy would fail on them first
+    # and report the compiler's diagnostics under its own names.
+    set_target_properties(${TARGET} PROPERTIES CXX_CLANG_TIDY "")
 
     add_test(NAME ${TARGET}
         COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR}
@@ -71,20 +74,25 @@ foreach(CASE ERR_STATIC_REF_LOCAL ERR_STATIC_REF_HEAP
     libhal_compile_check(lifetime_cases.cpp ${CASE} "${CONSTEVAL_REJECTS}")
 endforeach()
 foreach(CASE ERR_REF_TEMPORARY ERR_REF_UNIQUE_PTR ERR_REF_RETURN_LOCAL
-             ERR_REF_FROM_TEMP_LEASE)
+             ERR_REF_FROM_TEMP_LEASE ERR_REF_FROM_TEMP_OWNER)
     libhal_compile_check(lifetime_cases.cpp ${CASE}
         "invokes a deleted function")
 endforeach()
 libhal_compile_check(lifetime_cases.cpp ERR_REF_RAW_PTR
     "call to deleted constructor")
-libhal_compile_check(lifetime_cases.cpp ERR_DEREF_TEMP_LEASE
-    "deleted operator '\\*'")
-libhal_compile_check(lifetime_cases.cpp ERR_ARROW_TEMP_LEASE
-    "deleted operator '->'")
-libhal_compile_check(lifetime_cases.cpp ERR_LEASE_COPY
-    "implicitly-deleted copy constructor")
-libhal_compile_check(lifetime_cases.cpp ERR_LEASE_MOVE_ASSIGN
-    "deleted operator '='")
+foreach(CASE ERR_DEREF_TEMP_LEASE ERR_DEREF_TEMP_OWNER)
+    libhal_compile_check(lifetime_cases.cpp ${CASE} "deleted operator '\\*'")
+endforeach()
+foreach(CASE ERR_ARROW_TEMP_LEASE ERR_ARROW_TEMP_OWNER)
+    libhal_compile_check(lifetime_cases.cpp ${CASE} "deleted operator '->'")
+endforeach()
+foreach(CASE ERR_LEASE_COPY ERR_OWNER_COPY)
+    libhal_compile_check(lifetime_cases.cpp ${CASE}
+        "implicitly-deleted copy constructor")
+endforeach()
+foreach(CASE ERR_LEASE_MOVE_ASSIGN ERR_OWNER_MOVE_ASSIGN)
+    libhal_compile_check(lifetime_cases.cpp ${CASE} "deleted operator '='")
+endforeach()
 libhal_compile_check(lifetime_cases.cpp ERR_LEASE_RESET_REMOVED
     "no member named 'reset'")
 foreach(CASE ERR_BARE_NEW ERR_MAKE_UNIQUE)
@@ -94,6 +102,7 @@ endforeach()
 libhal_compile_check(lifetime_cases.cpp ERR_DELETE
     "'operator delete' has been explicitly marked deleted")
 foreach(CASE WARN_RETURN_SENSOR_LOCAL WARN_RETURN_SENSOR_LOCAL_LEASE
+             WARN_RETURN_SENSOR_LOCAL_OWNER WARN_OWNER_OUTLIVES_MANAGER
              WARN_INTERMEDIATE_REF)
     libhal_compile_check(lifetime_cases.cpp ${CASE} "${RETURNS_STACK}")
 endforeach()
