@@ -197,6 +197,10 @@ struct throws_on_construct : hal::no_bare_new_mixin
 
 static_assert(std::is_constructible_v<hal::owner<i2c>, hal::owner<fake_i2c>&&>);
 
+// A static reusable<T> only needs an exit-time destructor when T does.
+static_assert(std::is_trivially_destructible_v<hal::reusable<int>>);
+static_assert(not std::is_trivially_destructible_v<hal::reusable<fake_i2c>>);
+
 static_assert(sizeof(hal::ref<i2c>) == sizeof(void*));
 static_assert(sizeof(hal::static_ref<i2c>) == sizeof(void*));
 static_assert(std::is_trivially_copyable_v<hal::ref<i2c>>);

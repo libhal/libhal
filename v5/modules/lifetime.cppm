@@ -14,7 +14,6 @@
 
 module;
 
-#include <array>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -257,6 +256,9 @@ public:
   owner_control& operator=(owner_control const&) = delete;
 
 protected:
+  /// Ends the object and empties or frees its storage. Each derived class
+  /// passes its own static release() function to the constructor, and
+  /// owner<T> calls it through m_release when it is destroyed.
   using release_fn = void (*)(owner_control&) noexcept;
 
   constexpr explicit owner_control(release_fn p_release) noexcept
@@ -265,20 +267,26 @@ protected:
   }
   ~owner_control() = default;
 
-  release_fn m_release;
-
-  template<class>
-  friend class owner;
-};
-
-/// Internal: the only code allowed to create an owner<T>
-struct owner_access
-{
+  /**
+   * @brief Create the owner of an object this record ends
+   *
+   * owner<T>'s constructor is private; only the places an owned object can
+   * live (classes derived from this one) can create an owner.
+   *
+   * @param p_ptr - the object, as constructed
+   * @param p_control - the record that ends it
+   * @return owner<T> - owner of p_ptr
+   */
   template<class T>
   static constexpr owner<T> adopt(T* p_ptr, owner_control& p_control) noexcept
   {
     return owner<T>(p_ptr, p_control);
   }
+
+  release_fn m_release;
+
+  template<class>
+  friend class owner;
 };
 
 /**
@@ -370,7 +378,7 @@ private:
 
   template<class>
   friend class owner;
-  friend struct owner_access;
+  friend class owner_control;
 };
 
 /// @brief Thrown by emplace() when a reusable<T> already holds an object
@@ -417,6 +425,18 @@ public:
   {
   }
 
+  reusable(reusable const&) = delete;
+  reusable& operator=(reusable const&) = delete;
+
+  /// Trivial when T is, so a static reusable needs no exit-time destructor
+  ~reusable()
+    requires std::is_trivially_destructible_v<T>
+  = default;
+  /// Does not end a held object: the owner does that
+  ~reusable()
+  {
+  }
+
   /// @return true - if it currently holds an object
   [[nodiscard]] constexpr bool has_value() const noexcept
   {
@@ -440,21 +460,29 @@ public:
     if (self.m_has_value) {
       throw reusable_busy{};
     }
-    T* object = std::construct_at(reinterpret_cast<T*>(self.m_storage.data()),
-                                  std::forward<Args>(p_args)...);
+    T* object =
+      std::construct_at(&self.m_object, std::forward<Args>(p_args)...);
     self.m_has_value = true;  // only after construction succeeded
-    return owner_access::adopt(object, self);
+    return adopt(object, self);
   }
 
 private:
+  /// Stored in m_release by the constructor; called when the owner ends.
+  /// Destroys the object and marks the storage empty.
   static void release(owner_control& p_control) noexcept
   {
     auto& self = static_cast<reusable&>(p_control);
-    std::destroy_at(std::launder(reinterpret_cast<T*>(self.m_storage.data())));
+    std::destroy_at(&self.m_object);
     self.m_has_value = false;
   }
 
-  alignas(T) std::array<std::byte, sizeof(T)> m_storage{};
+  // A union member holds no object until construct_at() creates one, like
+  // std::optional's storage. Unlike a byte array, it needs no
+  // reinterpret_cast or std::launder to reach the object.
+  union
+  {
+    T m_object;
+  };
   bool m_has_value = false;
 };
 
@@ -463,14 +491,39 @@ template<class T>
 class owner_block final : public owner_control
 {
 public:
+  /**
+   * @brief Allocate a block, construct T in it, and return T's owner
+   *
+   * @param p_allocator - allocator to obtain the storage from
+   * @param p_args - arguments forwarded to T's constructor
+   * @return owner<T> - owner of the new object
+   */
+  template<class... Args>
+  static owner<T> make(std::pmr::polymorphic_allocator<> p_allocator,
+                       Args&&... p_args)
+  {
+    auto* storage = p_allocator.allocate_object<owner_block>();
+    try {
+      auto* block = std::construct_at(
+        storage, *p_allocator.resource(), std::forward<Args>(p_args)...);
+      return adopt(&block->m_object, *block);
+    } catch (...) {
+      p_allocator.deallocate_object(storage);
+      throw;
+    }
+  }
+
   template<class... Args>
   explicit owner_block(std::pmr::memory_resource& p_resource, Args&&... p_args)
     : owner_control(&release)
-    , object(std::forward<Args>(p_args)...)
+    , m_object(std::forward<Args>(p_args)...)
     , m_resource(&p_resource)
   {
   }
 
+private:
+  /// Stored in m_release by the constructor; called when the owner ends.
+  /// Destroys the object and returns the block to its memory resource.
   static void release(owner_control& p_control) noexcept
   {
     auto* self = static_cast<owner_block*>(&p_control);
@@ -478,9 +531,7 @@ public:
     allocator.delete_object(self);
   }
 
-  T object;
-
-private:
+  T m_object;
   std::pmr::memory_resource* m_resource;
 };
 
@@ -505,16 +556,7 @@ export template<class T, class... Args>
 [[nodiscard]] owner<T> make_owner(std::pmr::polymorphic_allocator<> p_allocator,
                                   Args&&... p_args)
 {
-  auto* resource = p_allocator.resource();
-  auto* storage = p_allocator.allocate_object<owner_block<T>>();
-  try {
-    auto* created =
-      std::construct_at(storage, *resource, std::forward<Args>(p_args)...);
-    return owner_access::adopt(&created->object, *created);
-  } catch (...) {
-    p_allocator.deallocate_object(storage);
-    throw;
-  }
+  return owner_block<T>::make(p_allocator, std::forward<Args>(p_args)...);
 }
 
 // ---------------------------------------------------------------------------
