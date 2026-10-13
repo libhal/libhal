@@ -113,3 +113,10 @@ foreach(CASE WARN_SUBSCRIPTION_OUTLIVES_CALLBACK
 endforeach()
 libhal_compile_check(subscription_cases.cpp
     WARN_STATIC_COUNTER_ON_LOCAL_PIN "${DANGLES_GLOBAL}")
+# Known gaps: the analysis does not see through std::optional, so a swappable
+# std::optional<hal::subscription> loses the checks above.
+foreach(CASE GAP_OPTIONAL_OUTLIVES_CALLBACK
+             GAP_OPTIONAL_DIRECT_INIT_OUTLIVES_CALLBACK
+             GAP_OPTIONAL_OUTLIVES_PIN GAP_STATIC_OPTIONAL_ON_LOCAL_CALLBACK)
+    libhal_compile_check(subscription_cases.cpp ${CASE} SUCCESS)
+endforeach()

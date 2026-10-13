@@ -17,6 +17,9 @@
 // own target with -DCASE_<name> (see compile_checks.cmake):
 //   ERR_*   must be rejected by the compiler
 //   WARN_*  must be reported by Clang (built with -Werror -Wlifetime-safety)
+//   GAP_*   known misses: must compile cleanly, so a future fix shows up
+
+#include <optional>
 
 import hal;
 
@@ -128,6 +131,60 @@ void f()
 {
   fake_pin pin;  // forgot static
   static button_counter c(pin);
+}
+int main()
+{
+  f();
+}
+
+#elif defined(CASE_GAP_OPTIONAL_OUTLIVES_CALLBACK)
+// Optional subscription returned past the callback it registered.
+std::optional<hal::subscription> f(fake_pin& p_pin)
+{
+  counter local;
+  std::optional<hal::subscription> active;
+  active.emplace(p_pin.on_trigger(local));
+  return active;
+}
+int main()
+{
+  static fake_pin pin;
+  auto active = f(pin);
+}
+
+#elif defined(CASE_GAP_OPTIONAL_DIRECT_INIT_OUTLIVES_CALLBACK)
+std::optional<hal::subscription> f(fake_pin& p_pin)
+{
+  counter local;
+  return std::optional<hal::subscription>(p_pin.on_trigger(local));
+}
+int main()
+{
+  static fake_pin pin;
+  auto active = f(pin);
+}
+
+#elif defined(CASE_GAP_OPTIONAL_OUTLIVES_PIN)
+std::optional<hal::subscription> f()
+{
+  static counter c;
+  fake_pin local;
+  std::optional<hal::subscription> active;
+  active.emplace(local.on_trigger(c));
+  return active;
+}
+int main()
+{
+  auto active = f();
+}
+
+#elif defined(CASE_GAP_STATIC_OPTIONAL_ON_LOCAL_CALLBACK)
+void f()
+{
+  static fake_pin pin;
+  static std::optional<hal::subscription> active;
+  counter local;  // forgot static
+  active.emplace(pin.on_trigger(local));
 }
 int main()
 {
