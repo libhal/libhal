@@ -275,10 +275,11 @@ protected:
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.
  *
- * Interrupt context: on_receive() must not be called from interrupt context,
- * including from inside a callback, and a subscription must not be destroyed
- * there either. To change behavior, change state inside the callback itself
- * rather than re-subscribing. This may be relaxed later.
+ * Interrupt context: never call on_receive() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class can_interrupt
 {
@@ -286,11 +287,17 @@ public:
   /**
    * @brief Register a callback for the rest of the program
    *
-   * The callback lives forever and occupies the one subscriber slot for the
-   * rest of the program. Messages received before a callback is installed are
-   * not reported, although they are still written into the receive buffer of
-   * the associated `can_transceiver`. Not callable from interrupt context (see
-   * class docs).
+   * Messages received before a callback is installed are not reported, although
+   * they are still written into the receive buffer of the associated
+   * `can_transceiver`.
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
    * @throws hal::subscription_busy - if a subscriber is already registered
@@ -303,11 +310,15 @@ public:
   /**
    * @brief Register a callback until the returned subscription is destroyed
    *
-   * Invoked when a message is received. Messages received before a callback is
-   * installed are not reported, although they are still written into the
-   * receive buffer of the associated `can_transceiver`. Not callable from
-   * interrupt context, and the subscription must not be destroyed there (see
-   * class docs).
+   * The callback is invoked when a message is received. Messages received
+   * before a callback is installed are not reported, although they are still
+   * written into the receive buffer of the associated `can_transceiver`.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
    *
    * @param p_callback - the callback to invoke
    * @return subscription - unregisters the callback when destroyed
@@ -373,10 +384,11 @@ protected:
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.
  *
- * Interrupt context: on_bus_off() must not be called from interrupt context,
- * including from inside a callback, and a subscription must not be destroyed
- * there either. To change behavior, change state inside the callback itself
- * rather than re-subscribing. This may be relaxed later.
+ * Interrupt context: never call on_bus_off() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class can_bus_manager
 {
@@ -428,9 +440,13 @@ public:
    * the `send()` API will throw the `hal::operation_not_permitted` exception
    * and the `receive_cursor()` API will not update until `bus_on()` is called.
    *
-   * Not callable from interrupt context, and a subscription must not be
-   * destroyed there (see class docs). Use the static_ref overload to register
-   * for the rest of the program.
+   * Use the static_ref overload to register for the rest of the program.
+   *
+   * @warning Never call on_bus_off() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
    *
    * @param p_callback - the callback to invoke when the device enters bus-off
    * @return subscription - unregisters the callback when destroyed
@@ -447,8 +463,13 @@ public:
   /**
    * @brief Register a bus-off callback for the rest of the program
    *
-   * Occupies the one subscriber slot for the rest of the program. Not callable
-   * from interrupt context (see class docs).
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_bus_off() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
    * @throws hal::subscription_busy - if a subscriber is already registered

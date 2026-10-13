@@ -249,10 +249,11 @@ protected:
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.
  *
- * Interrupt context: on_receive() must not be called from interrupt context,
- * including from inside a callback, and a subscription must not be destroyed
- * there either. To change behavior, change state inside the callback itself
- * rather than re-subscribing. This may be relaxed later.
+ * Interrupt context: never call on_receive() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 export class serial_interrupt
 {
@@ -260,10 +261,16 @@ public:
   /**
    * @brief Register a callback for the rest of the program
    *
-   * The callback lives forever and occupies the one subscriber slot for the
-   * rest of the program. Receive events before a callback is installed are not
-   * reported, although the data is still written into the receive buffer. Not
-   * callable from interrupt context (see class docs).
+   * Receive events before a callback is installed are not reported, although
+   * the data is still written into the receive buffer.
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
    * @throws hal::subscription_busy - if a subscriber is already registered
@@ -278,8 +285,13 @@ public:
    *
    * Invoked on serial receive events. Receive events before a callback is
    * installed are not reported, although the data is still written into the
-   * receive buffer. Not callable from interrupt context, and the subscription
-   * must not be destroyed there (see class docs).
+   * receive buffer.
+   *
+   * @warning Never call on_receive() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
    *
    * @param p_callback - the callback to invoke
    * @return subscription - unregisters the callback when destroyed

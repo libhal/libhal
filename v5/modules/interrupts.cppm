@@ -68,14 +68,13 @@ protected:
  *   - both: the pin reads any state change
  *
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
- * throws hal::subscription_busy. Need several listeners on one pin? Put a
- * hal::edge_triggered_interrupt_multiplexer<N> on it and hand its slots out
- * instead.
+ * throws hal::subscription_busy.
  *
- * Interrupt context: on_trigger() must not be called from interrupt context,
- * including from inside a callback, and a subscription must not be destroyed
- * there either. To change what happens on an edge, change state inside the
- * callback itself rather than re-subscribing. This may be relaxed later.
+ * Interrupt context: never call on_trigger() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 class edge_triggered_interrupt
 {
@@ -112,9 +111,15 @@ public:
   /**
    * @brief Register a callback for the rest of the program
    *
-   * The callback lives forever and occupies the one subscriber slot for the
-   * rest of the program. Any state transitions before this is called are lost.
-   * Not callable from interrupt context (see class docs).
+   * Any state transitions before this is called are lost.
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call on_trigger() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
    * @throws hal::subscription_busy - if a subscriber is already registered
@@ -127,9 +132,13 @@ public:
   /**
    * @brief Register a callback until the returned subscription is destroyed
    *
-   * Any state transitions before this is called are lost. Not callable from
-   * interrupt context, and the subscription must not be destroyed there (see
-   * class docs).
+   * Any state transitions before this is called are lost.
+   *
+   * @warning Never call on_trigger() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
    *
    * @param p_callback - callback to invoke when the trigger condition occurs
    * @return subscription - unregisters the callback when destroyed
@@ -213,9 +222,11 @@ enum class timer_mode : u8
  * hal::subscription_busy. To schedule a new callback, destroy the previous
  * subscription first.
  *
- * Interrupt context: schedule() must not be called from interrupt context,
- * including from inside a callback, and a subscription must not be destroyed
- * there either.
+ * Interrupt context: never call schedule() from an interrupt service routine,
+ * including from inside a callback, and never destroy a subscription there. To
+ * change behavior, change state inside the callback object. To swap callbacks,
+ * hold the subscription in a `std::optional<hal::subscription>`, then reset()
+ * it and subscribe again from outside of interrupt context.
  */
 class unstable_timed_interrupt
 {
@@ -234,15 +245,19 @@ public:
   /**
    * @brief Schedule a callback for the rest of the program
    *
-   * The callback lives forever and occupies the one registration slot for the
-   * rest of the program, so this timer can't be scheduled again afterwards.
-   * Not callable from interrupt context (see class docs).
-   *
    * If the delay time result in a tick period of 0, then the timer will
    * execute after 1 tick period. For example, if the tick period is 1ms and
    * the requested time delay is 500us, then the event will be scheduled for
    * 1ms. If the tick period is 1ms and the requested time is 2.5ms then the
    * event will be scheduled after 2 tick periods or in 2ms.
+   *
+   * The registration is permanent: the subscriber slot stays taken for the rest
+   * of the program.
+   *
+   * @warning Never call schedule() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
    * @param p_delay - the amount of time until the timer expires
@@ -261,10 +276,14 @@ public:
   /**
    * @brief Schedule a callback until the returned subscription is destroyed
    *
-   * Destroying the subscription cancels the timer if it is still pending.
-   * Not callable from interrupt context, and the subscription must not be
-   * destroyed there (see class docs). See the static_ref overload for how the
-   * delay is rounded to the tick period.
+   * Destroying the subscription cancels the timer if it is still pending. See
+   * the static_ref overload for how the delay is rounded to the tick period.
+   *
+   * @warning Never call schedule() from an interrupt service routine,
+   * including from inside a callback. It throws `hal::subscription_busy` if a
+   * subscriber is already registered, and an exception cannot unwind out of
+   * an interrupt service routine. Destroy the returned subscription outside
+   * of interrupt context too.
    *
    * @param p_callback - callback to invoke when the timer expires
    * @param p_delay - the amount of time until the timer expires
