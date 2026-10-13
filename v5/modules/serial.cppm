@@ -201,20 +201,58 @@ private:
   virtual usize driver_receive_cursor() = 0;
 };
 
-/// The set of serial receive events reported to a `serial_receive_callback`
+/**
+ * @brief Receive conditions reported to a `serial_receive_callback`
+ *
+ * The values are bit flags, and a single callback may report several at once.
+ * Test them with `hal::has()`, never by comparing for equality, so that flags
+ * added later do not break existing callbacks.
+ *
+ * An event means "check `receive_cursor()`", not "N bytes arrived". Events can
+ * arrive close together, for example `high_water` and `idle` when a burst ends
+ * right at the middle of the receive buffer, so callbacks must not count
+ * events to track data.
+ */
 export enum class serial_event : u8 {
-  /// New data has been written into the receive buffer. How much data each
-  /// event represents is implementation-defined: a single byte, a FIFO
-  /// threshold, or a DMA half/full transfer. Use `receive_cursor()` to find out
-  /// how much arrived.
-  rx = 0,
+  /// The RX line went idle after receiving one or more bytes. The idle timeout
+  /// is implementation-defined, typically one or a few character times.
+  idle = 1U << 0,
 
-  /// The RX line has transitioned from active to idle after receiving one or
-  /// more bytes. Implementations without hardware idle detection must emulate
-  /// this, typically by monitoring cursor movement with a timer. The exact idle
-  /// timeout is implementation-defined.
-  idle = 1,
+  /// At least half of `receive_buffer().size()` has been received since the
+  /// last event. Unread data is approaching the buffer's capacity: read soon
+  /// or it will be overwritten.
+  high_water = 1U << 1,
+
+  // 1U << 2 is reserved for a future overrun flag.
 };
+
+/**
+ * @brief Combine serial event flags
+ *
+ * @param p_lhs - flags to combine
+ * @param p_rhs - flags to combine
+ * @return serial_event - the union of both sets of flags
+ */
+export constexpr serial_event operator|(serial_event p_lhs,
+                                        serial_event p_rhs) noexcept
+{
+  return static_cast<serial_event>(static_cast<u8>(p_lhs) |
+                                   static_cast<u8>(p_rhs));
+}
+
+/**
+ * @brief Check whether a set of serial event flags contains a flag
+ *
+ * @param p_events - the flags reported to a callback
+ * @param p_flag - the flag to look for
+ * @return true - if every bit of p_flag is set in p_events
+ */
+export [[nodiscard]] constexpr bool has(serial_event p_events,
+                                        serial_event p_flag) noexcept
+{
+  return (static_cast<u8>(p_events) & static_cast<u8>(p_flag)) ==
+         static_cast<u8>(p_flag);
+}
 
 /**
  * @brief Callback object invoked by a `serial_interrupt` on receive events
@@ -227,11 +265,11 @@ export enum class serial_event : u8 {
 export struct serial_receive_callback
 {
   /**
-   * @brief Invoked when a serial receive event occurs
+   * @brief Invoked when one or more serial receive conditions occur
    *
-   * @param p_event - the receive event that occurred
+   * @param p_events - the conditions that occurred, as bit flags. Never zero.
    */
-  virtual void callback(serial_event p_event) noexcept = 0;
+  virtual void callback(serial_event p_events) noexcept = 0;
 
 protected:
   ~serial_receive_callback() = default;
@@ -240,11 +278,18 @@ protected:
 /**
  * @brief Serial receive event interrupt hardware abstraction
  *
- * Use this interface to run a callback when the serial port receives data or
- * its RX line goes idle. Drivers whose hardware can signal RX activity or line
- * idle conditions via interrupt should vend this interface alongside
- * `hal::serial`. Drivers that cannot natively signal RX events should not
- * implement it; poll `receive_cursor()` instead.
+ * Use this interface to run a callback when the serial port's RX line goes
+ * idle or its receive buffer is filling up. Drivers whose hardware can signal
+ * these conditions via interrupt should vend this interface alongside
+ * `hal::serial`. Drivers whose hardware cannot detect an idle line or an RX
+ * timeout should not implement it; poll `receive_cursor()` instead.
+ *
+ * Drivers must not invoke the callback once per received byte. The callback
+ * is invoked when the RX line goes idle, or after at least half of the
+ * receive buffer has filled since the last event. A driver may combine
+ * conditions found in the same interrupt into one call, but does not have to.
+ * If the application falls more than half a buffer behind, unread data is
+ * overwritten without notice.
  *
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.

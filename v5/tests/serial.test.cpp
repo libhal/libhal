@@ -105,6 +105,13 @@ public:
   }
 };
 
+static_assert(static_cast<hal::u8>(hal::serial_event::idle) == 0b01);
+static_assert(static_cast<hal::u8>(hal::serial_event::high_water) == 0b10);
+static_assert(hal::has(hal::serial_event::idle | hal::serial_event::high_water,
+                       hal::serial_event::idle));
+static_assert(not hal::has(hal::serial_event::idle,
+                           hal::serial_event::high_water));
+
 void serial_configure_test() noexcept
 {
   using namespace boost::ut;
@@ -296,18 +303,19 @@ void serial_interrupt_test() noexcept
 {
   using namespace boost::ut;
 
-  "on_receive() delivers rx event to callback"_test = [&]() {
+  "on_receive() delivers high_water event to callback"_test = [&]() {
     // Setup
     test_serial_interrupt test;
     recording_receive_callback callback;
 
     // Exercise
     auto subscription = test.on_receive(callback);
-    test.simulate_event(hal::serial_event::rx);
+    test.simulate_event(hal::serial_event::high_water);
 
     // Verify
     expect(that % 1 == callback.call_count);
-    expect(hal::serial_event::rx == callback.last_event);
+    expect(hal::has(callback.last_event, hal::serial_event::high_water));
+    expect(not hal::has(callback.last_event, hal::serial_event::idle));
   };
 
   "on_receive() delivers idle event to callback"_test = [&]() {
@@ -321,7 +329,23 @@ void serial_interrupt_test() noexcept
 
     // Verify
     expect(that % 1 == callback.call_count);
-    expect(hal::serial_event::idle == callback.last_event);
+    expect(hal::has(callback.last_event, hal::serial_event::idle));
+  };
+
+  "on_receive() delivers combined flags in one call"_test = [&]() {
+    // Setup
+    test_serial_interrupt test;
+    recording_receive_callback callback;
+
+    // Exercise
+    auto subscription = test.on_receive(callback);
+    test.simulate_event(hal::serial_event::high_water |
+                        hal::serial_event::idle);
+
+    // Verify
+    expect(that % 1 == callback.call_count);
+    expect(hal::has(callback.last_event, hal::serial_event::high_water));
+    expect(hal::has(callback.last_event, hal::serial_event::idle));
   };
 
   "on_receive() subscription end stops delivery"_test = [&]() {
@@ -333,7 +357,7 @@ void serial_interrupt_test() noexcept
     {
       auto subscription = test.on_receive(callback);
     }
-    test.simulate_event(hal::serial_event::rx);
+    test.simulate_event(hal::serial_event::high_water);
 
     // Verify
     expect(that % 0 == callback.call_count);
@@ -354,7 +378,7 @@ void serial_interrupt_test() noexcept
     } catch (hal::subscription_busy const&) {
       threw = true;
     }
-    test.simulate_event(hal::serial_event::rx);
+    test.simulate_event(hal::serial_event::high_water);
 
     // Verify
     expect(threw);
