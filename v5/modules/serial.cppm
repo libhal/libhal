@@ -205,7 +205,8 @@ private:
  * @brief Receive conditions reported to a `serial_receive_callback`
  *
  * The values are bit flags, and a single callback may report several at once.
- * Test them with `hal::has()`, never by comparing for equality, so that flags
+ * Test them with `operator&`, for example `if (p_events &
+ * hal::serial_event::idle)`, never by comparing for equality, so that flags
  * added later do not break existing callbacks.
  *
  * An event means "check `receive_cursor()`", not "N bytes arrived". Events can
@@ -216,14 +217,14 @@ private:
 export enum class serial_event : u8 {
   /// The RX line went idle after receiving one or more bytes. The idle timeout
   /// is implementation-defined, typically one or a few character times.
-  idle = 0b0001,
+  idle = 1U << 0U,
 
   /// At least half of `receive_buffer().size()` has been received since the
   /// last event. Unread data is approaching the buffer's capacity: read soon
   /// or it will be overwritten.
-  high_water = 0b0010,
+  high_water = 1U << 1U,
 
-  // 0b0100 is reserved for a future overrun flag.
+  // 1U << 2U is reserved for a future overrun flag.
 };
 
 /**
@@ -236,22 +237,27 @@ export enum class serial_event : u8 {
 export constexpr serial_event operator|(serial_event p_lhs,
                                         serial_event p_rhs) noexcept
 {
-  return static_cast<serial_event>(static_cast<unsigned>(p_lhs) |
-                                   static_cast<unsigned>(p_rhs));
+  auto const lhs = static_cast<unsigned>(p_lhs);
+  auto const rhs = static_cast<unsigned>(p_rhs);
+  return static_cast<serial_event>(lhs | rhs);
 }
 
 /**
- * @brief Check whether a set of serial event flags contains a flag
+ * @brief Check whether a set of serial event flags contains any of some flags
+ *
+ * Returns bool rather than serial_event so it can be used directly in a
+ * condition: `if (p_events & hal::serial_event::idle)`.
  *
  * @param p_events - the flags reported to a callback
- * @param p_flag - the flag to look for
- * @return true - if every bit of p_flag is set in p_events
+ * @param p_flags - the flag, or flags, to look for
+ * @return true - if any flag in p_flags is set in p_events
  */
-export [[nodiscard]] constexpr bool has(serial_event p_events,
-                                        serial_event p_flag) noexcept
+export [[nodiscard]] constexpr bool operator&(serial_event p_events,
+                                              serial_event p_flags) noexcept
 {
-  return (static_cast<unsigned>(p_events) & static_cast<unsigned>(p_flag)) ==
-         static_cast<unsigned>(p_flag);
+  auto const events = static_cast<unsigned>(p_events);
+  auto const flags = static_cast<unsigned>(p_flags);
+  return (events & flags) != 0U;
 }
 
 /**
@@ -267,7 +273,9 @@ export struct serial_receive_callback
   /**
    * @brief Invoked when one or more serial receive conditions occur
    *
-   * @param p_events - the conditions that occurred, as bit flags. Never zero.
+   * @param p_events - the conditions that occurred, as bit flags. Never zero,
+   * and only ever flags that were requested in
+   * `serial_interrupt::on_receive()`.
    */
   virtual void callback(serial_event p_events) noexcept = 0;
 
@@ -279,10 +287,16 @@ protected:
  * @brief Serial receive event interrupt hardware abstraction
  *
  * Use this interface to run a callback when the serial port's RX line goes
- * idle or its receive buffer is filling up. Drivers whose hardware can signal
- * these conditions via interrupt should vend this interface alongside
- * `hal::serial`. Drivers whose hardware cannot detect an idle line or an RX
- * timeout should not implement it; poll `receive_cursor()` instead.
+ * idle or its receive buffer is filling up. Drivers vend this interface
+ * alongside `hal::serial`.
+ *
+ * Drivers whose hardware can signal these conditions via interrupt use it
+ * directly. Drivers whose hardware cannot can still implement this interface
+ * by taking a `hal::timed_interrupt` and running it in periodic mode to check
+ * the receive cursor: if the cursor moved and has since stopped, report
+ * `idle`; if at least half of the receive buffer has filled since the last
+ * event, report `high_water`. The tick period sets the idle timeout and how
+ * far the buffer can fill before it is noticed.
  *
  * Drivers must not invoke the callback once per received byte. The callback
  * is invoked when the RX line goes idle, or after at least half of the
@@ -318,11 +332,16 @@ public:
    * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
+   * @param p_events - the conditions to detect. The callback is only invoked
+   * with these flags.
    * @throws hal::subscription_busy - if a subscriber is already registered
+   * @throws hal::operation_not_supported - if the driver cannot detect one or
+   * more of the conditions in p_events
    */
-  void on_receive(static_ref<serial_receive_callback> p_callback)
+  void on_receive(static_ref<serial_receive_callback> p_callback,
+                  serial_event p_events)
   {
-    driver_on_receive(*p_callback);
+    driver_on_receive(*p_callback, p_events);
   }
 
   /**
@@ -339,14 +358,19 @@ public:
    * of interrupt context too.
    *
    * @param p_callback - the callback to invoke
+   * @param p_events - the conditions to detect. The callback is only invoked
+   * with these flags.
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
+   * @throws hal::operation_not_supported - if the driver cannot detect one or
+   * more of the conditions in p_events
    */
   [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback
-                                        [[clang::lifetimebound]])
+                                        [[clang::lifetimebound]],
+                                        serial_event p_events)
     [[clang::lifetimebound]]
   {
-    driver_on_receive(p_callback);
+    driver_on_receive(p_callback, p_events);
     return subscription::make<&serial_interrupt::driver_clear_receive>(*this);
   }
 
@@ -354,8 +378,11 @@ protected:
   ~serial_interrupt() = default;
 
 private:
-  /// Store the callback. Throw hal::subscription_busy if one is already set.
-  virtual void driver_on_receive(serial_receive_callback& p_callback) = 0;
+  /// Store the callback and enable detection of p_events. Throw
+  /// hal::subscription_busy if a callback is already set, or
+  /// hal::operation_not_supported if any flag in p_events can't be detected.
+  virtual void driver_on_receive(serial_receive_callback& p_callback,
+                                 serial_event p_events) = 0;
   /// Clear the callback. Called from a destructor; must not throw. The store
   /// must be atomic with respect to the ISR (single word store, or mask IRQ).
   virtual void driver_clear_receive() noexcept = 0;
