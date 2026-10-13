@@ -336,7 +336,7 @@ public:
    * with these flags.
    * @throws hal::subscription_busy - if a subscriber is already registered
    * @throws hal::operation_not_supported - if the driver cannot detect one or
-   * more of the conditions in p_events
+   * more of the conditions in p_events.
    */
   void on_receive(static_ref<serial_receive_callback> p_callback,
                   serial_event p_events)
