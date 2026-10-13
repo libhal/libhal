@@ -36,8 +36,9 @@ export module hal:lifetime;
  * objects whose lifetime is controlled at runtime.
  *
  * Borrowing:
- *  static_ref<T>      proven static storage (consteval), or assume_static()
- *  ref<T>             borrow of a static, local, or owned object
+ *  static_ref<T>      proven static storage (consteval), or
+ * unsafe_assume_static() ref<T>             borrow of a static, local, or owned
+ * object
  *
  * Owning:
  *  owner<T>           RAII owner; destroying it ends the object
@@ -162,7 +163,7 @@ protected:
  * heap objects, thread_locals, and runtime references are rejected at the
  * construction site.
  *
- * assume_static() is the unchecked escape hatch for memory that is never
+ * unsafe_assume_static() is the unchecked escape hatch for memory that is never
  * freed in practice (e.g. a monotonic arena filled at startup).
  *
  * @tparam T - the referenced type
@@ -200,7 +201,8 @@ public:
    * @param p_ref - object the caller guarantees is never destroyed or freed
    * @return static_ref - reference to p_ref
    */
-  [[nodiscard]] static constexpr static_ref assume_static(T& p_ref) noexcept
+  [[nodiscard]] static constexpr static_ref unsafe_assume_static(
+    T& p_ref) noexcept
   {
     return static_ref(unchecked{}, p_ref);
   }
@@ -436,11 +438,7 @@ public:
   {
     auto& self = *p_storage;
     if (self.m_has_value) {
-#if defined(__cpp_exceptions)
       throw reusable_busy{};
-#else
-      std::terminate();
-#endif
     }
     T* object = std::construct_at(reinterpret_cast<T*>(self.m_storage.data()),
                                   std::forward<Args>(p_args)...);

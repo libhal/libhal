@@ -116,7 +116,7 @@ int main()
 }
 
 #elif defined(CASE_CATCH_ARENA_COMPOSITE_TO_LOCAL)
-// assume_static arena objects live in .bss and are treated as static.
+// unsafe_assume_static arena objects live in .bss and are treated as static.
 alignas(std::max_align_t) static std::array<std::byte, 256> arena_buf{};
 int main()
 {

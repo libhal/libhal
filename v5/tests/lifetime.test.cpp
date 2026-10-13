@@ -252,7 +252,7 @@ void lifetime_test()
     expect(that % 2 == make().read());
   };
 
-  "assume_static() over a startup arena"_test = []() {
+  "unsafe_assume_static() over a startup arena"_test = []() {
     // Setup
     alignas(std::max_align_t) static std::array<std::byte, 256> arena_buffer{};
     static std::pmr::monotonic_buffer_resource resource(arena_buffer.data(),
@@ -261,7 +261,7 @@ void lifetime_test()
     auto* bus = allocator.new_object<fake_i2c>(5);  // never freed
 
     // Exercise
-    sensor s(hal::static_ref<fake_i2c>::assume_static(*bus));
+    sensor s(hal::static_ref<fake_i2c>::unsafe_assume_static(*bus));
 
     // Verify
     expect(that % 5 == s.read());
