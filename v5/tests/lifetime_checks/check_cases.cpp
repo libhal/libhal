@@ -67,8 +67,8 @@ private:
 }
 [[maybe_unused]] static hal::lease<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_slot<fake_i2c> slot;
-  return slot.emplace(1);
+  static constinit hal::static_optional<fake_i2c> storage;
+  return storage.emplace(1);
 }
 
 // ---------------------------------------------------------------------------
@@ -207,7 +207,7 @@ int main()
 }
 
 #elif defined(CASE_MISS_STATIC_SENSOR_ON_LOCAL_LEASE)
-// The leased driver lives in slot storage (.bss), so the target looks static.
+// The leased driver lives in static_optional storage (.bss), so the target looks static.
 sensor& get_sensor()
 {
   auto l = acquire_i2c1();

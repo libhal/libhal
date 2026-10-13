@@ -22,7 +22,7 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
 ### Policies
 
 - Use `std::pmr::polymorphic_allocator` for dynamic memory allocation during program initialization or `dyninit` time
-- Peripherals that must be torn down and reused live in a `hal::static_slot` and are owned through a `hal::lease`; destroying the lease resets the peripheral
+- Peripherals that must be torn down and reused live in a `hal::static_optional` and are owned through a `hal::lease`; destroying the lease resets the peripheral
 
 ### Interfaces
 

@@ -14,6 +14,7 @@
 
 module;
 
+#include <array>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -30,14 +31,14 @@ module;
 export module hal:lifetime;
 
 /**
- * Non-owning references with compile-time lifetime checks, plus
- * static-storage / scoped-lifetime slots for reusable peripherals.
+ * Non-owning references with compile-time lifetime checks, plus static
+ * storage for reusable peripherals whose lifetime is controlled at runtime.
  *
  *  static_ref<T>      proven static storage (consteval), or assume_static()
  *  ref<T>             borrow of static, automatic, or leased objects
- *  static_slot<T>     static storage constructed/destroyed repeatedly
- *  lease<T>           RAII owner of a slot's object; destroying it frees the
- *                     slot
+ *  static_optional<T> std::optional-like static storage; emplace() leases
+ *  lease<T>           RAII owner of a static_optional's object; destroying it
+ *                     empties the static_optional
  *  no_bare_new_mixin  mixin that blocks `new T` / make_unique but not
  *                     allocators
  */
@@ -112,8 +113,9 @@ concept pointer_convertible_to = std::is_convertible_v<From*, To*>;
  *
  * Opt-in: inherit from this in drivers that should never live on the heap,
  * such as platform drivers that own a fixed peripheral and live in static
- * storage or a static_slot. Allocator and placement paths (std::construct_at,
- * pmr, std::optional, static_slot, `new (buffer) T`) still work.
+ * storage or a static_optional. Allocator and placement paths
+ * (std::construct_at, pmr, std::optional, static_optional, `new (buffer) T`)
+ * still work.
  *
  * `delete p` is also rejected, so an object created with an explicit `::new`
  * can't be released through the class (which would otherwise destroy it and
@@ -228,16 +230,16 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// static_slot / lease
+// static_optional / lease
 // ---------------------------------------------------------------------------
 
-/// @brief Thrown by static_slot::emplace() when the slot is already leased.
-export struct slot_busy : std::exception
+/// @brief Thrown by static_optional::emplace() when it already holds a value.
+export struct already_leased : std::exception
 {
   /// @return char const* - description of the error
   [[nodiscard]] char const* what() const noexcept override
   {
-    return "hal::static_slot is already in use";
+    return "hal::static_optional is already leased";
   }
 };
 
@@ -245,106 +247,108 @@ export template<class T>
 class lease;
 
 /**
- * @brief Type-erased base of static_slot<T>, used by lease<T>
+ * @brief Type-erased base of static_optional<T>, used by lease<T>
  */
-export class slot_base
+export class static_optional_base
 {
 public:
-  slot_base(slot_base const&) = delete;
-  slot_base& operator=(slot_base const&) = delete;
+  static_optional_base(static_optional_base const&) = delete;
+  static_optional_base& operator=(static_optional_base const&) = delete;
 
-  /// @return true - if the slot currently holds a leased object
-  [[nodiscard]] constexpr bool in_use() const noexcept
+  /// @return true - if it currently holds a leased object
+  [[nodiscard]] constexpr bool has_value() const noexcept
   {
-    return m_in_use;
+    return m_has_value;
   }
 
 protected:
-  using destroy_fn = void (*)(slot_base&) noexcept;
+  using destroy_fn = void (*)(static_optional_base&) noexcept;
 
-  constexpr explicit slot_base(destroy_fn p_destroy) noexcept
+  constexpr explicit static_optional_base(destroy_fn p_destroy) noexcept
     : m_destroy(p_destroy)
   {
   }
-  ~slot_base() = default;
+  ~static_optional_base() = default;
 
   [[noreturn]] static void busy()
   {
 #if defined(__cpp_exceptions)
-    throw slot_busy{};
+    throw already_leased{};
 #else
     std::terminate();
 #endif
   }
 
   destroy_fn m_destroy;
-  bool m_in_use = false;
+  bool m_has_value = false;
 
   template<class>
   friend class lease;
 };
 
 /**
- * @brief Static storage for one T whose lifetime is controlled at runtime
+ * @brief A std::optional<T> in static memory that hands out leases
  *
- * emplace() constructs T in place and returns a lease. When the lease is
+ * Like std::optional, it is either empty or holds one T. emplace() constructs
+ * T in place, but instead of a reference it returns a lease. When the lease is
  * destroyed, T's destructor runs, which is where a driver resets its
- * peripheral, and the slot can be emplaced again. Declare it static, usually
- * function-local inside the factory for that peripheral:
+ * peripheral, and the static_optional is empty and can be emplaced again.
+ * Declare it static, usually function-local inside the factory for that
+ * peripheral:
  *
  *   hal::lease<stm32::i2c> acquire_i2c1() {
- *     static constinit hal::static_slot<stm32::i2c> slot;
- *     return slot.emplace(stm32::peripheral::i2c1);
+ *     static constinit hal::static_optional<stm32::i2c> storage;
+ *     return storage.emplace(stm32::peripheral::i2c1);
  *   }
  *
- * @tparam T - the type stored in the slot
+ * @tparam T - the type it can hold
  */
 export template<class T>
-class static_slot : public slot_base
+class static_optional : public static_optional_base
 {
 public:
-  /// Construct an empty slot (constinit-friendly)
-  constexpr static_slot() noexcept
-    : slot_base(&destroy)
+  /// Construct an empty static_optional (constinit-friendly)
+  constexpr static_optional() noexcept
+    : static_optional_base(&destroy)
   {
   }
 
   /**
-   * @brief Construct T in the slot and lease it
+   * @brief Construct T in place and lease it
    *
    * @param p_args - arguments forwarded to T's constructor
    * @return lease<T> - owner of the new object
-   * @throws hal::slot_busy - if the slot is already leased
+   * @throws hal::already_leased - if it already holds a leased object
    */
   template<class... Args>
   [[nodiscard]] lease<T> emplace(Args&&... p_args)
   {
-    if (m_in_use) {
+    if (m_has_value) {
       busy();
     }
-    T* obj = std::construct_at(reinterpret_cast<T*>(m_storage),
+    T* obj = std::construct_at(reinterpret_cast<T*>(m_storage.data()),
                                std::forward<Args>(p_args)...);
-    m_in_use = true;  // only after construction succeeded
+    m_has_value = true;  // only after construction succeeded
     return lease<T>(obj, *this);
   }
 
 private:
-  static void destroy(slot_base& p_base) noexcept
+  static void destroy(static_optional_base& p_base) noexcept
   {
-    auto& self = static_cast<static_slot&>(p_base);
-    std::destroy_at(std::launder(reinterpret_cast<T*>(self.m_storage)));
-    self.m_in_use = false;
+    auto& self = static_cast<static_optional&>(p_base);
+    std::destroy_at(std::launder(reinterpret_cast<T*>(self.m_storage.data())));
+    self.m_has_value = false;
   }
 
-  alignas(T) std::byte m_storage[sizeof(T)]{};
+  alignas(T) std::array<std::byte, sizeof(T)> m_storage{};
 };
 
 /**
- * @brief Unique owner of an object living in a static_slot
+ * @brief Unique owner of an object living in a static_optional
  *
- * Move-only, two pointers. lease<Derived> converts to lease<Base>; the slot
- * still destroys the complete Derived object, so Base needs no virtual
- * destructor. A lease ends only when it goes out of scope: there is no
+ * Move-only, two pointers. lease<Derived> converts to lease<Base>; the
+ * static_optional still destroys the complete Derived object, so Base needs no
+ * virtual destructor. A lease ends only when it goes out of scope: there is no
  * reset(), because releasing a lease early is the one operation the lifetime
  * analysis cannot see while a composite still borrows it.
  *
@@ -361,7 +365,7 @@ public:
    */
   lease(lease&& p_other) noexcept
     : m_ptr(std::exchange(p_other.m_ptr, nullptr))
-    , m_slot(std::exchange(p_other.m_slot, nullptr))
+    , m_origin(std::exchange(p_other.m_origin, nullptr))
   {
   }
 
@@ -373,18 +377,19 @@ public:
   template<pointer_convertible_to<T> U>
   lease(lease<U>&& p_other) noexcept
     : m_ptr(std::exchange(p_other.m_ptr, nullptr))
-    , m_slot(std::exchange(p_other.m_slot, nullptr))
+    , m_origin(std::exchange(p_other.m_origin, nullptr))
   {
   }
 
   lease& operator=(lease&&) = delete;
 
-  /// Destroy the object (resetting the peripheral) and free the slot
+  /// Destroy the object (resetting the peripheral) and empty the
+  /// static_optional
   ~lease()
   {
-    if (auto* slot = std::exchange(m_slot, nullptr)) {
+    if (auto* origin = std::exchange(m_origin, nullptr)) {
       m_ptr = nullptr;
-      slot->m_destroy(*slot);
+      origin->m_destroy(*origin);
     }
   }
 
@@ -411,19 +416,19 @@ public:
   T* operator->() const&& = delete;
 
 private:
-  constexpr lease(T* p_ptr, slot_base& p_slot) noexcept
+  constexpr lease(T* p_ptr, static_optional_base& p_origin) noexcept
     : m_ptr(p_ptr)
-    , m_slot(&p_slot)
+    , m_origin(&p_origin)
   {
   }
 
   T* m_ptr;
-  slot_base* m_slot;
+  static_optional_base* m_origin;
 
   template<class>
   friend class lease;
   template<class>
-  friend class static_slot;
+  friend class static_optional;
 };
 
 // ---------------------------------------------------------------------------

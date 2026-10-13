@@ -37,7 +37,7 @@ struct i2c : hal::no_bare_new_mixin
   virtual int read() = 0;
 
 protected:
-  ~i2c() = default;  // no virtual dtor needed; slots destroy the full type
+  ~i2c() = default;  // no virtual dtor needed; static_optional destroys the full type
 };
 
 struct fake_i2c final : i2c
@@ -87,8 +87,8 @@ hal::static_ref<fake_i2c> get_static_bus()
 
 hal::lease<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_slot<fake_i2c> slot;
-  return slot.emplace(1);
+  static constinit hal::static_optional<fake_i2c> storage;
+  return storage.emplace(1);
 }
 
 // Typical application: owns its leases, composites borrow them. Members are
@@ -200,7 +200,7 @@ void lifetime_test()
     expect(that % 3 == optional_bus->read());
   };
 
-  "static_slot is reused after each lease ends"_test = []() {
+  "static_optional is reused after each lease ends"_test = []() {
     // Setup
     int const ctor_before = g_ctor;
     int const dtor_before = g_dtor;
@@ -216,7 +216,7 @@ void lifetime_test()
     expect(that % 3 == g_dtor - dtor_before);
   };
 
-  "static_slot throws while leased, frees at end of scope"_test = []() {
+  "static_optional throws while leased, frees at end of scope"_test = []() {
     // Setup
     bool threw = false;
 
@@ -225,10 +225,10 @@ void lifetime_test()
       auto first = acquire_i2c1();
       try {
         auto second = acquire_i2c1();
-      } catch (hal::slot_busy const&) {
+      } catch (hal::already_leased const&) {
         threw = true;
       }
-    }  // first ends here, freeing the slot
+    }  // first ends here, emptying the static_optional
     auto again = acquire_i2c1();
 
     // Verify
@@ -253,24 +253,24 @@ void lifetime_test()
     expect(that % 1 == g_dtor - dtor_before);
   };
 
-  "failed construction leaves the slot free"_test = []() {
+  "failed construction leaves the static_optional empty"_test = []() {
     // Setup
-    static constinit hal::static_slot<throws_once> slot;
+    static constinit hal::static_optional<throws_once> storage;
     bool threw = false;
 
     // Exercise
     try {
-      auto lease = slot.emplace();
+      auto lease = storage.emplace();
     } catch (int) {
       threw = true;
     }
-    bool const in_use_after_throw = slot.in_use();
-    auto lease = slot.emplace();
+    bool const has_value_after_throw = storage.has_value();
+    auto lease = storage.emplace();
 
     // Verify
     expect(threw);
-    expect(not in_use_after_throw);
-    expect(slot.in_use());
+    expect(not has_value_after_throw);
+    expect(storage.has_value());
   };
 }
 

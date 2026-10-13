@@ -66,8 +66,8 @@ private:
 
 [[maybe_unused]] static hal::lease<fake_i2c> acquire_i2c1()
 {
-  static constinit hal::static_slot<fake_i2c> slot;
-  return slot.emplace(1);
+  static constinit hal::static_optional<fake_i2c> storage;
+  return storage.emplace(1);
 }
 
 // ---- must not compile -----------------------------------------------------
