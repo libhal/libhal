@@ -20,10 +20,10 @@ export module hal:serial;
 
 export import scatter_span;
 
-export import :units;
-export import :containers;
-export import :lifetime;
-export import :subscription;
+import :units;
+import :containers;
+import :lifetime;
+import :subscription;
 
 using namespace mp_units;
 using namespace mp_units::si::unit_symbols;

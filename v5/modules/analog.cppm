@@ -14,7 +14,7 @@
 
 export module hal:analog;
 
-export import :units;
+import :units;
 
 namespace hal::inline v5 {
 /**

@@ -14,7 +14,7 @@
 
 export module hal:motor;
 
-export import :units;
+import :units;
 
 export namespace hal::inline v5 {
 /**

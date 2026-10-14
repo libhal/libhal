@@ -12,7 +12,7 @@
 
 export module hal:gpio;
 
-export import :units;
+import :units;
 
 namespace hal::inline v5 {
 

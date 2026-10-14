@@ -12,7 +12,7 @@
 
 export module hal:servo;
 
-export import :units;
+import :units;
 
 export namespace hal::inline v5 {
 /**
