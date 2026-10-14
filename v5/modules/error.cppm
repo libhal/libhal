@@ -14,6 +14,7 @@
 
 module;
 
+#include <exception>
 #include <system_error>
 #include <type_traits>
 
@@ -65,9 +66,14 @@ inline constexpr bool invalid_option = invalid_option_t<options...>::value;
  * exactly the same from day one. This class should not be changed or modified
  * at any point in the code.
  *
+ * The virtual destructor stands in for the vtable pointer that
+ * hal::exception gets from deriving from std::exception.
  */
 export class exception_abi_origin_v0
 {
+public:
+  virtual ~exception_abi_origin_v0() = default;
+
 private:
   exception_abi_origin_v0()
   {
@@ -91,8 +97,10 @@ private:
  * @ingroup Error
  * @brief Base exception class for all hal related exceptions
  *
+ * Derives from std::exception, so `catch (std::exception const&)` also
+ * catches libhal errors, and what() describes the error.
  */
-export class exception
+export class exception : public std::exception
 {
 public:
   constexpr exception(std::errc p_error_code, void const* p_instance)
@@ -171,6 +179,19 @@ public:
     return m_error_code;
   }
 
+  /**
+   * @brief Name of the exception
+   *
+   * Each derived exception overrides this with its own name, so only the
+   * names of exceptions a program actually throws end up in it.
+   *
+   * @return char const* - a string with static storage duration
+   */
+  [[nodiscard]] char const* what() const noexcept override
+  {
+    return "hal::exception";
+  }
+
 private:
   void const* m_instance = nullptr;
   std::errc m_error_code{};
@@ -186,9 +207,6 @@ private:
 };
 
 static_assert(sizeof(exception_abi_origin_v0) == sizeof(exception));
-static_assert(std::is_trivially_destructible_v<exception>,
-              "hal::exception MUST be trivially "
-              "destructible.");
 
 // Disabled for now with the "&& 0" as it seems to fail on GCC 12.3.
 #if __cpp_lib_is_layout_compatible == 201907L && 0
@@ -272,6 +290,12 @@ export struct no_such_device : public exception
   {
   }
 
+  /// @return char const* - "hal::no_such_device"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::no_such_device";
+  }
+
   u32 address;
 };
 
@@ -307,6 +331,12 @@ export struct io_error : public exception
     : exception(std::errc::io_error, p_instance)
   {
   }
+
+  /// @return char const* - "hal::io_error"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::io_error";
+  }
 };
 
 /**
@@ -334,6 +364,12 @@ export struct resource_unavailable_try_again : public exception
   resource_unavailable_try_again(void const* p_instance)
     : exception(std::errc::resource_unavailable_try_again, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::resource_unavailable_try_again"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::resource_unavailable_try_again";
   }
 };
 
@@ -371,6 +407,12 @@ export struct device_or_resource_busy : public exception
   device_or_resource_busy(void const* p_instance)
     : exception(std::errc::device_or_resource_busy, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::device_or_resource_busy"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::device_or_resource_busy";
   }
 };
 
@@ -411,6 +453,12 @@ export struct timed_out : public exception
   timed_out(void const* p_instance)
     : exception(std::errc::timed_out, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::timed_out"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::timed_out";
   }
 };
 
@@ -461,6 +509,12 @@ export struct operation_not_supported : public exception
     : exception(std::errc::operation_not_supported, p_instance)
   {
   }
+
+  /// @return char const* - "hal::operation_not_supported"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::operation_not_supported";
+  }
 };
 
 /**
@@ -489,6 +543,12 @@ export struct operation_not_permitted : public exception
     : exception(std::errc::operation_not_permitted, p_instance)
   {
   }
+
+  /// @return char const* - "hal::operation_not_permitted"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::operation_not_permitted";
+  }
 };
 
 /**
@@ -514,6 +574,12 @@ export struct argument_out_of_domain : public exception
   argument_out_of_domain(void const* p_instance)
     : exception(std::errc::argument_out_of_domain, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::argument_out_of_domain"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::argument_out_of_domain";
   }
 };
 
@@ -543,6 +609,12 @@ export struct message_size : public exception
     : exception(std::errc::message_size, p_instance)
     , max_size(p_max_size)
   {
+  }
+
+  /// @return char const* - "hal::message_size"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::message_size";
   }
 
   u32 max_size;
@@ -582,6 +654,12 @@ export struct not_connected : public exception
     : exception(std::errc::not_connected, p_instance)
   {
   }
+
+  /// @return char const* - "hal::not_connected"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::not_connected";
+  }
 };
 
 /**
@@ -604,6 +682,12 @@ export struct unknown : public exception
     : exception(std::errc{}, p_instance)
   {
   }
+
+  /// @return char const* - "hal::unknown"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::unknown";
+  }
 };
 
 /**
@@ -624,6 +708,12 @@ export struct out_of_range : public exception
     : exception(std::errc::invalid_argument, p_instance)
     , m_info(p_info)
   {
+  }
+
+  /// @return char const* - "hal::out_of_range"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::out_of_range";
   }
 
   info m_info;

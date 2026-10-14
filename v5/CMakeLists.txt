@@ -70,6 +70,7 @@ libhal_add_tests(libhal
         waiter
         lifetime
         subscription
+        error
 )
 
 include(tests/compile_checks/compile_checks.cmake)
