@@ -28,6 +28,10 @@ permissions:
 
 jobs:
   v4_api:
+    # Releases of other major versions (e.g. 5.0.0-alpha.1) are not v4 docs.
+    if: >-
+      github.event_name != 'release' ||
+      startsWith(github.ref_name, '4.')
     uses: libhal/ci/.github/workflows/api_docs_gen.yml@5.x.y
     with:
       dir: v4
