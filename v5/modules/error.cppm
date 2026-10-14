@@ -180,42 +180,16 @@ public:
   }
 
   /**
-   * @brief Short description of the error, based on its error code
+   * @brief Name of the exception
+   *
+   * Each derived exception overrides this with its own name, so only the
+   * names of exceptions a program actually throws end up in it.
    *
    * @return char const* - a string with static storage duration
    */
   [[nodiscard]] char const* what() const noexcept override
   {
-    // hal::unknown carries no error code, and 0 is not a std::errc value.
-    if (m_error_code == std::errc{}) {
-      return "hal::unknown";
-    }
-    switch (m_error_code) {
-      case std::errc::no_such_device:
-        return "hal::no_such_device";
-      case std::errc::io_error:
-        return "hal::io_error";
-      case std::errc::resource_unavailable_try_again:
-        return "hal::resource_unavailable_try_again";
-      case std::errc::device_or_resource_busy:
-        return "hal::device_or_resource_busy";
-      case std::errc::timed_out:
-        return "hal::timed_out";
-      case std::errc::operation_not_supported:
-        return "hal::operation_not_supported";
-      case std::errc::operation_not_permitted:
-        return "hal::operation_not_permitted";
-      case std::errc::argument_out_of_domain:
-        return "hal::argument_out_of_domain";
-      case std::errc::message_size:
-        return "hal::message_size";
-      case std::errc::not_connected:
-        return "hal::not_connected";
-      case std::errc::invalid_argument:
-        return "hal::out_of_range";
-      default:
-        return "hal::exception";
-    }
+    return "hal::exception";
   }
 
 private:
@@ -316,6 +290,12 @@ export struct no_such_device : public exception
   {
   }
 
+  /// @return char const* - "hal::no_such_device"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::no_such_device";
+  }
+
   u32 address;
 };
 
@@ -351,6 +331,12 @@ export struct io_error : public exception
     : exception(std::errc::io_error, p_instance)
   {
   }
+
+  /// @return char const* - "hal::io_error"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::io_error";
+  }
 };
 
 /**
@@ -378,6 +364,12 @@ export struct resource_unavailable_try_again : public exception
   resource_unavailable_try_again(void const* p_instance)
     : exception(std::errc::resource_unavailable_try_again, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::resource_unavailable_try_again"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::resource_unavailable_try_again";
   }
 };
 
@@ -415,6 +407,12 @@ export struct device_or_resource_busy : public exception
   device_or_resource_busy(void const* p_instance)
     : exception(std::errc::device_or_resource_busy, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::device_or_resource_busy"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::device_or_resource_busy";
   }
 };
 
@@ -455,6 +453,12 @@ export struct timed_out : public exception
   timed_out(void const* p_instance)
     : exception(std::errc::timed_out, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::timed_out"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::timed_out";
   }
 };
 
@@ -505,6 +509,12 @@ export struct operation_not_supported : public exception
     : exception(std::errc::operation_not_supported, p_instance)
   {
   }
+
+  /// @return char const* - "hal::operation_not_supported"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::operation_not_supported";
+  }
 };
 
 /**
@@ -533,6 +543,12 @@ export struct operation_not_permitted : public exception
     : exception(std::errc::operation_not_permitted, p_instance)
   {
   }
+
+  /// @return char const* - "hal::operation_not_permitted"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::operation_not_permitted";
+  }
 };
 
 /**
@@ -558,6 +574,12 @@ export struct argument_out_of_domain : public exception
   argument_out_of_domain(void const* p_instance)
     : exception(std::errc::argument_out_of_domain, p_instance)
   {
+  }
+
+  /// @return char const* - "hal::argument_out_of_domain"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::argument_out_of_domain";
   }
 };
 
@@ -587,6 +609,12 @@ export struct message_size : public exception
     : exception(std::errc::message_size, p_instance)
     , max_size(p_max_size)
   {
+  }
+
+  /// @return char const* - "hal::message_size"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::message_size";
   }
 
   u32 max_size;
@@ -626,6 +654,12 @@ export struct not_connected : public exception
     : exception(std::errc::not_connected, p_instance)
   {
   }
+
+  /// @return char const* - "hal::not_connected"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::not_connected";
+  }
 };
 
 /**
@@ -648,6 +682,12 @@ export struct unknown : public exception
     : exception(std::errc{}, p_instance)
   {
   }
+
+  /// @return char const* - "hal::unknown"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::unknown";
+  }
 };
 
 /**
@@ -668,6 +708,12 @@ export struct out_of_range : public exception
     : exception(std::errc::invalid_argument, p_instance)
     , m_info(p_info)
   {
+  }
+
+  /// @return char const* - "hal::out_of_range"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::out_of_range";
   }
 
   info m_info;
