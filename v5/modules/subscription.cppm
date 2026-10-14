@@ -16,10 +16,13 @@ module;
 
 #include <exception>
 #include <functional>
+#include <system_error>
 #include <type_traits>
 #include <utility>
 
 export module hal:subscription;
+
+import :error;
 
 namespace hal::inline v5 {
 
@@ -92,12 +95,22 @@ private:
 };
 
 /// @brief Thrown when subscribing to a source that already has a subscriber.
-export struct subscription_busy : std::exception
+export struct subscription_busy : public exception
 {
-  /// @return char const* - description of the error
-  [[nodiscard]] char const* what() const noexcept override
+  /**
+   * @brief Construct a new subscription_busy exception
+   *
+   * @param p_instance - the driver that already has a subscriber
+   */
+  explicit subscription_busy(void const* p_instance)
+    : exception(std::errc::device_or_resource_busy, p_instance)
   {
-    return "hal: source already has a subscriber";
+  }
+
+  /// @return char const* - "hal::subscription_busy"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::subscription_busy";
   }
 };
 

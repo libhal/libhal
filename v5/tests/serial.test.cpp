@@ -90,7 +90,7 @@ private:
                          hal::serial_event p_events) override
   {
     if (stored_callback) {
-      throw hal::subscription_busy{};
+      throw hal::subscription_busy(this);
     }
     auto const unsupported =
       static_cast<unsigned>(p_events) & ~static_cast<unsigned>(supported);

@@ -90,7 +90,7 @@ private:
   void driver_on_expire(hal::timed_callback& p_callback) override
   {
     if (stored_callback) {
-      throw hal::subscription_busy{};
+      throw hal::subscription_busy(this);
     }
     stored_callback = &p_callback;
   }

@@ -25,6 +25,8 @@ namespace {
 
 static_assert(std::is_base_of_v<std::exception, hal::exception>);
 static_assert(std::is_base_of_v<std::exception, hal::io_error>);
+static_assert(std::is_base_of_v<hal::exception, hal::subscription_busy>);
+static_assert(std::is_base_of_v<hal::exception, hal::reusable_busy>);
 
 void error_test()
 {
@@ -63,6 +65,20 @@ void error_test()
     // Verify
     expect(std::errc::timed_out == code);
     expect(&driver == instance);
+  };
+
+  "busy exceptions are hal::exceptions with their own names"_test = []() {
+    // Setup
+    int const source = 0;
+    hal::subscription_busy const subscription(&source);
+    hal::reusable_busy const reusable(&source);
+
+    // Exercise + Verify
+    expect(std::errc::device_or_resource_busy == subscription.error_code());
+    expect(std::errc::device_or_resource_busy == reusable.error_code());
+    expect(&source == subscription.instance());
+    expect(std::string_view(subscription.what()) == "hal::subscription_busy");
+    expect(std::string_view(reusable.what()) == "hal::reusable_busy");
   };
 
   "what() names each exception"_test = []() {
