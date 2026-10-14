@@ -21,6 +21,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pre-commit:
     name: 🧹 Lint
@@ -32,3 +36,71 @@ jobs:
           python-version: "3.12"
       - run: sudo apt-get install -y doxygen
       - uses: pre-commit/action@v3.0.1
+
+  # Path filtering is done here rather than with `on.<event>.paths` because a
+  # workflow skipped by a path filter never reports its checks, leaving
+  # required status checks stuck in "pending".
+  changes:
+    name: 🔍 Detect changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      v4: ${{ steps.filter.outputs.v4 }}
+      v5: ${{ steps.filter.outputs.v5 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            v4:
+              - "v4/**"
+              - ".github/workflows/ci.yml"
+            v5:
+              - "v5/**"
+              - ".github/workflows/ci.yml"
+
+  deploy_check_v4:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.v4 == 'true'
+    uses: libhal/ci/.github/workflows/deploy.yml@5.x.y
+    with:
+      compiler: gcc
+      arch: x86_64
+      compiler_version: 12.3
+      compiler_package: ""
+      dir: "v4/"
+      os: Linux
+
+  deploy_v5_check:
+    needs: changes
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.v5 == 'true'
+    uses: libhal/ci/.github/workflows/package_and_upload_all.yml@5.x.y
+    with:
+      modules_support_needed: true
+      coroutine_support_needed: true
+      dir: v5
+      llvm_profile: hal/tc/llvm-23
+      conan_version: 2.33.0  # first release that knows clang 23
+    secrets: inherit
+
+  # Single required status check for branch protection. Passes when every
+  # needed job either succeeded or was skipped because its directory was
+  # untouched.
+  ci_status:
+    name: ✅ CI Status
+    if: always()
+    needs: [pre-commit, changes, deploy_check_v4, deploy_v5_check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check job results
+        if: >-
+          contains(needs.*.result, 'failure') ||
+          contains(needs.*.result, 'cancelled')
+        run: exit 1
