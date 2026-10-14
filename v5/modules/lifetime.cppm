@@ -23,12 +23,6 @@ module;
 #include <type_traits>
 #include <utility>
 
-// Set to 1 to enable the debug-only runtime lifetime checks in `hal::ref`.
-// This changes `hal::ref`'s ABI, so every part of an image must agree.
-#if !defined(HAL_LIFETIME_CHECKS)
-#define HAL_LIFETIME_CHECKS 0
-#endif
-
 export module hal:lifetime;
 
 import :error;
@@ -38,9 +32,9 @@ import :error;
  * objects whose lifetime is controlled at runtime.
  *
  * Borrowing:
- *  static_ref<T>      proven static storage (consteval), or
- * unsafe_assume_static() ref<T>             borrow of a static, local, or owned
- * object
+ *  static_ref<T>      proven static storage (consteval or
+ *                     unsafe_assume_static())
+ *  ref<T>             borrow of a static, local, or owned object
  *
  * Owning:
  *  owner<T>           RAII owner; destroying it ends the object
@@ -49,56 +43,6 @@ import :error;
  *
  *  no_bare_new_mixin  opt-in mixin that blocks `new T` / make_unique
  */
-
-#if HAL_LIFETIME_CHECKS
-/**
- * Debug-only runtime backstop for what the compiler can't see: an object in
- * static storage holding a ref to an object on the stack (e.g. `static sensor
- * s(local_bus);`). Checked whenever a ref is constructed or copied into place,
- * so it fires at the line that creates the bad binding, not when it later
- * crashes.
- *
- * The platform provides the three hooks. On a Cortex-M these are a few
- * compares against linker-script symbols (_sdata/_ebss, _sstack/_estack).
- * They are attached to the global module (extern "C++") so a platform can
- * define them in an ordinary source file.
- *
- * NOTE: enabling this makes ref<T> non-trivially-copyable, which changes how
- * it is passed (by invisible reference instead of in a register). Everything
- * in one image must be built with the same setting, so make it a package
- * option that affects the package id.
- */
-export extern "C++"
-{
-  namespace hal::inline v5::lifetime_checks {
-  /// @return true if p_address is in static storage (.data/.bss)
-  bool in_static_memory(void const* p_address) noexcept;
-  /// @return true if p_address is on the current stack
-  bool in_stack_memory(void const* p_address) noexcept;
-  /// Called when a ref in static storage is bound to a stack object
-  [[noreturn]] void violation(void const* p_holder,
-                              void const* p_target) noexcept;
-  }  // namespace hal::inline v5::lifetime_checks
-}
-
-namespace hal::inline v5::lifetime_checks {
-inline void check(void const* p_holder, void const* p_target) noexcept
-{
-  if (in_static_memory(p_holder) && in_stack_memory(p_target)) {
-    violation(p_holder, p_target);
-  }
-}
-}  // namespace hal::inline v5::lifetime_checks
-
-#define HAL_LIFETIME_CHECK(holder, target)                                     \
-  do {                                                                         \
-    if (!std::is_constant_evaluated()) {                                       \
-      ::hal::lifetime_checks::check(holder, target);                           \
-    }                                                                          \
-  } while (0)
-#else
-#define HAL_LIFETIME_CHECK(holder, target) ((void)0)
-#endif
 
 namespace hal::inline v5 {
 
@@ -620,7 +564,6 @@ public:
   constexpr ref(T& p_ref [[clang::lifetimebound]]) noexcept
     : m_ptr(&p_ref)
   {
-    HAL_LIFETIME_CHECK(this, m_ptr);
   }
 
   /**
@@ -632,7 +575,6 @@ public:
   constexpr ref(owner<U> const& p_owner [[clang::lifetimebound]]) noexcept
     : m_ptr(&*p_owner)
   {
-    HAL_LIFETIME_CHECK(this, m_ptr);
   }
 
   /**
@@ -644,26 +586,7 @@ public:
   constexpr ref(ref<U> p_other) noexcept
     : m_ptr(&*p_other)
   {
-    HAL_LIFETIME_CHECK(this, m_ptr);
   }
-
-#if HAL_LIFETIME_CHECKS
-  // A composite's member is copy-constructed from its constructor parameter,
-  // so this is where `static sensor s(local_bus)` gets caught.
-  constexpr ref(ref const& p_other) noexcept
-    : m_ptr(p_other.m_ptr)
-  {
-    HAL_LIFETIME_CHECK(this, m_ptr);
-  }
-  constexpr ref& operator=(ref const& p_other) noexcept
-  {
-    if (this != &p_other) {
-      m_ptr = p_other.m_ptr;
-      HAL_LIFETIME_CHECK(this, m_ptr);
-    }
-    return *this;
-  }
-#endif
 
   ref(T&&) = delete;
   template<class U>

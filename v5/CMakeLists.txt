@@ -73,5 +73,10 @@ libhal_add_tests(libhal
         error
 )
 
-include(tests/compile_checks/compile_checks.cmake)
-include(tests/lifetime_checks/lifetime_checks.cmake)
+libhal_add_compile_checks(libhal
+    FILES
+        tests/compile_checks/lifetime_rejects.cpp
+        tests/compile_checks/lifetime_analysis.cpp
+        tests/compile_checks/subscription_rejects.cpp
+        tests/compile_checks/subscription_analysis.cpp
+)
