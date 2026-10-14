@@ -72,7 +72,7 @@ private:
   void driver_on_receive(hal::can_receive_callback& p_callback) override
   {
     if (stored_callback) {
-      throw hal::subscription_busy{};
+      throw hal::subscription_busy(this);
     }
     stored_callback = &p_callback;
   }
@@ -129,7 +129,7 @@ private:
   void driver_on_bus_off(hal::can_bus_off_callback& p_callback) override
   {
     if (bus_off_callback) {
-      throw hal::subscription_busy{};
+      throw hal::subscription_busy(this);
     }
     bus_off_callback = &p_callback;
   }

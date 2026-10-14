@@ -52,7 +52,7 @@ private:
   void driver_on_trigger(hal::edge_triggered_callback& p_callback) override
   {
     if (callback) {
-      throw hal::subscription_busy{};
+      throw hal::subscription_busy(this);
     }
     callback = &p_callback;
   }

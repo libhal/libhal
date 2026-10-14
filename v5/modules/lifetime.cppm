@@ -19,6 +19,7 @@ module;
 #include <memory>
 #include <memory_resource>
 #include <new>
+#include <system_error>
 #include <type_traits>
 #include <utility>
 
@@ -29,6 +30,8 @@ module;
 #endif
 
 export module hal:lifetime;
+
+import :error;
 
 /**
  * References with compile-time lifetime checks, and one owner type for
@@ -382,12 +385,22 @@ private:
 };
 
 /// @brief Thrown by emplace() when a reusable<T> already holds an object
-export struct reusable_busy : std::exception
+export struct reusable_busy : public exception
 {
-  /// @return char const* - description of the error
-  [[nodiscard]] char const* what() const noexcept override
+  /**
+   * @brief Construct a new reusable_busy exception
+   *
+   * @param p_instance - the reusable storage that is already in use
+   */
+  explicit reusable_busy(void const* p_instance)
+    : exception(std::errc::device_or_resource_busy, p_instance)
   {
-    return "hal::reusable already holds an object";
+  }
+
+  /// @return char const* - "hal::reusable_busy"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::reusable_busy";
   }
 };
 
@@ -458,7 +471,7 @@ public:
   {
     auto& self = *p_storage;
     if (self.m_has_value) {
-      throw reusable_busy{};
+      throw reusable_busy(&self);
     }
     T* object =
       std::construct_at(&self.m_object, std::forward<Args>(p_args)...);
