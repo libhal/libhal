@@ -21,6 +21,21 @@ with the phrase `.take` in it to get assigned by our github actions.
    small PRs such as fixing typos, fixing up documentation or removing
    unnecessary headers.
 
+### :label: Releases
+
+Merging a PR releases a new version when its title (the squashed commit's
+subject) contains a keyword:
+
+- `(minor)`: adds to the public API, e.g. a new interface, type or function.
+- `(patch)`: fixes a bug, improves performance or code size, or changes
+  anything under `experimental/`.
+
+A PR without a keyword releases nothing. Each major version directory (`v4/`,
+`v5/`) is released on its own, and only when the PR changes it. There is no
+`(major)` keyword: a maintainer starts each major version by hand. See
+[semantic_release.yml](https://github.com/libhal/ci#semantic_releaseyml) for
+the details.
+
 ### Code Reviews
 
 All submissions, including submissions by project members, require review. We

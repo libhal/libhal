@@ -1,4 +1,4 @@
-# Copyright 2024 - 2025 Khalil Estell and the libhal contributors
+# Copyright 2024 - 2026 Khalil Estell and the libhal contributors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,6 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-
 # Versions are computed from the tags present when a run starts. Don't let two
 # pushes compute the same version.
 concurrency:
@@ -27,106 +24,11 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Releases v4/ and v5/ independently from (minor) and (patch) in commit
+  # subjects. See https://github.com/libhal/ci#semantic_releaseyml
   release:
-    name: 🏷️ Release ${{ matrix.major }}.x
-    strategy:
-      fail-fast: false
-      matrix:
-        # Each line releases from the commits that change its directory, and
-        # only looks at its own tags. A commit message asks for a release with
-        # (major), (minor) or (patch).
-        #
-        # A line with no X.Y.Z tag yet makes pre-releases instead:
-        # <major>.0.0-alpha.1, <major>.0.0-alpha.2, ... Publishing <major>.0.0
-        # by hand switches it to normal releases.
-        include:
-          - major: 4
-            dir: v4
-          - major: 5
-            dir: v5
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      # paulhatch/semantic-version has no setting to limit the major version,
-      # so remove the other lines' tags from this job's checkout. Nothing is
-      # removed from the repository.
-      - name: Keep only ${{ matrix.major }}.x tags
-        run: |
-          git tag --list | grep -v -E '^${{ matrix.major }}\.' |
-            xargs -r git tag -d > /dev/null
-
-      - name: Check for a ${{ matrix.major }}.x.y release
-        id: line
-        run: |
-          if git tag --list | grep -q -E '^${{ matrix.major }}\.[0-9]+\.[0-9]+$'
-          then
-            echo "released=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "released=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Version
-        if: steps.line.outputs.released == 'true'
-        id: version
-        uses: paulhatch/semantic-version@v5.4.0
-        with:
-          bump_each_commit: true
-          major_pattern: "(major)"
-          minor_pattern: "(minor)"
-          bump_each_commit_patch_pattern: "(patch)"
-          tag_prefix: ""
-          change_path: ${{ matrix.dir }}
-          debug: true
-
-      - name: Release
-        if: >-
-          steps.line.outputs.released == 'true' &&
-          steps.version.outputs.version_type != 'none'
-        env:
-          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE }}
-          MAJOR: ${{ matrix.major }}
-          TAG: ${{ steps.version.outputs.version_tag }}
-          PREVIOUS: ${{ steps.version.outputs.previous_version }}
-        run: |
-          if [ "${TAG%%.*}" != "$MAJOR" ]; then
-            echo "::error::A (major) commit would release $TAG from the" \
-              "$MAJOR.x line. Add a line to this workflow for it instead."
-            exit 1
-          fi
-          gh release create "$TAG" --target "$GITHUB_SHA" \
-            --notes-start-tag "$PREVIOUS" --generate-notes
-
-      - name: Pre-release
-        if: steps.line.outputs.released == 'false'
-        env:
-          GITHUB_TOKEN: ${{ secrets.SEMANTIC_RELEASE }}
-          MAJOR: ${{ matrix.major }}
-          DIR: ${{ matrix.dir }}
-          BEFORE: ${{ github.event.before }}
-        run: |
-          # The pushed commits; just the last one if there is no "before"
-          # (a new branch or a forced push).
-          if [[ "$BEFORE" =~ ^0+$ ]]; then
-            range=(-1 "$GITHUB_SHA")
-          else
-            range=("$BEFORE..$GITHUB_SHA")
-          fi
-          if ! git log --format=%B "${range[@]}" -- "$DIR" |
-               grep -q -E '\((major|minor|patch)\)'; then
-            echo "No pushed commit that changes $DIR asks for a release."
-            exit 0
-          fi
-
-          last=$(git tag --list "$MAJOR.0.0-alpha.*" |
-                 sed "s/^$MAJOR\.0\.0-alpha\.//" | grep -E '^[0-9]+$' |
-                 sort -n | tail -n 1)
-          tag="$MAJOR.0.0-alpha.$(( ${last:-0} + 1 ))"
-          notes=(--generate-notes)
-          if [ -n "$last" ]; then
-            notes+=(--notes-start-tag "$MAJOR.0.0-alpha.$last")
-          fi
-          gh release create "$tag" --target "$GITHUB_SHA" --prerelease \
-            "${notes[@]}"
+    uses: libhal/ci/.github/workflows/semantic_release.yml@5.x.y
+    with:
+      lines: '[{"major": 4, "dir": "v4"}, {"major": 5, "dir": "v5"}]'
+    secrets:
+      release_token: ${{ secrets.SEMANTIC_RELEASE }}
