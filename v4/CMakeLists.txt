@@ -22,6 +22,16 @@ set(CMAKE_COLOR_DIAGNOSTICS ON)
 # executes the unit tests
 project(libhal LANGUAGES CXX)
 
+# libhal-cmake-util v4 builds the unit tests with AddressSanitizer whenever the
+# compiler supports it. LLVM 20's ASan runtime deadlocks before main() on
+# macOS 26+, which hangs CI, so skip ASan on macOS for this old-generation
+# package: defining the result of its compiler check disables it. Linux keeps
+# ASan; without it, GCC 12's -Wstringop-overflow false positive on atomics
+# fails the build.
+if(APPLE)
+  set(ADDRESS_SANITIZER_SUPPORT FALSE CACHE BOOL "Build tests with ASan" FORCE)
+endif()
+
 if(CMAKE_CROSSCOMPILING)
     message(STATUS "⏭️ Cross compiling, skipping unit test execution")
 else()
