@@ -77,11 +77,21 @@ int heap_dereference()
   return s.read();
 }
 
-// Known gap: the owner from make_owner_from() outliving a local manager is not
-// caught, because the lambda hides the manager from the analysis.
+// The factory is taken by value, so the analysis sees what it captures: the
+// owner can't outlive a local manager.
 hal::owner<pinned_i2c> heap_resource_past_manager()
 {
   pin_manager manager;
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              // expected-error@+2 {{is returned}}
+                              // expected-error@+1 {{address of stack memory}}
+                              [&] { return manager.acquire(); });
+}
+
+// A static manager is fine: no false positive from the temporary lambda.
+hal::owner<pinned_i2c> heap_resource_from_static_manager()
+{
+  static pin_manager manager;
   return hal::make_owner_from(std::pmr::new_delete_resource(),
                               [&] { return manager.acquire(); });
 }
