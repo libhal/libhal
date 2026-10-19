@@ -51,7 +51,8 @@ libhal_add_library(libhal
 target_link_libraries(libhal
     PRIVATE
         libhal::scatter_span
-        mp-units::mp-units
+        mp-units::core
+        mp-units::si
 )
 
 libhal_apply_compile_options(libhal)

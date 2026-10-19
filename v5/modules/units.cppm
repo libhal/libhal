@@ -19,7 +19,12 @@ module;
 
 export module hal:units;
 
-export import mp_units;
+// Only SI, ISQ and angular units, not every mp-units system: every consumer
+// rebuilds the interfaces of the modules it imports, and the full
+// mp_units.systems is by far the slowest of them. Code that needs another
+// system imports it alongside hal (mp_units.systems re-exports mp_units.si).
+export import mp_units.core;
+export import mp_units.si;
 
 using namespace mp_units;
 // using namespace mp_units::si::unit_symbols;
