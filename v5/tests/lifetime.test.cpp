@@ -187,6 +187,48 @@ private:
   int m_port = 8;
 };
 
+// A resource that can't be copied or moved, handed out by value. Its
+// constructor is private, so only its manager can make one.
+class pinned_i2c final : public i2c
+{
+public:
+  pinned_i2c(pinned_i2c const&) = delete;
+  pinned_i2c& operator=(pinned_i2c const&) = delete;
+  pinned_i2c(pinned_i2c&&) = delete;
+  pinned_i2c& operator=(pinned_i2c&&) = delete;
+  ~pinned_i2c()
+  {
+    ++g_dtor;
+  }
+  int read() override
+  {
+    return port;
+  }
+  int port;
+
+private:
+  friend class pin_manager;
+  explicit pinned_i2c(int p_port)
+    : port(p_port)
+  {
+    ++g_ctor;
+  }
+};
+
+class pin_manager
+{
+public:
+  [[nodiscard]] pinned_i2c acquire() [[clang::lifetimebound]]
+  {
+    return pinned_i2c(m_port);
+  }
+
+private:
+  int m_port = 9;
+};
+
+static_assert(not std::is_move_constructible_v<pinned_i2c>);
+
 struct throws_on_construct : hal::no_bare_new_mixin
 {
   throws_on_construct()
@@ -448,6 +490,49 @@ void lifetime_test()
     // Exercise
     try {
       auto bad = hal::make_owner<throws_on_construct>(&resource);
+    } catch (construct_error const&) {
+      threw = true;
+    }
+
+    // Verify
+    expect(threw);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "make_owner_from builds a resource that can't be moved"_test = []() {
+    // Setup
+    counting_resource resource;
+    pin_manager manager;
+    int const ctor_before = g_ctor;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      hal::owner<i2c> bus =
+        hal::make_owner_from(&resource, [&] { return manager.acquire(); });
+      sensor s(bus);
+      value = s.read();
+    }
+
+    // Verify
+    expect(that % 9 == value);
+    expect(that % 1 == g_ctor - ctor_before);
+    expect(that % 1 == g_dtor - dtor_before);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "make_owner_from frees the storage when the factory throws"_test = []() {
+    // Setup
+    counting_resource resource;
+    bool threw = false;
+
+    // Exercise
+    try {
+      auto bad = hal::make_owner_from(
+        &resource, []() -> fake_i2c { throw construct_error{}; });
     } catch (construct_error const&) {
       threw = true;
     }

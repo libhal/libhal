@@ -51,6 +51,16 @@ hal::owner<i2c> return_owner_past_manager()
   return manager.acquire(std::pmr::new_delete_resource());
 }
 
+// The factory is lifetimebound to the manager, so a temporary one is caught.
+hal::owner<pinned_i2c> heap_resource_from_temporary_manager()
+{
+  return hal::make_owner_from(std::pmr::new_delete_resource(), [] {
+    // expected-error@+2 {{is returned}}
+    // expected-error@+1 {{returning address of local temporary object}}
+    return pin_manager{}.acquire();
+  });
+}
+
 // The classic "forgot static on the bus" bug.
 sensor const* escape_to_static()
 {
@@ -65,4 +75,13 @@ int heap_dereference()
 {
   sensor s(*::new fake_i2c{ 1 });
   return s.read();
+}
+
+// Known gap: the owner from make_owner_from() outliving a local manager is not
+// caught, because the lambda hides the manager from the analysis.
+hal::owner<pinned_i2c> heap_resource_past_manager()
+{
+  pin_manager manager;
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              [&] { return manager.acquire(); });
 }

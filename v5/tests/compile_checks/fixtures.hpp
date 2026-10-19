@@ -85,6 +85,37 @@ public:
   }
 };
 
+// A resource that can't be copied or moved, handed out by value.
+class pinned_i2c final : public i2c
+{
+public:
+  pinned_i2c(pinned_i2c const&) = delete;
+  pinned_i2c& operator=(pinned_i2c const&) = delete;
+  pinned_i2c(pinned_i2c&&) = delete;
+  pinned_i2c& operator=(pinned_i2c&&) = delete;
+  int read() override
+  {
+    return port;
+  }
+  int port;
+
+private:
+  friend class pin_manager;
+  explicit pinned_i2c(int p_port)
+    : port(p_port)
+  {
+  }
+};
+
+class pin_manager
+{
+public:
+  [[nodiscard]] pinned_i2c acquire() [[clang::lifetimebound]]
+  {
+    return pinned_i2c(1);
+  }
+};
+
 // ---- hal:subscription ------------------------------------------------------
 
 struct fake_pin final : hal::edge_triggered_interrupt
