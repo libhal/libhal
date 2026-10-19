@@ -68,6 +68,7 @@
     "uninitialised",
     "uninitialized",
     "uptr",
+    "usart",
     "veltor",
     "Werror",
     "Wlifetime"

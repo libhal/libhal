@@ -40,6 +40,8 @@ import :error;
  *  owner<T>           RAII owner; destroying it ends the object
  *  reusable<T>        static storage for one T; emplace() returns its owner
  *  make_owner<T>()    allocates a T from a memory resource; returns its owner
+ *  make_owner_from()  allocates what a factory returns, e.g. a manager's
+ *                     acquire_*() result, without moving it; returns its owner
  *
  *  no_bare_new_mixin  opt-in mixin that blocks `new T` / make_unique
  */
@@ -443,6 +445,11 @@ private:
   bool m_has_value = false;
 };
 
+/// Internal: selects owner_block's constructor that builds the object from a
+/// factory's result.
+struct from_factory_t
+{};
+
 /// Internal: an allocation made by make_owner(), header first, then the object
 template<class T>
 class owner_block final : public owner_control
@@ -474,6 +481,18 @@ public:
   explicit owner_block(std::pmr::memory_resource& p_resource, Args&&... p_args)
     : owner_control(&release)
     , m_object(std::forward<Args>(p_args)...)
+    , m_resource(&p_resource)
+  {
+  }
+
+  /// The factory's result is a prvalue of type T, so it is constructed
+  /// directly in m_object: T needs no copy or move constructor.
+  template<class F>
+  owner_block(std::pmr::memory_resource& p_resource,
+              from_factory_t,
+              F&& p_factory)
+    : owner_control(&release)
+    , m_object(std::forward<F>(p_factory)())
     , m_resource(&p_resource)
   {
   }
@@ -514,6 +533,56 @@ export template<class T, class... Args>
                                   Args&&... p_args)
 {
   return owner_block<T>::make(p_allocator, std::forward<Args>(p_args)...);
+}
+
+/**
+ * @brief Allocate the object a factory returns, returning its owner
+ *
+ * Use this to put a manager's resource on the heap. Managers hand out
+ * resources by value from `acquire_*()` functions, and those resources often
+ * can't be copied or moved, for example because they registered an interrupt
+ * handler that points at them. The factory's result is constructed directly
+ * in the allocated storage, so the resource never needs a copy or move
+ * constructor, and the manager needs nothing beyond its `acquire_*()`
+ * function:
+ *
+ * @code
+ * static hal::stm32f1::usart usart1(hal::stm32f1::peripheral::usart1);
+ * static std::array<hal::byte, 128> rx;
+ *
+ * // static storage
+ * static auto console = usart1.acquire_serial(rx);
+ *
+ * // heap storage
+ * hal::owner<hal::serial> console = hal::make_owner_from(allocator, [&] {
+ *   return usart1.acquire_serial(rx);
+ * });
+ * @endcode
+ *
+ * The factory is called once, before this function returns, so capturing by
+ * reference is safe. The owner can outlive the factory, but not what the
+ * object borrows: the manager and any buffers it was given must outlive the
+ * owner. Clang reports a temporary manager inside the factory, but it can't
+ * see a local manager being destroyed before the owner, so keep managers in
+ * static storage or declare them before their owners.
+ *
+ * The object and a small header are allocated together from p_allocator's
+ * memory resource. If the factory throws, the storage is freed and the
+ * exception propagates.
+ *
+ * @tparam F - a callable taking no arguments that returns an object by value
+ * @param p_allocator - allocator to obtain the storage from
+ * @param p_factory - called once to construct the object in place
+ * @return owner<std::invoke_result_t<F>> - owner of the new object
+ */
+export template<class F>
+  requires std::is_object_v<std::invoke_result_t<F>>
+[[nodiscard]] owner<std::invoke_result_t<F>> make_owner_from(
+  std::pmr::polymorphic_allocator<> p_allocator,
+  F&& p_factory)
+{
+  return owner_block<std::invoke_result_t<F>>::make(
+    p_allocator, from_factory_t{}, std::forward<F>(p_factory));
 }
 
 // ---------------------------------------------------------------------------

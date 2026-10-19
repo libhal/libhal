@@ -24,6 +24,7 @@ libhal v5 addresses major design concerns from v4. Interfaces stay synchronous, 
 - Use `std::pmr::polymorphic_allocator` for dynamic memory allocation during program initialization or `dyninit` time
 - Peripherals that must be torn down and reused live in a `static constinit hal::reusable<T>` and are created with `emplace(storage, ...)`, which returns a `hal::owner<T>`; destroying the owner resets the peripheral
 - Objects whose concrete type should stay private are allocated with `hal::make_owner` and handed out as `hal::owner<interface>`; the caller chooses where the memory comes from through the allocator
+- Resources that a manager returns by value from `acquire_*()` go on the heap with `hal::make_owner_from(allocator, [&] { return manager.acquire_x(...); })`, which constructs the result in place, so the resource doesn't need to be movable
 - Managers and resource drivers are constructed in a similar way to v4 except
   with more flexibility:
   - Adapters can be returned by value
