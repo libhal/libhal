@@ -229,6 +229,84 @@ private:
 
 static_assert(not std::is_move_constructible_v<pinned_i2c>);
 
+// g_dtor when the most recent fake_imu was destroyed. Comparing it with g_dtor
+// afterwards shows whether its bus was still alive at that point.
+int g_dtor_seen_by_imu = 0;
+
+struct imu : hal::no_bare_new_mixin
+{
+  virtual int acceleration() = 0;
+
+protected:
+  ~imu() = default;
+};
+
+// A device driver that borrows its bus. Like most drivers, it can't be moved.
+class fake_imu final : public imu
+{
+public:
+  explicit fake_imu(hal::ref<i2c> p_bus [[clang::lifetimebound]])
+    : m_bus(p_bus)
+  {
+  }
+  fake_imu(fake_imu const&) = delete;
+  fake_imu& operator=(fake_imu const&) = delete;
+  fake_imu(fake_imu&&) = delete;
+  fake_imu& operator=(fake_imu&&) = delete;
+  ~fake_imu()
+  {
+    g_dtor_seen_by_imu = g_dtor;
+  }
+  int acceleration() override
+  {
+    return m_bus->read() * 10;
+  }
+
+private:
+  hal::ref<i2c> m_bus;
+};
+
+// Borrows the IMU, which borrows the bus: three owners deep.
+class orientation
+{
+public:
+  explicit orientation(hal::ref<imu> p_imu [[clang::lifetimebound]])
+    : m_imu(p_imu)
+  {
+  }
+  orientation(orientation const&) = delete;
+  orientation& operator=(orientation const&) = delete;
+  orientation(orientation&&) = delete;
+  orientation& operator=(orientation&&) = delete;
+  [[nodiscard]] int tilt()
+  {
+    return m_imu->acceleration() + 1;
+  }
+
+private:
+  hal::ref<imu> m_imu;
+};
+
+// Keeps a bus and the IMU on it together. Members are destroyed in reverse
+// order, so the IMU goes before its bus.
+struct imu_stack
+{
+  hal::owner<i2c> bus;
+  hal::owner<imu> device;
+};
+
+// Builds both owners as locals, then moves them out. The objects stay where
+// they were allocated, so the IMU's borrow of the bus survives the move.
+imu_stack make_imu_stack(std::pmr::polymorphic_allocator<> p_allocator,
+                         pin_manager& p_manager)
+{
+  hal::owner<i2c> bus =
+    hal::make_owner_from(p_allocator, [&] { return p_manager.acquire(); });
+  auto device =
+    hal::make_owner_from<imu>(p_allocator, [&] { return fake_imu(bus); });
+  return { .bus = std::move(bus), .device = std::move(device) };
+}
+
 struct throws_on_construct : hal::no_bare_new_mixin
 {
   throws_on_construct()
@@ -541,6 +619,113 @@ void lifetime_test()
     expect(threw);
     expect(that % 1 == resource.allocations);
     expect(that % 1 == resource.deallocations);
+  };
+
+  "make_owner_from<T> owns the object as a base"_test = []() {
+    // Setup
+    counting_resource resource;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      auto bus =
+        hal::make_owner_from<i2c>(&resource, [] { return offset_i2c(4); });
+      static_assert(std::is_same_v<decltype(bus), hal::owner<i2c>>);
+      value = bus->read();
+    }
+
+    // Verify
+    expect(that % 4 == value);
+    expect(that % 1 == g_dtor - dtor_before);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "an owner built by make_owner_from can borrow another owner"_test = []() {
+    // Setup
+    counting_resource resource;
+    pin_manager manager;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      hal::owner<i2c> bus =
+        hal::make_owner_from(&resource, [&] { return manager.acquire(); });
+      hal::owner<imu> device =
+        hal::make_owner_from(&resource, [&] { return fake_imu(bus); });
+      value = device->acceleration();
+    }
+
+    // Verify
+    expect(that % 90 == value);
+    expect(that % 2 == resource.allocations);
+    expect(that % 2 == resource.deallocations);
+    // The IMU was destroyed while its bus was still alive.
+    expect(that % dtor_before == g_dtor_seen_by_imu);
+    expect(that % 1 == g_dtor - dtor_before);
+  };
+
+  "an owner built by make_owner can borrow another owner"_test = []() {
+    // Setup
+    counting_resource resource;
+    int value = 0;
+
+    // Exercise
+    {
+      auto bus = hal::make_owner<fake_i2c>(&resource, 4);
+      hal::owner<imu> device = hal::make_owner<fake_imu>(&resource, bus);
+      value = device->acceleration();
+    }
+
+    // Verify
+    expect(that % 40 == value);
+    expect(that % 2 == resource.allocations);
+    expect(that % 2 == resource.deallocations);
+  };
+
+  "owners compose three deep"_test = []() {
+    // Setup
+    counting_resource resource;
+    pin_manager manager;
+    int value = 0;
+
+    // Exercise
+    {
+      hal::owner<i2c> bus =
+        hal::make_owner_from(&resource, [&] { return manager.acquire(); });
+      hal::owner<imu> device =
+        hal::make_owner_from(&resource, [&] { return fake_imu(bus); });
+      auto tilt = hal::make_owner<orientation>(&resource, device);
+      value = tilt->tilt();
+    }
+
+    // Verify
+    expect(that % 91 == value);
+    expect(that % 3 == resource.allocations);
+    expect(that % 3 == resource.deallocations);
+  };
+
+  "owners moved out of a function keep their borrows"_test = []() {
+    // Setup
+    counting_resource resource;
+    pin_manager manager;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      imu_stack stack = make_imu_stack(&resource, manager);
+      value = stack.device->acceleration();
+    }
+
+    // Verify
+    expect(that % 90 == value);
+    expect(that % 2 == resource.allocations);
+    expect(that % 2 == resource.deallocations);
+    expect(that % dtor_before == g_dtor_seen_by_imu);
+    expect(that % 1 == g_dtor - dtor_before);
   };
 
   "std::optional<owner> ends an owner early"_test = []() {

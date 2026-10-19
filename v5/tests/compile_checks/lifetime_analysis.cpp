@@ -15,6 +15,8 @@
 // hal:lifetime misuse that Clang's lifetime safety analysis reports.
 
 #include <memory_resource>
+#include <optional>
+#include <utility>
 
 #include "fixtures.hpp"
 
@@ -77,11 +79,99 @@ int heap_dereference()
   return s.read();
 }
 
-// Known gap: the owner from make_owner_from() outliving a local manager is not
-// caught, because the lambda hides the manager from the analysis.
+// The factory is taken by value, so the analysis sees what it captures: the
+// owner can't outlive a local manager.
 hal::owner<pinned_i2c> heap_resource_past_manager()
 {
   pin_manager manager;
   return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              // expected-error@+2 {{is returned}}
+                              // expected-error@+1 {{address of stack memory}}
                               [&] { return manager.acquire(); });
+}
+
+// A static manager is fine: no false positive from the temporary lambda.
+hal::owner<pinned_i2c> heap_resource_from_static_manager()
+{
+  static pin_manager manager;
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              [&] { return manager.acquire(); });
+}
+
+// ---- composing owners: an IMU owner that borrows a bus owner ---------------
+
+// The IMU's owner can't outlive the bus owner it borrows.
+hal::owner<fake_imu> imu_owner_past_local_bus()
+{
+  auto bus = make_bus();
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              // expected-error@+2 {{is returned}}
+                              // expected-error@+1 {{address of stack memory}}
+                              [&] { return fake_imu(bus); });
+}
+
+// Naming the interface as the target type keeps the borrow.
+hal::owner<imu> imu_owner_as_interface_past_local_bus()
+{
+  auto bus = make_bus();
+  return hal::make_owner_from<imu>(
+    std::pmr::new_delete_resource(),
+    // expected-error@+2 {{is returned}}
+    // expected-error@+1 {{address of stack memory}}
+    [&] { return fake_imu(bus); });
+}
+
+// Known gap: converting the returned owner (owner<fake_imu> to owner<imu>)
+// drops the borrow, so the same bug is not caught. Use make_owner_from<imu>
+// instead. Making the converting constructor lifetimebound would flag every
+// ordinary upcast.
+hal::owner<imu> imu_owner_upcast_past_local_bus()
+{
+  auto bus = make_bus();
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              [&] { return fake_imu(bus); });
+}
+
+// Known gap: make_owner() forwards its arguments without lifetimebound, so
+// a borrowed argument is not tracked.
+hal::owner<fake_imu> imu_make_owner_past_local_bus()
+{
+  auto bus = make_bus();
+  return hal::make_owner<fake_imu>(std::pmr::new_delete_resource(), bus);
+}
+
+// Known gap: an owner stored in an outer optional outliving the bus.
+int imu_outlives_bus_in_scope()
+{
+  std::optional<hal::owner<imu>> device;
+  {
+    auto bus = make_bus();
+    device.emplace(hal::make_owner_from(std::pmr::new_delete_resource(),
+                                        [&] { return fake_imu(bus); }));
+  }
+  return (*device)->acceleration();
+}
+
+// No false positives below.
+
+hal::owner<imu> imu_owner_on_static_bus()
+{
+  static auto bus = make_bus();
+  return hal::make_owner_from(std::pmr::new_delete_resource(),
+                              [&] { return fake_imu(bus); });
+}
+
+struct imu_stack
+{
+  hal::owner<i2c> bus;
+  hal::owner<imu> device;
+};
+
+// Both owners move out together; the objects stay where they were allocated.
+imu_stack imu_stack_moved_out()
+{
+  hal::owner<i2c> bus = make_bus();
+  hal::owner<imu> device = hal::make_owner_from(std::pmr::new_delete_resource(),
+                                                [&] { return fake_imu(bus); });
+  return { .bus = std::move(bus), .device = std::move(device) };
 }
