@@ -176,3 +176,12 @@ int delete_object()
   delete p;
   return value;
 }
+
+// make_owner_from<T> only owns the object as T when T is a base of it.
+int make_owner_from_unrelated_target()
+{
+  // expected-error@+1 {{no matching function}}
+  auto bus = hal::make_owner_from<imu>(std::pmr::new_delete_resource(),
+                                       [] { return fake_i2c{ 1 }; });
+  return bus->acceleration();
+}

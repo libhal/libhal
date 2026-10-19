@@ -535,6 +535,12 @@ export template<class T, class... Args>
   return owner_block<T>::make(p_allocator, std::forward<Args>(p_args)...);
 }
 
+/// Internal: make_owner_from()'s return type. owner<T>, or an owner of the
+/// factory's result type when T is void.
+template<class T, class F>
+using factory_owner_t =
+  owner<std::conditional_t<std::is_void_v<T>, std::invoke_result_t<F>, T>>;
+
 /**
  * @brief Allocate the object a factory returns, returning its owner
  *
@@ -553,8 +559,8 @@ export template<class T, class... Args>
  * // static storage
  * static auto console = usart1.acquire_serial(rx);
  *
- * // heap storage
- * hal::owner<hal::serial> console = hal::make_owner_from(allocator, [&] {
+ * // heap storage, owned as the interface
+ * auto console = hal::make_owner_from<hal::serial>(allocator, [&] {
  *   return usart1.acquire_serial(rx);
  * });
  * @endcode
@@ -567,19 +573,29 @@ export template<class T, class... Args>
  * local manager the factory captured by reference, and a temporary manager
  * inside the factory.
  *
+ * To own the object as an interface or base, name it as T rather than
+ * converting the returned owner afterward. Converting an owner, as in
+ * `hal::owner<hal::serial> s = hal::make_owner_from(...)`, works, but the
+ * converted owner no longer carries what the object borrows, so Clang can't
+ * report it outliving the manager.
+ *
  * The object and a small header are allocated together from p_allocator's
  * memory resource. If the factory throws, the storage is freed and the
  * exception propagates.
  *
+ * @tparam T - the type to own the object as: the factory's result type, or a
+ * base of it. Defaults to the factory's result type.
  * @tparam F - a callable taking no arguments that returns an object by value
  * @param p_allocator - allocator to obtain the storage from
  * @param p_factory - called once to construct the object in place. Taken by
  * value so the lifetime analysis can see what it captures.
- * @return owner<std::invoke_result_t<F>> - owner of the new object
+ * @return owner<T> - owner of the new object
  */
-export template<class F>
-  requires std::is_object_v<std::invoke_result_t<F>>
-[[nodiscard]] owner<std::invoke_result_t<F>> make_owner_from(
+export template<class T = void, class F>
+  requires std::is_object_v<std::invoke_result_t<F>> &&
+           (std::is_void_v<T> ||
+            pointer_convertible_to<std::invoke_result_t<F>, T>)
+[[nodiscard]] factory_owner_t<T, F> make_owner_from(
   std::pmr::polymorphic_allocator<> p_allocator,
   F p_factory [[clang::lifetimebound]])
 {

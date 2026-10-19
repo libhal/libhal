@@ -302,8 +302,8 @@ imu_stack make_imu_stack(std::pmr::polymorphic_allocator<> p_allocator,
 {
   hal::owner<i2c> bus =
     hal::make_owner_from(p_allocator, [&] { return p_manager.acquire(); });
-  hal::owner<imu> device =
-    hal::make_owner_from(p_allocator, [&] { return fake_imu(bus); });
+  auto device =
+    hal::make_owner_from<imu>(p_allocator, [&] { return fake_imu(bus); });
   return { .bus = std::move(bus), .device = std::move(device) };
 }
 
@@ -617,6 +617,27 @@ void lifetime_test()
 
     // Verify
     expect(threw);
+    expect(that % 1 == resource.allocations);
+    expect(that % 1 == resource.deallocations);
+  };
+
+  "make_owner_from<T> owns the object as a base"_test = []() {
+    // Setup
+    counting_resource resource;
+    int const dtor_before = g_dtor;
+    int value = 0;
+
+    // Exercise
+    {
+      auto bus =
+        hal::make_owner_from<i2c>(&resource, [] { return offset_i2c(4); });
+      static_assert(std::is_same_v<decltype(bus), hal::owner<i2c>>);
+      value = bus->read();
+    }
+
+    // Verify
+    expect(that % 4 == value);
+    expect(that % 1 == g_dtor - dtor_before);
     expect(that % 1 == resource.allocations);
     expect(that % 1 == resource.deallocations);
   };

@@ -110,9 +110,21 @@ hal::owner<fake_imu> imu_owner_past_local_bus()
                               [&] { return fake_imu(bus); });
 }
 
-// Known gap: upcasting the owner (owner<fake_imu> to owner<imu>) drops the
-// borrow, so the same bug is not caught. Making the converting constructor
-// lifetimebound would flag every ordinary upcast instead.
+// Naming the interface as the target type keeps the borrow.
+hal::owner<imu> imu_owner_as_interface_past_local_bus()
+{
+  auto bus = make_bus();
+  return hal::make_owner_from<imu>(
+    std::pmr::new_delete_resource(),
+    // expected-error@+2 {{is returned}}
+    // expected-error@+1 {{address of stack memory}}
+    [&] { return fake_imu(bus); });
+}
+
+// Known gap: converting the returned owner (owner<fake_imu> to owner<imu>)
+// drops the borrow, so the same bug is not caught. Use make_owner_from<imu>
+// instead. Making the converting constructor lifetimebound would flag every
+// ordinary upcast.
 hal::owner<imu> imu_owner_upcast_past_local_bus()
 {
   auto bus = make_bus();
