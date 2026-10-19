@@ -116,6 +116,33 @@ public:
   }
 };
 
+struct imu
+{
+  virtual int acceleration() = 0;
+
+protected:
+  ~imu() = default;
+};
+
+// A device driver that borrows its bus.
+class fake_imu final : public imu
+{
+public:
+  explicit fake_imu(hal::ref<i2c> p_bus [[clang::lifetimebound]])
+    : m_bus(p_bus)
+  {
+  }
+  fake_imu(fake_imu const&) = delete;
+  fake_imu& operator=(fake_imu const&) = delete;
+  int acceleration() override
+  {
+    return m_bus->read();
+  }
+
+private:
+  hal::ref<i2c> m_bus;
+};
+
 // ---- hal:subscription ------------------------------------------------------
 
 struct fake_pin final : hal::edge_triggered_interrupt
