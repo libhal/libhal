@@ -309,10 +309,10 @@ protected:
  * throws hal::subscription_busy.
  *
  * Interrupt context: never call on_receive() from an interrupt service routine,
- * including from inside a callback, and never destroy a subscription there. To
- * change behavior, change state inside the callback object. To swap callbacks,
- * hold the subscription in a `std::optional<hal::subscription>`, then reset()
- * it and subscribe again from outside of interrupt context.
+ * including from inside a callback, and never destroy, reset() or assign a
+ * subscription there. To change behavior, change state inside the callback
+ * object. To swap callbacks, reset() the subscription, then assign it a new one
+ * from outside of interrupt context.
  */
 export class serial_interrupt
 {

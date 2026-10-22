@@ -53,7 +53,8 @@ button_counter const* static_counter_on_local_pin()
 }
 
 // Known gaps: the analysis does not see through std::optional, so a
-// swappable std::optional<hal::subscription> loses the checks above.
+// swappable std::optional<hal::subscription> loses the checks above. Assign a
+// plain hal::subscription instead (see the end of this file).
 
 std::optional<hal::subscription> optional_outlives_callback(fake_pin& p_pin)
 {
@@ -85,4 +86,66 @@ void static_optional_on_local_callback()
   static std::optional<hal::subscription> active;
   counter local;  // forgot static
   active.emplace(pin.on_trigger(local));
+}
+
+// Assignment is tracked like initialization, so an assignable subscription
+// keeps the checks that std::optional<hal::subscription> loses above.
+
+hal::subscription assigned_outlives_callback(fake_pin& p_pin)
+{
+  counter local;
+  hal::subscription active;
+  // expected-error@+1 {{is returned}}
+  active = p_pin.on_trigger(local);
+  return active;
+}
+
+hal::subscription assigned_outlives_pin()
+{
+  static counter c;
+  fake_pin local;
+  hal::subscription active;
+  // expected-error@+1 {{is returned}}
+  active = local.on_trigger(c);
+  return active;
+}
+
+late_button_counter return_late_counter_past_local_pin()
+{
+  fake_pin pin;
+  // expected-error@+2 {{is returned}}
+  // expected-error@+1 {{address of stack memory}}
+  return late_button_counter(pin);
+}
+
+void static_assigned_on_local_callback()
+{
+  static fake_pin pin;
+  static hal::subscription active;
+  counter local;  // forgot static
+  // expected-error@+1 {{which will dangle}}
+  active = pin.on_trigger(local);
+}
+
+hal::subscription reassigned_to_local_callback(fake_pin& p_pin)
+{
+  static counter c;
+  counter local;
+  hal::subscription active = p_pin.on_trigger(c);
+  active.reset();
+  // expected-error@+1 {{is returned}}
+  active = p_pin.on_trigger(local);
+  return active;
+}
+
+// No false positive: the local callback's subscription was reset before the
+// static one was assigned.
+hal::subscription reassigned_to_static_callback(fake_pin& p_pin)
+{
+  static counter c;
+  counter local;
+  hal::subscription active = p_pin.on_trigger(local);
+  active.reset();
+  active = p_pin.on_trigger(c);
+  return active;
 }
