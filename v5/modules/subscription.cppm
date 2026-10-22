@@ -119,8 +119,15 @@ public:
     reset();
   }
 
-  /// Unregister the callback from its source, leaving this subscription empty
-  void reset() noexcept
+  /**
+   * @brief Unregister the callback from its source, leaving this subscription
+   * empty
+   *
+   * Clang's lifetime analysis doesn't see reset() end what the subscription
+   * points at. Where that matters, such as returning a subscription that was
+   * reset, assign an empty one instead: `active = {};`.
+   */
+  [[clang::reinitializes]] void reset() noexcept
   {
     auto* const unsubscribe = std::exchange(m_unsubscribe, nullptr);
     auto* const source = std::exchange(m_source, nullptr);

@@ -149,3 +149,25 @@ hal::subscription reassigned_to_static_callback(fake_pin& p_pin)
   active = p_pin.on_trigger(c);
   return active;
 }
+
+// No false positive: assigning an empty subscription ends the borrow in a way
+// the analysis sees.
+hal::subscription cleared_by_assignment(fake_pin& p_pin)
+{
+  counter local;
+  hal::subscription active = p_pin.on_trigger(local);
+  active = {};
+  return active;
+}
+
+// Known false positive: the analysis doesn't see reset() end the borrow, so a
+// reset subscription still counts as pointing at the local callback. Assign
+// {} instead when the analysis must know (see above).
+hal::subscription reset_then_returned(fake_pin& p_pin)
+{
+  counter local;
+  // expected-error@+1 {{is returned}}
+  hal::subscription active = p_pin.on_trigger(local);
+  active.reset();
+  return active;
+}

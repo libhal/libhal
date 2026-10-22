@@ -317,8 +317,8 @@ void subscription_test()
 
     // Exercise
     {
-      hal::subscription empty;
-      expect(not empty);
+      hal::subscription active;
+      expect(not active);
     }
 
     // Verify
