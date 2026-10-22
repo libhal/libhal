@@ -249,6 +249,51 @@ private:
  * and must not throw: an exception cannot unwind out of an interrupt service
  * routine.
  */
+/**
+ * @brief Which received messages a `hal::can_interrupt` subscriber is given
+ *
+ * A message passes when `(message.id & mask) == (id & mask)`. The filter
+ * compares IDs only, so it works the same for standard and extended messages.
+ * A mask of 0 (the default) passes every message; a mask with every ID bit set
+ * passes one ID; a partial mask passes a block of IDs.
+ *
+ * Since the format is not compared, a standard ID and an extended ID with the
+ * same masked bits both pass. Use a mask that covers bits 11 to 28 to keep out
+ * extended IDs whose low 11 bits happen to match.
+ *
+ * This filters in software, after the CAN controller's hardware filters. A
+ * message the hardware filters rejected never reaches the subscriber, whatever
+ * this filter says.
+ *
+ * ```cpp
+ * // Every message
+ * hal::can_receive_filter{};
+ * // Only ID 0x120
+ * hal::can_receive_filter{ .id = 0x120, .mask = 0x1FFF'FFFF };
+ * // IDs 0x100 to 0x10F, and extended IDs ending in those bits
+ * hal::can_receive_filter{ .id = 0x100, .mask = 0x7F0 };
+ * ```
+ */
+export struct can_receive_filter
+{
+  /// ID to compare against, after masking
+  u32 id = 0;
+  /// ID bits that must match; zero passes every message
+  u32 mask = 0;
+
+  /**
+   * @param p_message - a received message
+   * @return true - if the message passes this filter
+   */
+  [[nodiscard]] constexpr bool matches(
+    can_message const& p_message) const noexcept
+  {
+    return (p_message.id & mask) == (id & mask);
+  }
+
+  constexpr bool operator==(can_receive_filter const&) const = default;
+};
+
 export struct can_receive_callback
 {
   /**
@@ -266,11 +311,15 @@ protected:
 /**
  * @brief CAN Bus message reception interrupt hardware abstraction
  *
- * Use this interface to run a callback each time a message is received. If
- * message filtering is enabled, the callback is only invoked for messages
- * accepted by the filter. Drivers that cannot natively signal RX events should
- * not implement this interface; use the cursor-based polling API via
- * `receive_buffer()` and `receive_cursor()` on `can_transceiver` instead.
+ * Use this interface to run a callback each time a message is received. The
+ * subscriber passes a `hal::can_receive_filter` with its callback, and the
+ * callback is only invoked for messages that pass it. The subscriber knows
+ * which IDs it handles, so it supplies the filter itself; whoever hands it the
+ * `can_interrupt` does not need to know its IDs. Messages must also be
+ * accepted by the CAN controller's hardware filters to arrive at all. Drivers
+ * that cannot natively signal RX events should not implement this interface;
+ * use the cursor-based polling API via `receive_buffer()` and
+ * `receive_cursor()` on `can_transceiver` instead.
  *
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.
@@ -300,11 +349,13 @@ public:
    * an interrupt service routine.
    *
    * @param p_callback - callback with static storage duration
+   * @param p_filter - the messages to receive; every message by default
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  void on_receive(static_ref<can_receive_callback> p_callback)
+  void on_receive(static_ref<can_receive_callback> p_callback,
+                  can_receive_filter p_filter = {})
   {
-    driver_on_receive(*p_callback);
+    driver_on_receive(*p_callback, p_filter);
   }
 
   /**
@@ -321,13 +372,16 @@ public:
    * of interrupt context too.
    *
    * @param p_callback - the callback to invoke
+   * @param p_filter - the messages to receive; every message by default
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  subscription on_receive(can_receive_callback& p_callback
-                          [[clang::lifetimebound]]) [[clang::lifetimebound]]
+  [[nodiscard]] subscription on_receive(can_receive_callback& p_callback
+                                        [[clang::lifetimebound]],
+                                        can_receive_filter p_filter = {})
+    [[clang::lifetimebound]]
   {
-    driver_on_receive(p_callback);
+    driver_on_receive(p_callback, p_filter);
     return subscription::make<&can_interrupt::driver_clear_receive>(*this);
   }
 
@@ -335,8 +389,11 @@ protected:
   ~can_interrupt() = default;
 
 private:
-  /// Store the callback. Throw hal::subscription_busy if one is already set.
-  virtual void driver_on_receive(can_receive_callback& p_callback) = 0;
+  /// Store the callback and its filter. Only invoke the callback for messages
+  /// where `p_filter.matches(message)` is true. Throw hal::subscription_busy
+  /// if a callback is already set.
+  virtual void driver_on_receive(can_receive_callback& p_callback,
+                                 can_receive_filter p_filter) = 0;
   /// Clear the callback. Called from a destructor; must not throw. The store
   /// must be atomic with respect to the ISR (single word store, or mask IRQ).
   virtual void driver_clear_receive() noexcept = 0;

@@ -59,22 +59,25 @@ class test_can_interrupt final : public hal::can_interrupt
 {
 public:
   hal::can_receive_callback* stored_callback = nullptr;
+  hal::can_receive_filter stored_filter{};
 
   /// Simulate the driver's ISR receiving a message
   void simulate_receive(hal::can_message const& p_message)
   {
-    if (stored_callback) {
+    if (stored_callback && stored_filter.matches(p_message)) {
       stored_callback->callback(p_message);
     }
   }
 
 private:
-  void driver_on_receive(hal::can_receive_callback& p_callback) override
+  void driver_on_receive(hal::can_receive_callback& p_callback,
+                         hal::can_receive_filter p_filter) override
   {
     if (stored_callback) {
       throw hal::subscription_busy(this);
     }
     stored_callback = &p_callback;
+    stored_filter = p_filter;
   }
 
   void driver_clear_receive() noexcept override
@@ -496,6 +499,39 @@ void can_interrupt_test() noexcept
     expect(message == callback.last_message);
   };
 
+  "on_receive() defaults to a filter that passes every message"_test = [&]() {
+    // Setup
+    test_can_interrupt test;
+    counting_receive_callback callback;
+
+    // Exercise
+    auto subscription = test.on_receive(callback);
+    test.simulate_receive(hal::can_message{ .id = 0x7FF });
+    test.simulate_receive(
+      hal::can_message{ .id = 0x1FFF'FFFF, .extended = true });
+
+    // Verify
+    expect(hal::can_receive_filter{} == test.stored_filter);
+    expect(that % 2 == callback.call_count);
+  };
+
+  "on_receive() passes the subscriber's filter to the driver"_test = [&]() {
+    // Setup
+    test_can_interrupt test;
+    counting_receive_callback callback;
+    hal::can_receive_filter const filter{ .id = 0x120, .mask = 0x1FFF'FFFF };
+
+    // Exercise
+    auto subscription = test.on_receive(callback, filter);
+    test.simulate_receive(hal::can_message{ .id = 0x120 });
+    test.simulate_receive(hal::can_message{ .id = 0x121 });
+
+    // Verify
+    expect(filter == test.stored_filter);
+    expect(that % 1 == callback.call_count);
+    expect(that % 0x120 == callback.last_message.id);
+  };
+
   "on_receive() subscription end stops delivery"_test = [&]() {
     // Setup
     test_can_interrupt test;
@@ -509,6 +545,61 @@ void can_interrupt_test() noexcept
 
     // Verify
     expect(that % 0 == callback.call_count);
+  };
+}
+
+void can_receive_filter_test() noexcept
+{
+  using namespace boost::ut;
+
+  "a zero mask passes every message"_test = [&]() {
+    // Setup
+    hal::can_receive_filter const filter{ .id = 0x123, .mask = 0 };
+
+    // Exercise & Verify
+    expect(filter.matches({ .id = 0x000 }));
+    expect(filter.matches({ .id = 0x7FF }));
+    expect(filter.matches({ .id = 0x1FFF'FFFF, .extended = true }));
+  };
+
+  "a full mask passes one ID"_test = [&]() {
+    // Setup
+    hal::can_receive_filter const filter{ .id = 0x120, .mask = 0x1FFF'FFFF };
+
+    // Exercise & Verify
+    expect(filter.matches({ .id = 0x120 }));
+    expect(not filter.matches({ .id = 0x121 }));
+    expect(not filter.matches({ .id = 0x1000'0120, .extended = true }));
+  };
+
+  "a partial mask passes a block of IDs"_test = [&]() {
+    // Setup
+    hal::can_receive_filter const filter{ .id = 0x100, .mask = 0x7F0 };
+
+    // Exercise & Verify
+    expect(filter.matches({ .id = 0x100 }));
+    expect(filter.matches({ .id = 0x10F }));
+    expect(not filter.matches({ .id = 0x110 }));
+    expect(not filter.matches({ .id = 0x0FF }));
+  };
+
+  "the format is not compared"_test = [&]() {
+    // Setup
+    hal::can_receive_filter const filter{ .id = 0x120, .mask = 0x7FF };
+
+    // Exercise & Verify
+    expect(filter.matches({ .id = 0x120, .extended = false }));
+    expect(filter.matches({ .id = 0x120, .extended = true }));
+    expect(filter.matches({ .id = 0x18FF'0120, .extended = true }));
+  };
+
+  "bits of id outside the mask are ignored"_test = [&]() {
+    // Setup
+    hal::can_receive_filter const filter{ .id = 0x7FF, .mask = 0x00F };
+
+    // Exercise & Verify
+    expect(filter.matches({ .id = 0x00F }));
+    expect(not filter.matches({ .id = 0x7FE }));
   };
 }
 
@@ -605,5 +696,6 @@ int main()
   can_transceiver_receive_cursor_test();
   can_bus_manager_test();
   can_interrupt_test();
+  can_receive_filter_test();
   can_filter_test();
 }
