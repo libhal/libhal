@@ -150,19 +150,11 @@ hal::subscription reassigned_to_static_callback(fake_pin& p_pin)
   return active;
 }
 
-// No false positive: assigning an empty subscription ends the borrow in a way
-// the analysis sees.
-hal::subscription cleared_by_assignment(fake_pin& p_pin)
-{
-  counter local;
-  hal::subscription active = p_pin.on_trigger(local);
-  active = {};
-  return active;
-}
-
 // Known false positive: the analysis doesn't see reset() end the borrow, so a
-// reset subscription still counts as pointing at the local callback. Assign
-// {} instead when the analysis must know (see above).
+// reset subscription still counts as pointing at the local callback, even with
+// [[clang::reinitializes]]. Only returning one triggers it, and returning an
+// empty subscription has no practical use. Recorded so we notice if Clang
+// starts treating reset() as ending the borrow.
 hal::subscription reset_then_returned(fake_pin& p_pin)
 {
   counter local;
