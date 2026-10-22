@@ -309,10 +309,10 @@ protected:
  * throws hal::subscription_busy.
  *
  * Interrupt context: never call on_receive() from an interrupt service routine,
- * including from inside a callback, and never destroy a subscription there. To
- * change behavior, change state inside the callback object. To swap callbacks,
- * hold the subscription in a `std::optional<hal::subscription>`, then reset()
- * it and subscribe again from outside of interrupt context.
+ * including from inside a callback, and never destroy, reset() or assign a
+ * subscription there. To change behavior, change state inside the callback
+ * object. To swap callbacks, reset() the subscription, then assign it a new one
+ * from outside of interrupt context.
  */
 export class serial_interrupt
 {
@@ -365,10 +365,9 @@ public:
    * @throws hal::operation_not_supported - if the driver cannot detect one or
    * more of the conditions in p_events
    */
-  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback
-                                        [[clang::lifetimebound]],
-                                        serial_event p_events)
-    [[clang::lifetimebound]]
+  subscription on_receive(serial_receive_callback& p_callback
+                          [[clang::lifetimebound]],
+                          serial_event p_events) [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback, p_events);
     return subscription::make<&serial_interrupt::driver_clear_receive>(*this);

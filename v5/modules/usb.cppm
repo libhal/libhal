@@ -521,10 +521,10 @@ protected:
  * throws hal::subscription_busy.
  *
  * Interrupt context: never call on_bus_event() from an interrupt service
- * routine, including from inside a callback, and never destroy a subscription
- * there. To change behavior, change state inside the callback object. To swap
- * callbacks, hold the subscription in a `std::optional<hal::subscription>`,
- * then reset() it and subscribe again from outside of interrupt context.
+ * routine, including from inside a callback, and never destroy, reset() or
+ * assign a subscription there. To change behavior, change state inside the
+ * callback object. To swap callbacks, reset() the subscription, then assign it
+ * a new one from outside of interrupt context.
  */
 export class control_endpoint : public endpoint
 {
@@ -621,9 +621,8 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_bus_event(bus_event_callback& p_callback
-                                          [[clang::lifetimebound]])
-    [[clang::lifetimebound]]
+  subscription on_bus_event(bus_event_callback& p_callback
+                            [[clang::lifetimebound]]) [[clang::lifetimebound]]
   {
     driver_on_bus_event(p_callback);
     return subscription::make<&control_endpoint::driver_clear_bus_event>(*this);
@@ -820,10 +819,10 @@ protected:
  * throws hal::subscription_busy.
  *
  * Interrupt context: never call on_receive() from an interrupt service routine,
- * including from inside a callback, and never destroy a subscription there. To
- * change behavior, change state inside the callback object. To swap callbacks,
- * hold the subscription in a `std::optional<hal::subscription>`, then reset()
- * it and subscribe again from outside of interrupt context.
+ * including from inside a callback, and never destroy, reset() or assign a
+ * subscription there. To change behavior, change state inside the callback
+ * object. To swap callbacks, reset() the subscription, then assign it a new one
+ * from outside of interrupt context.
  */
 export class out_endpoint : public endpoint
 {
@@ -847,8 +846,7 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_receive(receive_callback& p_callback
-                                        [[clang::lifetimebound]])
+  subscription on_receive(receive_callback& p_callback [[clang::lifetimebound]])
     [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);

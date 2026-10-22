@@ -71,10 +71,10 @@ protected:
  * throws hal::subscription_busy.
  *
  * Interrupt context: never call on_trigger() from an interrupt service routine,
- * including from inside a callback, and never destroy a subscription there. To
- * change behavior, change state inside the callback object. To swap callbacks,
- * hold the subscription in a `std::optional<hal::subscription>`, then reset()
- * it and subscribe again from outside of interrupt context.
+ * including from inside a callback, and never destroy, reset() or assign a
+ * subscription there. To change behavior, change state inside the callback
+ * object. To swap callbacks, reset() the subscription, then assign it a new one
+ * from outside of interrupt context.
  */
 class edge_triggered_interrupt
 {
@@ -144,9 +144,8 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_trigger(edge_triggered_callback& p_callback
-                                        [[clang::lifetimebound]])
-    [[clang::lifetimebound]]
+  subscription on_trigger(edge_triggered_callback& p_callback
+                          [[clang::lifetimebound]]) [[clang::lifetimebound]]
   {
     driver_on_trigger(p_callback);
     return subscription::make<&edge_triggered_interrupt::driver_clear_trigger>(
@@ -219,13 +218,12 @@ enum class timer_mode : u8
  * Contract: at most ONE registered callback at a time. Registering while one
  * is active throws hal::subscription_busy.
  *
- * Interrupt context: schedule(), cancel() and scheduled() may be called from
- * an interrupt service routine, including from inside the callback, to re-arm
- * or stop the timer. Never call on_expire() from an interrupt service routine,
- * and never destroy a subscription there. To change behavior, change state
- * inside the callback object. To swap callbacks, hold the subscription in a
- * `std::optional<hal::subscription>`, then reset() it and register again from
- * outside of interrupt context.
+ * Interrupt context: schedule(), cancel() and scheduled() may be called from an
+ * interrupt service routine, including from inside the callback, to re-arm or
+ * stop the timer. Never call on_expire() from an interrupt service routine, and
+ * never destroy, reset() or assign a subscription there. To change behavior,
+ * change state inside the callback object. To swap callbacks, reset() the
+ * subscription, then assign it a new one from outside of interrupt context.
  */
 class timed_interrupt
 {
@@ -319,8 +317,7 @@ public:
    * destroyed
    * @throws hal::subscription_busy - if a callback is already registered
    */
-  [[nodiscard]] subscription on_expire(timed_callback& p_callback
-                                       [[clang::lifetimebound]])
+  subscription on_expire(timed_callback& p_callback [[clang::lifetimebound]])
     [[clang::lifetimebound]]
   {
     driver_on_expire(p_callback);

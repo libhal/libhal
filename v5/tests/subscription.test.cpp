@@ -97,6 +97,34 @@ private:
   hal::subscription m_subscription;  // last
 };
 
+// The same composite, subscribing as the last statement of its constructor
+// body instead of in the member initializer list.
+class late_button_counter : public hal::edge_triggered_callback
+{
+public:
+  explicit late_button_counter(hal::ref<hal::edge_triggered_interrupt> p_pin
+                               [[clang::lifetimebound]])
+  {
+    p_pin->configure({ .trigger = hal::edge_trigger::rising });
+    m_count = 0;  // anything the callback relies on is ready
+    m_subscription = p_pin->on_trigger(*this);  // subscribe last
+  }
+
+  [[nodiscard]] hal::u32 count() const
+  {
+    return m_count;
+  }
+
+private:
+  void callback(bool) noexcept override
+  {
+    ++m_count;
+  }
+
+  hal::u32 m_count = 1;
+  hal::subscription m_subscription;  // last
+};
+
 struct static_counter final : hal::edge_triggered_callback
 {
   hal::u32 count = 0;
@@ -133,6 +161,9 @@ struct mode_counter final : hal::edge_triggered_callback
 static_assert(sizeof(hal::subscription) == 2 * sizeof(void*));
 static_assert(not std::is_copy_constructible_v<hal::subscription>);
 static_assert(std::is_nothrow_move_constructible_v<hal::subscription>);
+static_assert(std::is_nothrow_default_constructible_v<hal::subscription>);
+static_assert(std::is_nothrow_move_assignable_v<hal::subscription>);
+static_assert(not std::is_copy_assignable_v<hal::subscription>);
 
 void subscription_test()
 {
@@ -279,6 +310,141 @@ void subscription_test()
       expect(that % 1 == first.count);
       expect(that % 0 == second.count);
     };
+
+  "a default constructed subscription is empty"_test = []() {
+    // Setup
+    fake_pin pin;
+
+    // Exercise
+    {
+      hal::subscription active;
+      expect(not active);
+    }
+
+    // Verify
+    expect(nullptr == pin.callback);
+  };
+
+  "a moved from subscription is empty"_test = []() {
+    // Setup
+    fake_pin pin;
+    static_counter counter;
+    auto first = pin.on_trigger(counter);
+
+    // Exercise
+    auto second = std::move(first);
+
+    // Verify
+    expect(not first);  // NOLINT(bugprone-use-after-move): checking it
+    expect(static_cast<bool>(second));
+    expect(&counter == pin.callback);
+  };
+
+  "reset() unregisters and leaves the subscription empty"_test = []() {
+    // Setup
+    fake_pin pin;
+    static_counter counter;
+    auto active = pin.on_trigger(counter);
+
+    // Exercise
+    active.reset();
+    pin.fire(true);
+    active.reset();  // resetting an empty subscription does nothing
+
+    // Verify
+    expect(not active);
+    expect(nullptr == pin.callback);
+    expect(that % 0 == counter.count);
+  };
+
+  "assignment swaps callbacks after reset()"_test = []() {
+    // Setup
+    fake_pin pin;
+    static_counter first;
+    static_counter second;
+    hal::subscription active;
+
+    // Exercise
+    active = pin.on_trigger(first);
+    pin.fire(true);
+    active.reset();
+    active = pin.on_trigger(second);
+    pin.fire(true);
+
+    // Verify
+    expect(that % 1 == first.count);
+    expect(that % 1 == second.count);
+    expect(&second == pin.callback);
+  };
+
+  "assigning to the same source without reset() throws"_test = []() {
+    // Setup
+    fake_pin pin;
+    static_counter first;
+    static_counter second;
+    auto active = pin.on_trigger(first);
+    bool threw = false;
+
+    // Exercise
+    // on_trigger(second) is evaluated before the assignment ends the old
+    // subscription, so the slot is still taken. reset() first.
+    try {
+      active = pin.on_trigger(second);
+    } catch (hal::subscription_busy const&) {
+      threw = true;
+    }
+    pin.fire(true);
+
+    // Verify
+    expect(threw);
+    expect(static_cast<bool>(active));
+    expect(&first == pin.callback);
+    expect(that % 1 == first.count);
+  };
+
+  "assigning from another source unregisters the old one"_test = []() {
+    // Setup
+    fake_pin old_pin;
+    fake_pin new_pin;
+    static_counter first;
+    static_counter second;
+    auto active = old_pin.on_trigger(first);
+
+    // Exercise
+    active = new_pin.on_trigger(second);
+
+    // Verify
+    expect(nullptr == old_pin.callback);
+    expect(&second == new_pin.callback);
+  };
+
+  "self move assignment keeps the registration"_test = []() {
+    // Setup
+    fake_pin pin;
+    static_counter counter;
+    auto active = pin.on_trigger(counter);
+    auto& alias = active;
+
+    // Exercise
+    active = std::move(alias);
+
+    // Verify
+    expect(static_cast<bool>(active));
+    expect(&counter == pin.callback);
+  };
+
+  "a composite can subscribe at the end of its constructor body"_test = []() {
+    // Setup
+    fake_pin pin;
+
+    // Exercise
+    late_button_counter counter(pin);
+    pin.fire(true);
+    pin.fire(true);
+
+    // Verify
+    expect(that % 2 == counter.count());
+  };
 }
 
 }  // namespace

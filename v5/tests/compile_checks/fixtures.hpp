@@ -188,6 +188,23 @@ private:
   hal::subscription m_subscription;  // last
 };
 
+// Subscribes as the last statement of its constructor body.
+class late_button_counter : public hal::edge_triggered_callback
+{
+public:
+  explicit late_button_counter(hal::ref<hal::edge_triggered_interrupt> p_pin
+                               [[clang::lifetimebound]])
+  {
+    m_subscription = p_pin->on_trigger(*this);
+  }
+
+private:
+  void callback(bool) noexcept override
+  {
+  }
+  hal::subscription m_subscription;  // last
+};
+
 struct counter final : hal::edge_triggered_callback
 {
   void callback(bool) noexcept override
