@@ -26,11 +26,11 @@ void static_ref_to_local_callback()
   pin.on_trigger(hal::static_ref<hal::edge_triggered_callback>{ local });
 }
 
-// A discarded subscription unregisters immediately.
+// A discarded subscription unregisters immediately, and the warning says so.
 void discard_subscription()
 {
   fake_pin pin;
   counter c;
-  // expected-error@+1 {{ignoring return value}}
+  // expected-error@+1 {{a discarded one unregisters it immediately}}
   pin.on_trigger(c);
 }

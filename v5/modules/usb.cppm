@@ -621,9 +621,8 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_bus_event(bus_event_callback& p_callback
-                                          [[clang::lifetimebound]])
-    [[clang::lifetimebound]]
+  subscription on_bus_event(bus_event_callback& p_callback
+                            [[clang::lifetimebound]]) [[clang::lifetimebound]]
   {
     driver_on_bus_event(p_callback);
     return subscription::make<&control_endpoint::driver_clear_bus_event>(*this);
@@ -847,8 +846,7 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_receive(receive_callback& p_callback
-                                        [[clang::lifetimebound]])
+  subscription on_receive(receive_callback& p_callback [[clang::lifetimebound]])
     [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback);

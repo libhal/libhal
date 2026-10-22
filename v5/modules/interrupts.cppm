@@ -144,9 +144,8 @@ public:
    * @return subscription - unregisters the callback when destroyed
    * @throws hal::subscription_busy - if a subscriber is already registered
    */
-  [[nodiscard]] subscription on_trigger(edge_triggered_callback& p_callback
-                                        [[clang::lifetimebound]])
-    [[clang::lifetimebound]]
+  subscription on_trigger(edge_triggered_callback& p_callback
+                          [[clang::lifetimebound]]) [[clang::lifetimebound]]
   {
     driver_on_trigger(p_callback);
     return subscription::make<&edge_triggered_interrupt::driver_clear_trigger>(
@@ -318,8 +317,7 @@ public:
    * destroyed
    * @throws hal::subscription_busy - if a callback is already registered
    */
-  [[nodiscard]] subscription on_expire(timed_callback& p_callback
-                                       [[clang::lifetimebound]])
+  subscription on_expire(timed_callback& p_callback [[clang::lifetimebound]])
     [[clang::lifetimebound]]
   {
     driver_on_expire(p_callback);

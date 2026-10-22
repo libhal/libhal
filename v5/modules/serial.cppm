@@ -365,10 +365,9 @@ public:
    * @throws hal::operation_not_supported - if the driver cannot detect one or
    * more of the conditions in p_events
    */
-  [[nodiscard]] subscription on_receive(serial_receive_callback& p_callback
-                                        [[clang::lifetimebound]],
-                                        serial_event p_events)
-    [[clang::lifetimebound]]
+  subscription on_receive(serial_receive_callback& p_callback
+                          [[clang::lifetimebound]],
+                          serial_event p_events) [[clang::lifetimebound]]
   {
     driver_on_receive(p_callback, p_events);
     return subscription::make<&serial_interrupt::driver_clear_receive>(*this);
