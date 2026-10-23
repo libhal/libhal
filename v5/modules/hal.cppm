@@ -30,6 +30,7 @@ export import :gpio;
 export import :sensors;
 export import :interrupts;
 export import :waiter;
+export import :lock;
 export import :steady_clock;
 export import :i2c;
 export import :spi;
