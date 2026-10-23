@@ -15,6 +15,7 @@
 #include <array>
 #include <chrono>
 #include <memory_resource>
+#include <vector>
 
 #include <boost/ut.hpp>
 
@@ -279,6 +280,301 @@ void spi_transfer_test() noexcept
   };
 }
 
+// A bus that records what the manager asks of it
+class fake_bus final : public hal::spi_bus
+{
+public:
+  std::vector<hal::spi_settings> configured{};
+  hal::usize transfer_count = 0;
+  hal::hertz max_rate = 10 * MHz;
+  bool throw_on_transfer = false;
+
+private:
+  void driver_configure(hal::spi_settings const& p_settings) override
+  {
+    configured.push_back(p_settings);
+  }
+
+  hal::hertz driver_clock_rate(hal::spi_settings const& p_settings) override
+  {
+    if (p_settings.bus_mode == hal::spi_mode::m3) {
+      throw hal::operation_not_supported(this);
+    }
+    return p_settings.clock_rate < max_rate ? p_settings.clock_rate : max_rate;
+  }
+
+  void driver_transfer(mem::scatter_span<hal::byte const>,
+                       mem::scatter_span<hal::byte>,
+                       hal::byte) override
+  {
+    transfer_count++;
+    if (throw_on_transfer) {
+      throw hal::io_error(this);
+    }
+  }
+};
+
+class fake_pin final : public hal::output_pin
+{
+public:
+  bool high = false;
+  hal::usize writes = 0;
+
+private:
+  void driver_configure(hal::pin_settings const&) override
+  {
+  }
+
+  bool driver_level() override
+  {
+    return high;
+  }
+
+  void driver_level(bool p_high) override
+  {
+    high = p_high;
+    writes++;
+  }
+};
+
+class fake_lock final : public hal::basic_lock
+{
+public:
+  bool locked = false;
+  hal::usize lock_count = 0;
+
+private:
+  void driver_lock() override
+  {
+    locked = true;
+    lock_count++;
+  }
+
+  void driver_unlock() override
+  {
+    locked = false;
+  }
+};
+
+void spi_bus_manager_test()
+{
+  using namespace boost::ut;
+
+  "a new channel starts with its device deselected"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    hal::spi_bus_manager manager(bus);
+
+    // Exercise
+    auto channel = manager.acquire_channel(chip_select);
+
+    // Verify
+    expect(chip_select.high);
+    expect(bus.configured.empty());
+  };
+
+  "selecting applies the channel's settings and drives chip select low"_test =
+    []() {
+      // Setup
+      fake_bus bus;
+      fake_pin chip_select;
+      hal::spi_bus_manager manager(bus);
+      hal::spi_settings const settings{ .clock_rate = 1 * MHz,
+                                        .bus_mode = hal::spi_mode::m1 };
+      auto channel = manager.acquire_channel(chip_select, settings);
+
+      // Exercise
+      channel.chip_select(true);
+      bool const low_while_selected = not chip_select.high;
+      channel.chip_select(false);
+
+      // Verify
+      expect(low_while_selected);
+      expect(chip_select.high);
+      expect(that % 1 == bus.configured.size());
+      expect(settings == bus.configured.front());
+    };
+
+  "each channel brings its own settings to the bus"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin flash_select;
+    fake_pin imu_select;
+    hal::spi_bus_manager manager(bus);
+    auto flash =
+      manager.acquire_channel(flash_select, { .clock_rate = 4 * MHz });
+    auto imu = manager.acquire_channel(imu_select, { .clock_rate = 1 * MHz });
+    std::array<hal::byte, 1> data{};
+
+    // Exercise
+    flash.transfer({ data });
+    imu.transfer({ data });
+
+    // Verify
+    expect(that % 2 == bus.configured.size());
+    expect((4 * MHz) == bus.configured[0].clock_rate);
+    expect((1 * MHz) == bus.configured[1].clock_rate);
+    expect(flash_select.high);
+    expect(imu_select.high);
+  };
+
+  "selecting a second channel while one is selected throws"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin flash_select;
+    fake_pin imu_select;
+    hal::spi_bus_manager manager(bus);
+    auto flash = manager.acquire_channel(flash_select);
+    auto imu = manager.acquire_channel(imu_select);
+    flash.chip_select(true);
+    std::array<hal::byte, 1> data{};
+
+    // Exercise + Verify
+    expect(
+      throws<hal::device_or_resource_busy>([&]() { imu.chip_select(true); }));
+    expect(
+      throws<hal::device_or_resource_busy>([&]() { imu.transfer({ data }); }));
+    expect(imu_select.high);
+    expect(not flash_select.high);
+    expect(that % 0 == bus.transfer_count);
+
+    // Once the first is deselected, the second may select
+    flash.chip_select(false);
+    imu.chip_select(true);
+    expect(not imu_select.high);
+  };
+
+  "selecting the selected channel again does nothing"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    hal::spi_bus_manager manager(bus);
+    auto channel = manager.acquire_channel(chip_select);
+    channel.chip_select(true);
+
+    // Exercise
+    channel.chip_select(true);
+
+    // Verify
+    expect(that % 1 == bus.configured.size());
+    expect(not chip_select.high);
+  };
+
+  "a transfer without selecting selects around it, even if it throws"_test =
+    []() {
+      // Setup
+      fake_bus bus;
+      fake_pin chip_select;
+      hal::spi_bus_manager manager(bus);
+      auto channel = manager.acquire_channel(chip_select);
+      std::array<hal::byte, 1> data{};
+      bus.throw_on_transfer = true;
+
+      // Exercise
+      expect(throws<hal::io_error>([&]() { channel.transfer({ data }); }));
+
+      // Verify
+      expect(chip_select.high);
+      expect(that % 1 == bus.transfer_count);
+      // The bus is free again
+      bus.throw_on_transfer = false;
+      channel.chip_select(true);
+      expect(not chip_select.high);
+    };
+
+  "destroying a selected channel deselects it"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin flash_select;
+    fake_pin imu_select;
+    hal::spi_bus_manager manager(bus);
+    auto imu = manager.acquire_channel(imu_select);
+
+    // Exercise
+    {
+      auto flash = manager.acquire_channel(flash_select);
+      flash.chip_select(true);
+    }
+
+    // Verify
+    expect(flash_select.high);
+    imu.chip_select(true);
+    expect(not imu_select.high);
+  };
+
+  "settings the bus can't use are rejected up front"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    hal::spi_bus_manager manager(bus);
+    auto channel = manager.acquire_channel(chip_select);
+
+    // Exercise + Verify
+    expect(throws<hal::operation_not_supported>(
+      [&]() { channel.configure({ .bus_mode = hal::spi_mode::m3 }); }));
+    expect(throws<hal::operation_not_supported>([&]() {
+      static_cast<void>(manager.acquire_channel(
+        chip_select, { .bus_mode = hal::spi_mode::m3 }));
+    }));
+    // The rejected settings weren't kept
+    channel.chip_select(true);
+    expect(that % 1 == bus.configured.size());
+    expect(hal::spi_mode::m0 == bus.configured.front().bus_mode);
+  };
+
+  "clock_rate() reports what the bus would run at"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    hal::spi_bus_manager manager(bus);
+    auto channel =
+      manager.acquire_channel(chip_select, { .clock_rate = 20 * MHz });
+
+    // Exercise + Verify
+    expect((10 * MHz) == channel.clock_rate());
+    expect(bus.configured.empty());
+  };
+
+  "with a lock, selecting holds the lock until deselecting"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    fake_lock lock;
+    hal::spi_bus_manager manager(bus, lock);
+    auto channel = manager.acquire_channel(chip_select);
+    std::array<hal::byte, 1> data{};
+
+    // Exercise
+    channel.chip_select(true);
+    bool const locked_while_selected = lock.locked;
+    channel.transfer({ data });  // already selected: doesn't lock again
+    channel.chip_select(false);
+
+    // Verify
+    expect(locked_while_selected);
+    expect(not lock.locked);
+    expect(that % 1 == lock.lock_count);
+  };
+
+  "with a lock, a failed select releases the lock"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    fake_lock lock;
+    hal::spi_bus_manager manager(bus, lock);
+    auto channel = manager.acquire_channel(chip_select);
+    std::array<hal::byte, 1> data{};
+    bus.throw_on_transfer = true;
+
+    // Exercise
+    expect(throws<hal::io_error>([&]() { channel.transfer({ data }); }));
+
+    // Verify
+    expect(not lock.locked);
+    expect(chip_select.high);
+  };
+}
 }  // namespace
 
 int main()
@@ -288,4 +584,5 @@ int main()
   spi_chip_select_test();
   spi_lock_unlock_test();
   spi_transfer_test();
+  spi_bus_manager_test();
 }
