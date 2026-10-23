@@ -49,6 +49,6 @@ void construct_channel_directly(hal::spi_bus_manager<>& p_manager,
 // The factory has to return a bus.
 void factory_returns_something_else()
 {
-  // expected-error@*:* {{The bus type must implement hal::spi_bus}}
+  // expected-error@*:* {{The bus type must implement hal::raw_spi_bus}}
   hal::spi_bus_manager manager([] { return 5; });
 }

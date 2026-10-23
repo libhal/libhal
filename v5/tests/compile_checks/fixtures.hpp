@@ -214,7 +214,7 @@ struct counter final : hal::edge_triggered_callback
 
 // ---- hal:spi ---------------------------------------------------------------
 
-struct fake_spi_bus final : hal::spi_bus
+struct fake_spi_bus final : hal::raw_spi_bus
 {
 private:
   void driver_configure(hal::spi_settings const&) override

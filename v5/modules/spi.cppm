@@ -124,7 +124,7 @@ export struct spi_settings
  *
  * Like `hal::spi_channel`, words are 8 bits and are sent MSB first.
  */
-export class spi_bus
+export class raw_spi_bus
 {
 public:
   /// Default filler data placed on the bus in place of actual write data when
@@ -181,7 +181,7 @@ public:
   }
 
 protected:
-  ~spi_bus() = default;
+  ~raw_spi_bus() = default;
 
 private:
   virtual void driver_configure(spi_settings const& p_settings) = 0;
@@ -256,9 +256,9 @@ private:
  * and releases control via `chip_select(false)`. See API documentation for more
  * details.
  *
- * `hal::spi_bus_manager` implements this contract for any `hal::spi_bus`, so
- * a platform only needs to implement `hal::spi_bus` to give device drivers
- * channels.
+ * `hal::spi_bus_manager` implements this contract for any `hal::raw_spi_bus`,
+ * so a platform only needs to implement `hal::raw_spi_bus` to give device
+ * drivers channels.
  *
  * ## Each channel remembers its configuration
  *
@@ -492,7 +492,7 @@ public:
     [[clang::lifetimebound]];
 
 protected:
-  spi_bus_manager_base(spi_bus& p_bus, basic_lock* p_lock)
+  spi_bus_manager_base(raw_spi_bus& p_bus, basic_lock* p_lock)
     : m_bus(p_bus)
     , m_lock(p_lock)
   {
@@ -504,7 +504,7 @@ private:
   void select(channel& p_channel);
   void deselect(channel& p_channel);
 
-  hal::ref<spi_bus> m_bus;
+  hal::ref<raw_spi_bus> m_bus;
   basic_lock* m_lock = nullptr;
   /// The channel whose device is selected, if any
   channel* m_selected = nullptr;
@@ -664,16 +664,16 @@ protected:
 
 /// A manager that refers to a bus owned elsewhere stores nothing extra.
 template<>
-class spi_bus_storage<spi_bus>
+class spi_bus_storage<raw_spi_bus>
 {};
 
 /**
- * @brief Makes `hal::spi_channel`s from a `hal::spi_bus`, selecting one device
- * at a time
+ * @brief Makes `hal::spi_channel`s from a `hal::raw_spi_bus`, selecting one
+ * device at a time
  *
  * Each channel drives one device's chip select pin and remembers that
  * device's settings. Selecting a channel configures the bus with its settings
- * and drives its chip select low. This is how a platform's `hal::spi_bus`
+ * and drives its chip select low. This is how a platform's `hal::raw_spi_bus`
  * becomes channels for device drivers, without each platform implementing
  * channels itself.
  *
@@ -711,25 +711,25 @@ class spi_bus_storage<spi_bus>
  * The lock, every chip select pin, and a bus the manager doesn't own must
  * outlive the manager, and the manager must outlive its channels.
  *
- * @tparam Bus - the bus type the manager owns, or `hal::spi_bus` (the default)
- * to refer to a bus that lives elsewhere
+ * @tparam Bus - the bus type the manager owns, or `hal::raw_spi_bus` (the
+ * default) to refer to a bus that lives elsewhere
  */
-export template<class Bus = spi_bus>
+export template<class Bus = raw_spi_bus>
 class spi_bus_manager final
   : private spi_bus_storage<Bus>
   , public spi_bus_manager_base
 {
 public:
-  static_assert(std::derived_from<Bus, spi_bus>,
-                "The bus type must implement hal::spi_bus");
+  static_assert(std::derived_from<Bus, raw_spi_bus>,
+                "The bus type must implement hal::raw_spi_bus");
 
   /**
    * @brief Manage a bus that lives elsewhere, used from a single context
    *
    * @param p_bus - the bus to share between devices
    */
-  explicit spi_bus_manager(hal::ref<spi_bus> p_bus [[clang::lifetimebound]])
-    requires std::same_as<Bus, spi_bus>
+  explicit spi_bus_manager(hal::ref<raw_spi_bus> p_bus [[clang::lifetimebound]])
+    requires std::same_as<Bus, raw_spi_bus>
     : spi_bus_manager_base(*p_bus, nullptr)
   {
   }
@@ -740,9 +740,9 @@ public:
    * @param p_bus - the bus to share between devices
    * @param p_lock - lock held from selecting a device until deselecting it
    */
-  spi_bus_manager(hal::ref<spi_bus> p_bus [[clang::lifetimebound]],
+  spi_bus_manager(hal::ref<raw_spi_bus> p_bus [[clang::lifetimebound]],
                   hal::ref<basic_lock> p_lock [[clang::lifetimebound]])
-    requires std::same_as<Bus, spi_bus>
+    requires std::same_as<Bus, raw_spi_bus>
     : spi_bus_manager_base(*p_bus, &*p_lock)
   {
   }
@@ -754,7 +754,7 @@ public:
    * non-movable.
    */
   template<class Factory>
-    requires(not std::same_as<Bus, spi_bus> &&
+    requires(not std::same_as<Bus, raw_spi_bus> &&
              std::same_as<std::invoke_result_t<Factory&>, Bus>)
   explicit spi_bus_manager(Factory p_factory [[clang::lifetimebound]])
     : spi_bus_storage<Bus>(p_factory)
@@ -770,7 +770,7 @@ public:
    * @param p_lock - lock held from selecting a device until deselecting it
    */
   template<class Factory>
-    requires(not std::same_as<Bus, spi_bus> &&
+    requires(not std::same_as<Bus, raw_spi_bus> &&
              std::same_as<std::invoke_result_t<Factory&>, Bus>)
   spi_bus_manager(Factory p_factory [[clang::lifetimebound]],
                   hal::ref<basic_lock> p_lock [[clang::lifetimebound]])
@@ -787,10 +787,11 @@ public:
 };
 
 /// A bus object: the manager refers to it.
-export spi_bus_manager(spi_bus&) -> spi_bus_manager<spi_bus>;
+export spi_bus_manager(raw_spi_bus&) -> spi_bus_manager<raw_spi_bus>;
 
 /// A bus object and a lock: the manager refers to the bus.
-export spi_bus_manager(spi_bus&, basic_lock&) -> spi_bus_manager<spi_bus>;
+export spi_bus_manager(raw_spi_bus&, basic_lock&)
+  -> spi_bus_manager<raw_spi_bus>;
 
 /// A factory: the manager owns the bus the factory returns.
 export template<class Factory>

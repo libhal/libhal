@@ -282,7 +282,7 @@ void spi_transfer_test() noexcept
 }
 
 // A bus that records what the manager asks of it
-class fake_bus final : public hal::spi_bus
+class fake_bus final : public hal::raw_spi_bus
 {
 public:
   std::vector<hal::spi_settings> configured{};
@@ -359,7 +359,7 @@ private:
 
 // A bus that can't be copied or moved, like a platform's, and reports to a
 // log that outlives it, since an owning manager keeps the bus out of reach.
-class pinned_bus final : public hal::spi_bus
+class pinned_bus final : public hal::raw_spi_bus
 {
 public:
   explicit pinned_bus(std::vector<hal::spi_settings>& p_log)
