@@ -39,6 +39,7 @@ libhal_add_library(libhal
         modules/steady_clock.cppm
         modules/interrupts.cppm
         modules/waiter.cppm
+        modules/lock.cppm
         modules/i2c.cppm
         modules/spi.cppm
         modules/serial.cppm
@@ -69,6 +70,7 @@ libhal_add_tests(libhal
         sensors
         pimpl
         waiter
+        lock
         lifetime
         subscription
         error
