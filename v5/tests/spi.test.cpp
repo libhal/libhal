@@ -15,6 +15,7 @@
 #include <array>
 #include <chrono>
 #include <memory_resource>
+#include <type_traits>
 #include <vector>
 
 #include <boost/ut.hpp>
@@ -356,6 +357,41 @@ private:
   }
 };
 
+// A bus that can't be copied or moved, like a platform's, and reports to a
+// log that outlives it, since an owning manager keeps the bus out of reach.
+class pinned_bus final : public hal::spi_bus
+{
+public:
+  explicit pinned_bus(std::vector<hal::spi_settings>& p_log)
+    : m_log(&p_log)
+  {
+  }
+  pinned_bus(pinned_bus const&) = delete;
+  pinned_bus& operator=(pinned_bus const&) = delete;
+  pinned_bus(pinned_bus&&) = delete;
+  pinned_bus& operator=(pinned_bus&&) = delete;
+  ~pinned_bus() = default;
+
+private:
+  void driver_configure(hal::spi_settings const& p_settings) override
+  {
+    m_log->push_back(p_settings);
+  }
+
+  hal::hertz driver_clock_rate(hal::spi_settings const& p_settings) override
+  {
+    return p_settings.clock_rate;
+  }
+
+  void driver_transfer(mem::scatter_span<hal::byte const>,
+                       mem::scatter_span<hal::byte>,
+                       hal::byte) override
+  {
+  }
+
+  std::vector<hal::spi_settings>* m_log;
+};
+
 void spi_bus_manager_test()
 {
   using namespace boost::ut;
@@ -573,6 +609,57 @@ void spi_bus_manager_test()
     // Verify
     expect(not lock.locked);
     expect(chip_select.high);
+  };
+  "an owning manager builds its bus from the factory"_test = []() {
+    // Setup
+    std::vector<hal::spi_settings> log;
+    fake_pin chip_select;
+    hal::spi_bus_manager manager([&log] { return pinned_bus(log); });
+    static_assert(
+      std::is_same_v<decltype(manager), hal::spi_bus_manager<pinned_bus>>);
+    auto channel =
+      manager.acquire_channel(chip_select, { .clock_rate = 2 * MHz });
+
+    // Exercise
+    channel.chip_select(true);
+    channel.chip_select(false);
+
+    // Verify
+    expect(that % 1 == log.size());
+    expect((2 * MHz) == log.front().clock_rate);
+    expect(chip_select.high);
+  };
+
+  "an owning manager with a lock holds it while selected"_test = []() {
+    // Setup
+    std::vector<hal::spi_settings> log;
+    fake_pin chip_select;
+    fake_lock lock;
+    hal::spi_bus_manager manager([&log] { return pinned_bus(log); }, lock);
+    auto channel = manager.acquire_channel(chip_select);
+
+    // Exercise
+    channel.chip_select(true);
+    bool const locked_while_selected = lock.locked;
+    channel.chip_select(false);
+
+    // Verify
+    expect(locked_while_selected);
+    expect(not lock.locked);
+  };
+
+  "every manager hands out the same channel type"_test = []() {
+    // Setup
+    std::vector<hal::spi_settings> log;
+    fake_bus bus;
+    hal::spi_bus_manager referring(bus);
+    hal::spi_bus_manager owning([&log] { return pinned_bus(log); });
+
+    // Verify
+    static_assert(std::is_same_v<decltype(referring), hal::spi_bus_manager<>>);
+    static_assert(
+      std::is_same_v<decltype(referring)::channel, decltype(owning)::channel>);
+    expect(true);
   };
 }
 }  // namespace

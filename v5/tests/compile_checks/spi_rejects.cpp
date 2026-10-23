@@ -24,14 +24,14 @@ void manager_on_temporary_bus()
 }
 
 // The chip select pin must outlive the channel.
-void channel_on_temporary_pin(hal::spi_bus_manager& p_manager)
+void channel_on_temporary_pin(hal::spi_bus_manager<>& p_manager)
 {
   // expected-error@+1 {{invokes a deleted function}}
   auto channel = p_manager.acquire_channel(fake_output_pin{});
 }
 
 // The manager tracks channels by address.
-void copy_channel(hal::spi_bus_manager& p_manager, fake_output_pin& p_pin)
+void copy_channel(hal::spi_bus_manager<>& p_manager, fake_output_pin& p_pin)
 {
   auto channel = p_manager.acquire_channel(p_pin);
   // expected-error@+1 {{call to deleted constructor}}
@@ -39,9 +39,16 @@ void copy_channel(hal::spi_bus_manager& p_manager, fake_output_pin& p_pin)
 }
 
 // Only the manager creates channels.
-void construct_channel_directly(hal::spi_bus_manager& p_manager,
+void construct_channel_directly(hal::spi_bus_manager<>& p_manager,
                                 fake_output_pin& p_pin)
 {
   // expected-error@+1 {{calling a private constructor}}
-  hal::spi_bus_manager::channel channel(p_manager, p_pin, {});
+  hal::spi_bus_manager<>::channel channel(p_manager, p_pin, {});
+}
+
+// The factory has to return a bus.
+void factory_returns_something_else()
+{
+  // expected-error@*:* {{The bus type must implement hal::spi_bus}}
+  hal::spi_bus_manager manager([] { return 5; });
 }
