@@ -31,25 +31,25 @@ public:
   hal::time_duration last_duration{};
 
 private:
-  void os_lock() override
+  void driver_lock() override
   {
     locked = true;
     ++lock_count;
   }
 
-  void os_unlock() override
+  void driver_unlock() override
   {
     locked = false;
     ++unlock_count;
   }
 
-  bool os_try_lock() override
+  bool driver_try_lock() override
   {
     locked = next_try_succeeds;
     return locked;
   }
 
-  bool os_try_lock_for(hal::time_duration p_duration) override
+  bool driver_try_lock_for(hal::time_duration p_duration) override
   {
     last_duration = p_duration;
     locked = next_try_succeeds;

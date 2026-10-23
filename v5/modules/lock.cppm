@@ -42,7 +42,7 @@ public:
    */
   void lock()
   {
-    os_lock();
+    driver_lock();
   }
 
   /**
@@ -51,15 +51,15 @@ public:
    */
   void unlock()
   {
-    os_unlock();
+    driver_unlock();
   }
 
 protected:
   ~basic_lock() = default;
 
 private:
-  virtual void os_lock() = 0;
-  virtual void os_unlock() = 0;
+  virtual void driver_lock() = 0;
+  virtual void driver_unlock() = 0;
 };
 
 /**
@@ -79,14 +79,14 @@ public:
    */
   [[nodiscard]] bool try_lock()
   {
-    return os_try_lock();
+    return driver_try_lock();
   }
 
 protected:
   ~pollable_lock() = default;
 
 private:
-  virtual bool os_try_lock() = 0;
+  virtual bool driver_try_lock() = 0;
 };
 
 /**
@@ -114,14 +114,14 @@ public:
    */
   [[nodiscard]] bool try_lock_for(time_duration p_duration)
   {
-    return os_try_lock_for(p_duration);
+    return driver_try_lock_for(p_duration);
   }
 
 protected:
   ~timed_lock() = default;
 
 private:
-  virtual bool os_try_lock_for(time_duration p_duration) = 0;
+  virtual bool driver_try_lock_for(time_duration p_duration) = 0;
 };
 
 /**
