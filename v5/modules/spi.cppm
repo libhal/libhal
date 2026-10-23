@@ -88,10 +88,11 @@ export struct spi_settings
    * spi bus or channel will try its best to reach this clock rate but will
    * not guarantee the exact clock rate.
    *
-   * The clock rate returned from the API `clock_rate()` will always return a
-   * value less than or equal to this value. If the clock rate is above what
-   * the spi bus can achieve, then the clock rate will be set to the maximum
-   * the spi bus can manage.
+   * A request faster than the bus can go runs at the bus's fastest rate,
+   * since running a device slower than asked is safe. A request slower than
+   * the bus can go is rejected by `configure()`, since running a device faster
+   * than asked is not. `clock_rate()` reports the exact rate either way, so a
+   * driver can check before configuring.
    */
   hertz clock_rate = 100 * si::unit_symbols::kHz;
 
@@ -137,7 +138,8 @@ public:
    * @param p_settings - settings to apply. The bus runs at the clock rate
    * that `clock_rate(p_settings)` returns.
    * @throws hal::operation_not_supported - if the bus can't use the mode, or
-   * can't run as slowly as the requested clock rate.
+   * can't run as slowly as the requested clock rate (`clock_rate(p_settings)`
+   * is greater than `p_settings.clock_rate`).
    */
   void configure(spi_settings const& p_settings)
   {
@@ -145,16 +147,20 @@ public:
   }
 
   /**
-   * @brief Report the clock rate the bus would run at with these settings
+   * @brief Report the exact clock rate the bus would run at with these
+   * settings
    *
-   * Doesn't change the bus. The result is less than or equal to
-   * `p_settings.clock_rate`, unless the request is faster than the bus can
-   * go, in which case it is the bus's fastest rate.
+   * Doesn't change the bus, and doesn't reject anything: a request outside
+   * the bus's range gets the nearest rate it can do. For example, a bus that
+   * runs from 1 kHz to 50 MHz reports 50 MHz for a 100 MHz request and 1 kHz
+   * for a 1 Hz request.
    *
-   * @param p_settings - settings to check
-   * @return hertz - the clock rate `configure(p_settings)` would give
-   * @throws hal::operation_not_supported - for the same settings that
-   * `configure()` rejects
+   * A result greater than `p_settings.clock_rate` means the bus can't go that
+   * slowly, and `configure(p_settings)` would throw. Otherwise it is the rate
+   * `configure(p_settings)` gives.
+   *
+   * @param p_settings - settings to check. Only the clock rate matters.
+   * @return hertz - the clock rate for `p_settings`
    */
   [[nodiscard]] hertz clock_rate(spi_settings const& p_settings)
   {
@@ -295,8 +301,10 @@ public:
    *
    * @param p_settings - settings to configure the spi bus to when control is
    * acquired by this channel.
-   * @throws hal::operation_not_supported - if the mode cannot be accommodated
-   * by the spi bus hardware or implementation of spi.
+   * @throws hal::operation_not_supported - if the bus can't run as slowly as
+   * the requested clock rate, or can't use the mode. An implementation that
+   * can only find out about the mode when it configures the bus throws from
+   * `chip_select(true)` instead.
    */
   void configure(settings const& p_settings)
   {
@@ -311,13 +319,14 @@ public:
    * configured to when `chip_select(true)` and is not the current clock rate of
    * the bus.
    *
-   * The clock rate reported here is guaranteed to be less than or equal to the
-   * value `clock_rate` provided to the configure API. This function can be
+   * The clock rate reported here is the exact rate, and is less than or equal
+   * to the value `clock_rate` provided to the configure API, since
+   * `configure()` rejects rates the bus can't go down to. This function can be
    * called by the program to determine the delta between the requested
    * frequency passed to `configure()` and the actual clock frequency the bus
    * will be set to.
    *
-   * @return u32 - the approximate clock rate of this spi channel when
+   * @return hertz - the clock rate of this spi channel when
    * `chip_select(true)` is called.
    */
   [[nodiscard]] hertz clock_rate()
@@ -484,7 +493,9 @@ public:
    * @param p_settings - settings applied to the bus whenever this channel
    * selects its device
    * @return channel - the channel, which can't be copied or moved
-   * @throws hal::operation_not_supported - if the bus can't use `p_settings`
+   * @throws hal::operation_not_supported - if the bus can't run as slowly as
+   * `p_settings.clock_rate`. A mode the bus can't use is reported when the
+   * channel selects its device.
    */
   [[nodiscard]] channel acquire_channel(hal::ref<output_pin> p_chip_select
                                         [[clang::lifetimebound]],
@@ -503,6 +514,7 @@ protected:
 private:
   void select(channel& p_channel);
   void deselect(channel& p_channel);
+  void reject_too_slow(spi_settings const& p_settings);
 
   hal::ref<raw_spi_bus> m_bus;
   basic_lock* m_lock = nullptr;
@@ -545,8 +557,7 @@ private:
 
   void driver_configure(spi_settings const& p_settings) override
   {
-    // Rejects settings the bus can't use before storing them.
-    static_cast<void>(m_manager->m_bus->clock_rate(p_settings));
+    m_manager->reject_too_slow(p_settings);
     m_settings = p_settings;
   }
 
@@ -595,9 +606,18 @@ inline spi_bus_manager_base::channel spi_bus_manager_base::acquire_channel(
   hal::ref<output_pin> p_chip_select,
   spi_settings const& p_settings)
 {
-  // Rejects settings the bus can't use before touching the pin.
-  static_cast<void>(m_bus->clock_rate(p_settings));
+  // Before touching the pin.
+  reject_too_slow(p_settings);
   return { *this, *p_chip_select, p_settings };
+}
+
+inline void spi_bus_manager_base::reject_too_slow(
+  spi_settings const& p_settings)
+{
+  // The bus would run the device faster than it asked for.
+  if (m_bus->clock_rate(p_settings) > p_settings.clock_rate) {
+    throw hal::operation_not_supported(this);
+  }
 }
 
 inline void spi_bus_manager_base::select(channel& p_channel)

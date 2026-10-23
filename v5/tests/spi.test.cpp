@@ -287,21 +287,30 @@ class fake_bus final : public hal::raw_spi_bus
 public:
   std::vector<hal::spi_settings> configured{};
   hal::usize transfer_count = 0;
+  hal::hertz min_rate = 1 * kHz;
   hal::hertz max_rate = 10 * MHz;
   bool throw_on_transfer = false;
 
 private:
+  // Like real hardware: it can't do mode 3, and finds out when configured.
   void driver_configure(hal::spi_settings const& p_settings) override
-  {
-    configured.push_back(p_settings);
-  }
-
-  hal::hertz driver_clock_rate(hal::spi_settings const& p_settings) override
   {
     if (p_settings.bus_mode == hal::spi_mode::m3) {
       throw hal::operation_not_supported(this);
     }
-    return p_settings.clock_rate < max_rate ? p_settings.clock_rate : max_rate;
+    configured.push_back(p_settings);
+  }
+
+  // Clamps to the range it can do, and never throws.
+  hal::hertz driver_clock_rate(hal::spi_settings const& p_settings) override
+  {
+    if (p_settings.clock_rate > max_rate) {
+      return max_rate;
+    }
+    if (p_settings.clock_rate < min_rate) {
+      return min_rate;
+    }
+    return p_settings.clock_rate;
   }
 
   void driver_transfer(mem::scatter_span<hal::byte const>,
@@ -539,7 +548,7 @@ void spi_bus_manager_test()
     expect(not imu_select.high);
   };
 
-  "settings the bus can't use are rejected up front"_test = []() {
+  "a rate slower than the bus can go is rejected up front"_test = []() {
     // Setup
     fake_bus bus;
     fake_pin chip_select;
@@ -548,15 +557,36 @@ void spi_bus_manager_test()
 
     // Exercise + Verify
     expect(throws<hal::operation_not_supported>(
-      [&]() { channel.configure({ .bus_mode = hal::spi_mode::m3 }); }));
+      [&]() { channel.configure({ .clock_rate = 10 * hal::hertz::unit }); }));
     expect(throws<hal::operation_not_supported>([&]() {
       static_cast<void>(manager.acquire_channel(
-        chip_select, { .bus_mode = hal::spi_mode::m3 }));
+        chip_select, { .clock_rate = 10 * hal::hertz::unit }));
     }));
     // The rejected settings weren't kept
     channel.chip_select(true);
     expect(that % 1 == bus.configured.size());
-    expect(hal::spi_mode::m0 == bus.configured.front().bus_mode);
+    expect((100 * kHz) == bus.configured.front().clock_rate);
+  };
+
+  "a mode the bus can't use is reported when selecting"_test = []() {
+    // Setup
+    fake_bus bus;
+    fake_pin chip_select;
+    fake_lock lock;
+    hal::spi_bus_manager manager(bus, lock);
+    auto channel =
+      manager.acquire_channel(chip_select, { .bus_mode = hal::spi_mode::m3 });
+
+    // Exercise
+    expect(throws<hal::operation_not_supported>(
+      [&]() { channel.chip_select(true); }));
+
+    // Verify: the device stayed deselected and the bus is free again
+    expect(chip_select.high);
+    expect(not lock.locked);
+    channel.configure({});
+    channel.chip_select(true);
+    expect(not chip_select.high);
   };
 
   "clock_rate() reports what the bus would run at"_test = []() {
@@ -570,6 +600,18 @@ void spi_bus_manager_test()
     // Exercise + Verify
     expect((10 * MHz) == channel.clock_rate());
     expect(bus.configured.empty());
+  };
+
+  "the bus reports the nearest rate it can do, without throwing"_test = []() {
+    // Setup
+    fake_bus bus;
+    hal::raw_spi_bus& raw = bus;
+
+    // Exercise + Verify
+    expect((10 * MHz) == raw.clock_rate({ .clock_rate = 100 * MHz }));
+    expect((1 * kHz) == raw.clock_rate({ .clock_rate = 1 * hal::hertz::unit }));
+    expect((1 * kHz) == raw.clock_rate({ .clock_rate = 0 * hal::hertz::unit }));
+    expect((2 * MHz) == raw.clock_rate({ .clock_rate = 2 * MHz }));
   };
 
   "with a lock, selecting holds the lock until deselecting"_test = []() {
