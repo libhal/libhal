@@ -638,15 +638,8 @@ inline spi_bus_manager_base::channel spi_bus_manager_base::acquire_channel(
 inline void spi_bus_manager_base::reject_too_slow(
   spi_settings const& p_settings)
 {
-  // Compares counts, not quantities. Comparing two hertz quantities
-  // instantiates an mp-units function with a lambda in it. LLVM 23's LTO
-  // rejects that lambda's debug info when a program that also compares hertz
-  // links with this module ("invalid retained nodes"), and ld.lld aborts.
-  auto const actual =
-    m_bus->clock_rate(p_settings).numerical_value_in(hertz::unit);
-  auto const requested = p_settings.clock_rate.numerical_value_in(hertz::unit);
   // The bus would run the device faster than it asked for.
-  if (actual > requested) {
+  if (m_bus->clock_rate(p_settings) > p_settings.clock_rate) {
     throw hal::operation_not_supported(this);
   }
 }
