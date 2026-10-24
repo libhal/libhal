@@ -14,6 +14,8 @@
 
 module;
 
+#include <array>
+#include <concepts>
 #include <cstddef>
 #include <exception>
 #include <memory>
@@ -44,6 +46,10 @@ import :error;
  *                     acquire_*() result, without moving it; returns its owner
  *
  *  no_bare_new_mixin  opt-in mixin that blocks `new T` / make_unique
+ *
+ * Static storage:
+ *  no_destroy<T>      holds a static T that is never destroyed, so no
+ *                     destructor is registered to run at exit
  */
 
 namespace hal::inline v5 {
@@ -100,6 +106,128 @@ protected:
 };
 
 // ---------------------------------------------------------------------------
+// no_destroy
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Satisfied when calling `Factory` returns exactly a `T`
+ *
+ * @tparam Factory - the callable
+ * @tparam T - the type it must return
+ */
+template<class Factory, class T>
+concept factory_of =
+  std::invocable<Factory&> && std::same_as<std::invoke_result_t<Factory&>, T>;
+
+/**
+ * @brief Holds a static object that is never destroyed
+ *
+ * A bare-metal program never exits, so the destructors of its static objects
+ * never run. Declaring a static object whose destructor isn't trivial still
+ * makes the compiler register that destructor to run at exit, which links in
+ * `__cxa_atexit`, the C library's exit table, and the destructor's code. A
+ * `no_destroy<T>` has a trivial destructor, so nothing is registered: the T
+ * inside is built once and never destroyed.
+ *
+ * Use it only for objects with static storage. A `no_destroy` with automatic
+ * storage leaks its T when it goes out of scope.
+ *
+ * With Clang, `-fno-c++-static-destructors` does this for every static
+ * object, and libhal's llvm-toolchain adds it for bare-metal targets.
+ * `no_destroy` is for code that also builds with GCC.
+ *
+ * Build the T from constructor arguments, or from a factory, which also works
+ * for types that can't be moved. A `static_ref` can refer to the held object.
+ *
+ * ```cpp
+ * hal::static_ref<hal::output_pin> status_led()
+ * {
+ *   static hal::no_destroy<hal::stm32f1::output_pin> led(
+ *     hal::stm32f1::pin{ .port = 'C', .pin = 13 });
+ *   return led;
+ * }
+ *
+ * hal::static_ref<hal::spi_channel> flash()
+ * {
+ *   // The factory's return type gives the held type.
+ *   static hal::no_destroy channel(
+ *     [] { return spi_manager().acquire_channel(flash_select()); });
+ *   return channel;
+ * }
+ * ```
+ *
+ * @tparam T - the held type
+ */
+export template<class T>
+class no_destroy
+{
+public:
+  /**
+   * @brief Build the T from constructor arguments
+   *
+   * @param p_args - arguments for T's constructor
+   */
+  template<class... Args>
+    requires std::constructible_from<T, Args...> &&
+             (not(sizeof...(Args) == 1 && (factory_of<Args, T> && ...)))
+  explicit no_destroy(Args&&... p_args)
+  {
+    ::new (static_cast<void*>(m_storage.data()))
+      T(std::forward<Args>(p_args)...);
+  }
+
+  /**
+   * @brief Build the T in place from what a factory returns
+   *
+   * The T is never moved, so it can be a type that can't be moved, such as a
+   * resource returned by a manager's `acquire_*()`.
+   *
+   * @param p_factory - called once, returning the T
+   */
+  template<factory_of<T> Factory>
+  explicit no_destroy(Factory p_factory [[clang::lifetimebound]])
+  {
+    ::new (static_cast<void*>(m_storage.data())) T(p_factory());
+  }
+
+  no_destroy(no_destroy const&) = delete;
+  no_destroy& operator=(no_destroy const&) = delete;
+  no_destroy(no_destroy&&) = delete;
+  no_destroy& operator=(no_destroy&&) = delete;
+  /// Doesn't destroy the T
+  ~no_destroy() = default;
+
+  /// @return T& - the held object
+  [[nodiscard]] T& get() noexcept [[clang::lifetimebound]]
+  {
+    return *std::launder(reinterpret_cast<T*>(m_storage.data()));
+  }
+  /// @return T const& - the held object
+  [[nodiscard]] T const& get() const noexcept [[clang::lifetimebound]]
+  {
+    return *std::launder(reinterpret_cast<T const*>(m_storage.data()));
+  }
+  /// @return T& - the held object
+  [[nodiscard]] T& operator*() noexcept [[clang::lifetimebound]]
+  {
+    return get();
+  }
+  /// @return T* - the held object
+  [[nodiscard]] T* operator->() noexcept [[clang::lifetimebound]]
+  {
+    return &get();
+  }
+
+private:
+  alignas(T) std::array<std::byte, sizeof(T)> m_storage;
+};
+
+/// A factory: the held type is what the factory returns.
+export template<class Factory>
+  requires std::invocable<Factory&>
+no_destroy(Factory) -> no_destroy<std::invoke_result_t<Factory&>>;
+
+// ---------------------------------------------------------------------------
 // static_ref
 // ---------------------------------------------------------------------------
 
@@ -131,6 +259,24 @@ public:
   }
 
   static_ref(T&&) = delete;
+
+  /**
+   * @brief Reference the object a static `hal::no_destroy` holds
+   *
+   * This can't be consteval like the constructor above, since the object
+   * inside a `no_destroy` can't be reached in a constant expression. Instead,
+   * `[[clang::lifetimebound]]` ties the result to `p_holder`, so Clang reports
+   * one returned from a function whose `no_destroy` isn't static. Keep
+   * `no_destroy` to static storage, as its documentation says.
+   *
+   * @param p_holder - `no_destroy` with static storage duration holding a type
+   * convertible to T
+   */
+  template<pointer_convertible_to<T> U>
+  static_ref(no_destroy<U>& p_holder [[clang::lifetimebound]]) noexcept
+    : m_ptr(&p_holder.get())
+  {
+  }
 
   /**
    * @brief Convert from a static_ref of a derived type

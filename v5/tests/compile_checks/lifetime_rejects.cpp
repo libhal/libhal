@@ -185,3 +185,20 @@ int make_owner_from_unrelated_target()
                                        [] { return fake_i2c{ 1 }; });
   return bus->acceleration();
 }
+
+// no_destroy can't be copied or moved, so its object stays where it was built.
+void copy_no_destroy()
+{
+  static hal::no_destroy<fake_i2c> bus(1);
+  // expected-error@+1 {{call to deleted constructor}}
+  auto copy = bus;
+}
+
+// Returning a no_destroy that isn't static: C++23 treats the returned local
+// as an rvalue, and static_ref only binds a no_destroy lvalue.
+hal::static_ref<fake_i2c> return_local_no_destroy()
+{
+  hal::no_destroy<fake_i2c> local(1);  // forgot static
+  // expected-error@+1 {{no viable conversion}}
+  return local;
+}
