@@ -27,7 +27,9 @@ namespace hal::inline v5 {
  * Implemented by whatever runs more than one context, such as an RTOS, a
  * fiber scheduler, or a host OS, so that drivers and utilities can serialize
  * access to shared hardware without depending on any one of them. Works with
- * `std::scoped_lock` and `std::unique_lock`.
+ * `std::lock_guard` and `std::unique_lock`. `std::scoped_lock` works too
+ * where the standard library has it, but libc++ built without thread
+ * support, as on bare-metal targets, leaves it out.
  *
  * A program with a single context passes a `hal::no_op_lock` where an API
  * asks for one.
