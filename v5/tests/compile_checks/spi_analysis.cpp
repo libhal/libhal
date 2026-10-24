@@ -16,10 +16,15 @@
 
 #include "fixtures.hpp"
 
+namespace {
+// Static, so it can't be what the checks below report.
+hal::no_op_lock single_context;
+}  // namespace
+
 hal::spi_bus_manager<>::channel channel_outlives_manager(fake_spi_bus& p_bus,
                                                          fake_output_pin& p_pin)
 {
-  hal::spi_bus_manager local(p_bus);
+  hal::spi_bus_manager local(p_bus, single_context);
   // Only Clang's returned-stack-address warning reports this one. The lifetime
   // safety analysis doesn't follow the call through the conversion to the
   // manager's base class, where acquire_channel() is declared.
@@ -40,7 +45,7 @@ hal::spi_bus_manager<> const* static_manager_on_local_bus()
 {
   fake_spi_bus bus;  // forgot static
   // expected-error@+1 {{which will dangle}}
-  static hal::spi_bus_manager manager(bus);
+  static hal::spi_bus_manager manager(bus, single_context);
   return &manager;
 }
 
@@ -48,7 +53,8 @@ hal::spi_bus_manager<> const* static_manager_on_local_bus()
 // fine: nothing here may warn.
 hal::spi_bus_manager<fake_spi_bus>& static_owning_manager()
 {
-  static hal::spi_bus_manager manager([] { return fake_spi_bus{}; });
+  static hal::spi_bus_manager manager([] { return fake_spi_bus{}; },
+                                      single_context);
   return manager;
 }
 
@@ -56,10 +62,13 @@ hal::spi_bus_manager<fake_spi_bus>& static_owning_manager()
 hal::spi_bus_manager<fake_spi_bus> const* static_owning_manager_on_local()
 {
   int local = 0;  // stands in for anything the bus would borrow
-  // expected-error@+1 {{which will dangle}}
-  static hal::spi_bus_manager manager([&local] {
-    static_cast<void>(local);
-    return fake_spi_bus{};
-  });
+  // Reported at the capture.
+  // expected-error@+2 {{which will dangle}}
+  static hal::spi_bus_manager manager(
+    [&local] {
+      static_cast<void>(local);
+      return fake_spi_bus{};
+    },
+    single_context);
   return &manager;
 }

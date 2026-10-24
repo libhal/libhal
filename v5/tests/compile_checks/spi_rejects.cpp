@@ -17,10 +17,17 @@
 #include "fixtures.hpp"
 
 // The bus must outlive the manager.
-void manager_on_temporary_bus()
+void manager_on_temporary_bus(hal::basic_lock& p_lock)
 {
   // expected-error@+1 {{invokes a deleted function}}
-  hal::spi_bus_manager manager(fake_spi_bus{});
+  hal::spi_bus_manager manager(fake_spi_bus{}, p_lock);
+}
+
+// So must the lock.
+void manager_on_temporary_lock(fake_spi_bus& p_bus)
+{
+  // expected-error@+1 {{invokes a deleted function}}
+  hal::spi_bus_manager manager(p_bus, hal::no_op_lock{});
 }
 
 // The chip select pin must outlive the channel.
@@ -50,5 +57,6 @@ void construct_channel_directly(hal::spi_bus_manager<>& p_manager,
 void factory_returns_something_else()
 {
   // expected-error@*:* {{The bus type must implement hal::raw_spi_bus}}
-  hal::spi_bus_manager manager([] { return 5; });
+  hal::no_op_lock lock;
+  hal::spi_bus_manager manager([] { return 5; }, lock);
 }

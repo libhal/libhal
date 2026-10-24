@@ -352,6 +352,7 @@ class fake_lock final : public hal::basic_lock
 public:
   bool locked = false;
   hal::usize lock_count = 0;
+  hal::usize unlock_count = 0;
 
 private:
   void driver_lock() override
@@ -363,8 +364,12 @@ private:
   void driver_unlock() override
   {
     locked = false;
+    unlock_count++;
   }
 };
+
+// No state, so every single-context test shares one.
+hal::no_op_lock single_context;
 
 // A bus that can't be copied or moved, like a platform's, and reports to a
 // log that outlives it, since an owning manager keeps the bus out of reach.
@@ -409,7 +414,7 @@ void spi_bus_manager_test()
     // Setup
     fake_bus bus;
     fake_pin chip_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
 
     // Exercise
     auto channel = manager.acquire_channel(chip_select);
@@ -424,7 +429,7 @@ void spi_bus_manager_test()
       // Setup
       fake_bus bus;
       fake_pin chip_select;
-      hal::spi_bus_manager manager(bus);
+      hal::spi_bus_manager manager(bus, single_context);
       hal::spi_settings const settings{ .clock_rate = 1 * MHz,
                                         .bus_mode = hal::spi_mode::m1 };
       auto channel = manager.acquire_channel(chip_select, settings);
@@ -446,7 +451,7 @@ void spi_bus_manager_test()
     fake_bus bus;
     fake_pin flash_select;
     fake_pin imu_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto flash =
       manager.acquire_channel(flash_select, { .clock_rate = 4 * MHz });
     auto imu = manager.acquire_channel(imu_select, { .clock_rate = 1 * MHz });
@@ -469,7 +474,7 @@ void spi_bus_manager_test()
     fake_bus bus;
     fake_pin flash_select;
     fake_pin imu_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto flash = manager.acquire_channel(flash_select);
     auto imu = manager.acquire_channel(imu_select);
     flash.chip_select(true);
@@ -494,7 +499,7 @@ void spi_bus_manager_test()
     // Setup
     fake_bus bus;
     fake_pin chip_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto channel = manager.acquire_channel(chip_select);
     channel.chip_select(true);
 
@@ -511,7 +516,7 @@ void spi_bus_manager_test()
       // Setup
       fake_bus bus;
       fake_pin chip_select;
-      hal::spi_bus_manager manager(bus);
+      hal::spi_bus_manager manager(bus, single_context);
       auto channel = manager.acquire_channel(chip_select);
       std::array<hal::byte, 1> data{};
       bus.throw_on_transfer = true;
@@ -533,7 +538,7 @@ void spi_bus_manager_test()
     fake_bus bus;
     fake_pin flash_select;
     fake_pin imu_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto imu = manager.acquire_channel(imu_select);
 
     // Exercise
@@ -552,7 +557,7 @@ void spi_bus_manager_test()
     // Setup
     fake_bus bus;
     fake_pin chip_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto channel = manager.acquire_channel(chip_select);
 
     // Exercise + Verify
@@ -593,7 +598,7 @@ void spi_bus_manager_test()
     // Setup
     fake_bus bus;
     fake_pin chip_select;
-    hal::spi_bus_manager manager(bus);
+    hal::spi_bus_manager manager(bus, single_context);
     auto channel =
       manager.acquire_channel(chip_select, { .clock_rate = 20 * MHz });
 
@@ -635,6 +640,31 @@ void spi_bus_manager_test()
     expect(that % 1 == lock.lock_count);
   };
 
+  "a lock that lets one context in twice still can't select two devices"_test =
+    []() {
+      // Setup
+      // fake_lock never blocks, like hal::no_op_lock or a recursive mutex.
+      fake_bus bus;
+      fake_pin flash_select;
+      fake_pin imu_select;
+      fake_lock lock;
+      hal::spi_bus_manager manager(bus, lock);
+      auto flash = manager.acquire_channel(flash_select);
+      auto imu = manager.acquire_channel(imu_select);
+      flash.chip_select(true);
+
+      // Exercise
+      expect(
+        throws<hal::device_or_resource_busy>([&]() { imu.chip_select(true); }));
+
+      // Verify
+      // The failed select gave back what it took, and flash keeps the bus.
+      expect(that % 2 == lock.lock_count);
+      expect(that % 1 == lock.unlock_count);
+      expect(imu_select.high);
+      expect(not flash_select.high);
+    };
+
   "with a lock, a failed select releases the lock"_test = []() {
     // Setup
     fake_bus bus;
@@ -656,7 +686,8 @@ void spi_bus_manager_test()
     // Setup
     std::vector<hal::spi_settings> log;
     fake_pin chip_select;
-    hal::spi_bus_manager manager([&log] { return pinned_bus(log); });
+    hal::spi_bus_manager manager([&log] { return pinned_bus(log); },
+                                 single_context);
     static_assert(
       std::is_same_v<decltype(manager), hal::spi_bus_manager<pinned_bus>>);
     auto channel =
@@ -694,8 +725,9 @@ void spi_bus_manager_test()
     // Setup
     std::vector<hal::spi_settings> log;
     fake_bus bus;
-    hal::spi_bus_manager referring(bus);
-    hal::spi_bus_manager owning([&log] { return pinned_bus(log); });
+    hal::spi_bus_manager referring(bus, single_context);
+    hal::spi_bus_manager owning([&log] { return pinned_bus(log); },
+                                single_context);
 
     // Verify
     static_assert(std::is_same_v<decltype(referring), hal::spi_bus_manager<>>);

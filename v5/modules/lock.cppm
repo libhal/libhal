@@ -29,7 +29,8 @@ namespace hal::inline v5 {
  * access to shared hardware without depending on any one of them. Works with
  * `std::scoped_lock` and `std::unique_lock`.
  *
- * A program with a single context doesn't need one.
+ * A program with a single context passes a `hal::no_op_lock` where an API
+ * asks for one.
  */
 export class basic_lock
 {
@@ -122,6 +123,41 @@ protected:
 
 private:
   virtual bool driver_try_lock_for(time_duration p_duration) = 0;
+};
+
+/**
+ * @brief A lock that doesn't lock, for code that runs in one context
+ *
+ * Every operation returns at once, and `try_lock()` and `try_lock_for()`
+ * always succeed. Pass it to an API that takes a lock when everything that
+ * uses the locked resource runs in one context: one thread, with no
+ * interrupt or other thread touching that resource.
+ *
+ * It provides no mutual exclusion. Shared between threads, or between a
+ * thread and an interrupt, it lets both use the resource at the same time.
+ *
+ * It has no state, so one can serve any number of resources.
+ */
+export class no_op_lock final : public timed_lock
+{
+private:
+  void driver_lock() override
+  {
+  }
+
+  void driver_unlock() override
+  {
+  }
+
+  bool driver_try_lock() override
+  {
+    return true;
+  }
+
+  bool driver_try_lock_for(time_duration) override
+  {
+    return true;
+  }
 };
 
 /**

@@ -525,7 +525,7 @@ public:
     [[clang::lifetimebound]];
 
 protected:
-  spi_bus_manager_base(raw_spi_bus& p_bus, basic_lock* p_lock)
+  spi_bus_manager_base(raw_spi_bus& p_bus, basic_lock& p_lock)
     : m_bus(p_bus)
     , m_lock(p_lock)
   {
@@ -539,7 +539,7 @@ private:
   void reject_too_slow(spi_settings const& p_settings);
 
   hal::ref<raw_spi_bus> m_bus;
-  basic_lock* m_lock = nullptr;
+  hal::ref<basic_lock> m_lock;
   /// The channel whose device is selected, if any
   channel* m_selected = nullptr;
 };
@@ -648,32 +648,33 @@ inline void spi_bus_manager_base::select(channel& p_channel)
     return;
   }
 
-  if (m_lock != nullptr) {
-    // Waits while another context has a device selected.
-    m_lock->lock();
-  } else if (m_selected != nullptr) {
-    // Another device is still selected. Selecting this one too would put two
-    // devices on the bus.
-    throw hal::device_or_resource_busy(this);
-  }
+  // Waits while another context has a device selected.
+  m_lock->lock();
 
-  // Releases the lock if configuring the bus or the chip select throws.
+  // Releases the lock unless the device ends up selected.
   struct unlock_on_throw
   {
     basic_lock* lock;
-    bool armed = true;
     ~unlock_on_throw()
     {
-      if (armed && lock != nullptr) {
+      if (lock != nullptr) {
         lock->unlock();
       }
     }
-  } guard{ .lock = m_lock };
+  } guard{ .lock = &*m_lock };
+
+  if (m_selected != nullptr) {
+    // A lock that blocks keeps other contexts out while a device is selected,
+    // so this is one context selecting a second device. A lock that doesn't
+    // block, such as hal::no_op_lock, lets it through. Selecting this one too
+    // would put two devices on the bus.
+    throw hal::device_or_resource_busy(this);
+  }
 
   m_bus->configure(p_channel.m_settings);
   // Chip select is active low.
   p_channel.m_chip_select->level(false);
-  guard.armed = false;
+  guard.lock = nullptr;
   m_selected = &p_channel;
 }
 
@@ -684,9 +685,7 @@ inline void spi_bus_manager_base::deselect(channel& p_channel)
   }
   p_channel.m_chip_select->level(true);
   m_selected = nullptr;
-  if (m_lock != nullptr) {
-    m_lock->unlock();
-  }
+  m_lock->unlock();
 }
 /// Holds the bus of a `hal::spi_bus_manager` that owns it. It is a separate
 /// base, listed first, so the bus is fully constructed before
@@ -719,29 +718,35 @@ class spi_bus_storage<raw_spi_bus>
  * becomes channels for device drivers, without each platform implementing
  * channels itself.
  *
- * Only one channel may have its device selected at a time:
+ * Only one channel may have its device selected at a time. Every manager
+ * takes a `hal::basic_lock`: selecting takes it and deselecting releases it.
  *
- * - Without a lock, the manager is for one context. A channel that selects
- *   while another channel has its device selected throws
- *   `hal::device_or_resource_busy`, instead of putting two devices on the bus.
- * - With a `hal::basic_lock`, channels can be used from different contexts
- *   (threads, fibers). Selecting takes the lock and deselecting releases it,
- *   so a second context waits for the bus. One context selecting two channels
- *   at once deadlocks on the lock, so don't.
+ * - With a lock that blocks, such as an RTOS mutex, channels can be used from
+ *   different contexts (threads, fibers). A second context waits for the bus.
+ *   One context selecting two channels at once deadlocks on the lock, so
+ *   don't.
+ * - If every channel is used from one context, pass a `hal::no_op_lock`. A
+ *   channel that selects while another channel has its device selected then
+ *   throws `hal::device_or_resource_busy`, instead of putting two devices on
+ *   the bus. A `hal::no_op_lock` doesn't stop two contexts from using the bus
+ *   at once.
  *
  * The manager either owns its bus or refers to one that lives elsewhere.
  * Owning it is safer: built from a factory, the bus exists only inside the
  * manager, so nothing else can use it behind the manager's back.
  *
  * ```cpp
+ * // Every channel below is used from one thread.
+ * static hal::no_op_lock single_context;
+ *
  * // Owns the bus. The factory's return type is the bus type.
- * static hal::spi_bus_manager spi1([] {
- *   return hal::stm32f1::spi(hal::stm32f1::peripheral::spi1);
- * });
+ * static hal::spi_bus_manager spi1(
+ *   [] { return hal::stm32f1::spi(hal::stm32f1::peripheral::spi1); },
+ *   single_context);
  *
  * // Refers to a bus that lives elsewhere. Nothing else may use it.
  * static hal::stm32f1::spi bus2(hal::stm32f1::peripheral::spi2);
- * static hal::spi_bus_manager spi2(bus2);
+ * static hal::spi_bus_manager spi2(bus2, single_context);
  *
  * static auto flash = spi1.acquire_channel(flash_chip_select);
  * static auto imu = spi1.acquire_channel(imu_chip_select, imu_settings);
@@ -766,50 +771,26 @@ public:
                 "The bus type must implement hal::raw_spi_bus");
 
   /**
-   * @brief Manage a bus that lives elsewhere, used from a single context
+   * @brief Manage a bus that lives elsewhere
    *
    * @param p_bus - the bus to share between devices
-   */
-  explicit spi_bus_manager(hal::ref<raw_spi_bus> p_bus [[clang::lifetimebound]])
-    requires std::same_as<Bus, raw_spi_bus>
-    : spi_bus_manager_base(*p_bus, nullptr)
-  {
-  }
-
-  /**
-   * @brief Manage a bus that lives elsewhere, shared between contexts
-   *
-   * @param p_bus - the bus to share between devices
-   * @param p_lock - lock held from selecting a device until deselecting it
+   * @param p_lock - lock held from selecting a device until deselecting it.
+   * Use `hal::no_op_lock` if every channel is used from one context.
    */
   spi_bus_manager(hal::ref<raw_spi_bus> p_bus [[clang::lifetimebound]],
                   hal::ref<basic_lock> p_lock [[clang::lifetimebound]])
     requires std::same_as<Bus, raw_spi_bus>
-    : spi_bus_manager_base(*p_bus, &*p_lock)
+    : spi_bus_manager_base(*p_bus, *p_lock)
   {
   }
 
   /**
-   * @brief Build the bus inside the manager, used from a single context
+   * @brief Build the bus inside the manager
    *
    * @param p_factory - called once to build the bus in place. The bus can be
    * non-movable.
-   */
-  template<class Factory>
-    requires(not std::same_as<Bus, raw_spi_bus> &&
-             std::same_as<std::invoke_result_t<Factory&>, Bus>)
-  explicit spi_bus_manager(Factory p_factory [[clang::lifetimebound]])
-    : spi_bus_storage<Bus>(p_factory)
-    , spi_bus_manager_base(spi_bus_storage<Bus>::m_bus, nullptr)
-  {
-  }
-
-  /**
-   * @brief Build the bus inside the manager, shared between contexts
-   *
-   * @param p_factory - called once to build the bus in place. The bus can be
-   * non-movable.
-   * @param p_lock - lock held from selecting a device until deselecting it
+   * @param p_lock - lock held from selecting a device until deselecting it.
+   * Use `hal::no_op_lock` if every channel is used from one context.
    */
   template<class Factory>
     requires(not std::same_as<Bus, raw_spi_bus> &&
@@ -817,7 +798,7 @@ public:
   spi_bus_manager(Factory p_factory [[clang::lifetimebound]],
                   hal::ref<basic_lock> p_lock [[clang::lifetimebound]])
     : spi_bus_storage<Bus>(p_factory)
-    , spi_bus_manager_base(spi_bus_storage<Bus>::m_bus, &*p_lock)
+    , spi_bus_manager_base(spi_bus_storage<Bus>::m_bus, *p_lock)
   {
   }
 
@@ -828,17 +809,9 @@ public:
   ~spi_bus_manager() = default;
 };
 
-/// A bus object: the manager refers to it.
-export spi_bus_manager(raw_spi_bus&) -> spi_bus_manager<raw_spi_bus>;
-
 /// A bus object and a lock: the manager refers to the bus.
 export spi_bus_manager(raw_spi_bus&, basic_lock&)
   -> spi_bus_manager<raw_spi_bus>;
-
-/// A factory: the manager owns the bus the factory returns.
-export template<class Factory>
-  requires std::invocable<Factory&>
-spi_bus_manager(Factory) -> spi_bus_manager<std::invoke_result_t<Factory&>>;
 
 /// A factory and a lock: the manager owns the bus the factory returns.
 export template<class Factory>
