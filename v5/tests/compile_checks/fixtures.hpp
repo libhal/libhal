@@ -211,3 +211,37 @@ struct counter final : hal::edge_triggered_callback
   {
   }
 };
+
+// ---- hal:spi ---------------------------------------------------------------
+
+struct fake_spi_bus final : hal::raw_spi_bus
+{
+private:
+  void driver_configure(hal::spi_settings const&) override
+  {
+  }
+  hal::hertz driver_clock_rate(hal::spi_settings const& p_settings) override
+  {
+    return p_settings.clock_rate;
+  }
+  void driver_transfer(mem::scatter_span<hal::byte const>,
+                       mem::scatter_span<hal::byte>,
+                       hal::byte) override
+  {
+  }
+};
+
+struct fake_output_pin final : hal::output_pin
+{
+private:
+  void driver_configure(hal::pin_settings const&) override
+  {
+  }
+  bool driver_level() override
+  {
+    return true;
+  }
+  void driver_level(bool) override
+  {
+  }
+};

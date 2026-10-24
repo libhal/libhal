@@ -63,6 +63,7 @@ static_assert(hal::lockable<std::mutex>);
 static_assert(hal::timed_lockable<std::timed_mutex>);
 static_assert(not hal::timed_lockable<std::mutex>);
 static_assert(hal::timed_lockable<fake_lock>);
+static_assert(hal::timed_lockable<hal::no_op_lock>);
 
 void lock_test()
 {
@@ -129,6 +130,25 @@ void lock_test()
     // Verify
     expect(acquired);
     expect(lock.last_duration == hal::time_duration(5ms));
+  };
+
+  "a no-op lock never blocks and always succeeds"_test = []() {
+    // Setup
+    hal::no_op_lock lock;
+    hal::timed_lock& timed = lock;
+
+    // Exercise
+    timed.lock();
+    // Taking it again doesn't block, since it doesn't lock.
+    timed.lock();
+    timed.unlock();
+    timed.unlock();
+    bool const tried = timed.try_lock();
+    bool const tried_for = timed.try_lock_for(5ms);
+
+    // Verify
+    expect(tried);
+    expect(tried_for);
   };
 }
 }  // namespace

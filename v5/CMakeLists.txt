@@ -82,4 +82,6 @@ libhal_add_compile_checks(libhal
         tests/compile_checks/lifetime_analysis.cpp
         tests/compile_checks/subscription_rejects.cpp
         tests/compile_checks/subscription_analysis.cpp
+        tests/compile_checks/spi_rejects.cpp
+        tests/compile_checks/spi_analysis.cpp
 )
