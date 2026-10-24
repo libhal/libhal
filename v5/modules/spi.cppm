@@ -15,6 +15,8 @@
 module;
 
 #include <concepts>
+#include <mutex>
+#include <tuple>
 #include <type_traits>
 
 export module hal:spi;
@@ -648,20 +650,9 @@ inline void spi_bus_manager_base::select(channel& p_channel)
     return;
   }
 
-  // Waits while another context has a device selected.
-  m_lock->lock();
-
-  // Releases the lock unless the device ends up selected.
-  struct unlock_on_throw
-  {
-    basic_lock* lock;
-    ~unlock_on_throw()
-    {
-      if (lock != nullptr) {
-        lock->unlock();
-      }
-    }
-  } guard{ .lock = &*m_lock };
+  // Waits while another context has a device selected. Releases the lock if
+  // anything below throws.
+  std::unique_lock guard(*m_lock);
 
   if (m_selected != nullptr) {
     // A lock that blocks keeps other contexts out while a device is selected,
@@ -674,8 +665,9 @@ inline void spi_bus_manager_base::select(channel& p_channel)
   m_bus->configure(p_channel.m_settings);
   // Chip select is active low.
   p_channel.m_chip_select->level(false);
-  guard.lock = nullptr;
   m_selected = &p_channel;
+  // The device is selected, so the lock stays held until deselect().
+  std::ignore = guard.release();
 }
 
 inline void spi_bus_manager_base::deselect(channel& p_channel)
