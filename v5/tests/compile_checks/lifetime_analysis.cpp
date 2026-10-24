@@ -175,3 +175,13 @@ imu_stack imu_stack_moved_out()
                                                 [&] { return fake_imu(bus); });
   return { .bus = std::move(bus), .device = std::move(device) };
 }
+
+// static_ref from a no_destroy is checked by lifetimebound, so a no_destroy
+// that isn't static is caught when a static_ref to it is returned.
+hal::static_ref<fake_i2c> static_ref_from_local_no_destroy()
+{
+  hal::no_destroy<fake_i2c> local(1);  // forgot static
+  // expected-error@+1 {{is returned}}
+  hal::static_ref<fake_i2c> ref = local;
+  return ref;
+}
