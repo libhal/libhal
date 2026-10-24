@@ -123,7 +123,58 @@ export struct spi_settings
  * bus: it selects one device at a time and applies each channel's settings
  * when it selects it.
  *
- * Like `hal::spi_channel`, words are 8 bits and are sent MSB first.
+ * Platforms implement this interface, not `hal::spi_channel`. The manager
+ * gives device drivers channels, so the logic that keeps devices from
+ * talking over each other is written once, in one place.
+ *
+ * This interface supports the most common SPI features:
+ *
+ * 1. Word length locked to 8-bits
+ * 2. Byte transfer is always MSB first
+ *
+ * # Design Philosophy
+ *
+ * By restricting the SPI interface requirements, we ensure compatibility with
+ * nearly all devices that communicate over SPI. This approach simplifies both
+ * the requirements and the code for SPI drivers and implementations.
+ *
+ * ## 8-bit Transfers
+ *
+ * The 8-bit word length is the most common SPI word length, compatible with
+ * almost any SPI peripheral driver, SPI converter driver, and most devices.
+ * Devices that support 16-bit word transfers can split the 16-bit word into two
+ * bytes. Devices using word formats that aren't multiples of 8 bits are very
+ * rare.
+ *
+ * ## MSB First Transfers
+ *
+ * The most common bit order for SPI is MSB first. Devices that use LSB first
+ * are rare. Drivers using this SPI interface must handle bit reversal to
+ * comply with the MSB first requirement. This decision helps to eliminate
+ * rare and potentially unsupportable configurations, optimizing the interface
+ * for the majority of use cases.
+ *
+ * ## No Chip Select on the Bus
+ *
+ * Many SPI peripherals have a dedicated chip select pin that can be controlled
+ * automatically. Automatic chip select control asserts the chip select for the
+ * duration of the transfer and de-asserts it at the end, which can be
+ * problematic for drivers needing to perform multiple transfers while keeping
+ * the chip select asserted. For instance, if there are components of a payload
+ * in read-only memory that are not contiguous, the driver or application would
+ * have to copy the contents of those components to a buffer before a full
+ * transfer can occur. This requirement for a memory buffer equal to the length
+ * of the whole transaction is wasteful and can be prohibitively expensive in
+ * some applications.
+ *
+ * SD cards, for example, require the chip select to be held with a sequence of
+ * clock cycles until the SD card responds with actual data. The number of
+ * cycles can vary, so manual chip select control allows more precise and
+ * memory-efficient operations.
+ *
+ * So the bus leaves chip select to its user, and implementations should leave
+ * a peripheral's hardware chip select unused. `hal::spi_bus_manager` drives a
+ * `hal::output_pin` for each channel instead.
  */
 export class raw_spi_bus
 {
@@ -201,50 +252,25 @@ private:
  * @brief Serial peripheral interface (SPI) communication protocol hardware
  * abstraction interface for individual channels
  *
- * This interface supports the most common SPI features:
+ * A channel is one device on a bus. Device drivers take this interface. Words
+ * are 8 bits and are sent MSB first, and the device's chip select is under
+ * the driver's control; see `hal::raw_spi_bus` for why.
  *
- * 1. Word length locked to 8-bits
- * 2. Byte transfer is always MSB first
+ * # Implementing this interface
  *
- * # Design Philosophy
+ * Don't, if you can implement `hal::raw_spi_bus` instead.
+ * `hal::spi_bus_manager` turns any `hal::raw_spi_bus` into channels that
+ * meet every requirement below, so a platform with an SPI peripheral and
+ * GPIOs implements only the bus.
  *
- * By restricting the SPI interface requirements, we ensure compatibility with
- * nearly all devices that communicate over SPI. This approach simplifies both
- * the requirements and the code for SPI drivers and implementations.
+ * Implement `hal::spi_channel` directly only when you don't control chip
+ * select or bus arbitration, for example:
  *
- * ## 8-bit Transfers
- *
- * The 8-bit word length is the most common SPI word length, compatible with
- * almost any SPI peripheral driver, SPI converter driver, and most devices.
- * Devices that support 16-bit word transfers can split the 16-bit word into two
- * bytes. Devices using word formats that aren't multiples of 8 bits are very
- * rare.
- *
- * ## MSB First Transfers
- *
- * The most common bit order for SPI is MSB first. Devices that use LSB first
- * are rare. Drivers using this SPI interface must handle bit reversal to
- * comply with the MSB first requirement. This decision helps to eliminate
- * rare and potentially unsupportable configurations, optimizing the interface
- * for the majority of use cases.
- *
- * ## Manual Chip Select as Bus Access Control
- *
- * Many SPI peripherals have a dedicated chip select pin that can be controlled
- * automatically. Automatic chip select control asserts the chip
- * select for the duration of the transfer and de-asserts it at the end, which
- * can be problematic for drivers needing to perform multiple transfers while
- * keeping the chip select asserted. For instance, if there are components of a
- * payload in read-only memory that are not contiguous, the driver or
- * application would have to copy the contents of those components to a buffer
- * before a full transfer can occur. This requirement for a memory buffer equal
- * to the length of the whole transaction is wasteful and can be prohibitively
- * expensive in some applications.
- *
- * For example, like SD cards, require the chip select to be held with a
- * sequence of clock cycles until the SD card responds with actual data. The
- * number of cycles can vary, so manual chip select control allows more precise
- * and  memory-efficient operations.
+ * - An operating system SPI driver such as Linux spidev, where the kernel
+ *   owns the chip select line and shares the bus between processes.
+ * - A bridge chip whose transfer command carries the chip select, so it
+ *   can't be driven as a separate pin.
+ * - A test fake for a device driver's unit tests.
  *
  * ## Chip Select as Bus Access Control
  *
@@ -261,10 +287,6 @@ private:
  * channel can lock/acquire control over the spi bus with `chip_select(true)`
  * and releases control via `chip_select(false)`. See API documentation for more
  * details.
- *
- * `hal::spi_bus_manager` implements this contract for any `hal::raw_spi_bus`,
- * so a platform only needs to implement `hal::raw_spi_bus` to give device
- * drivers channels.
  *
  * ## Each channel remembers its configuration
  *
