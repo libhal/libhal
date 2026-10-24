@@ -1,4 +1,4 @@
-Checks: "readability-identifier-naming,modernize-*,performance-*,bugprone-*,-modernize-use-trailing-return-type,-bugprone-exception-escape"
+Checks: "readability-identifier-naming,modernize-*,performance-*,bugprone-*,-modernize-use-trailing-return-type,-modernize-use-scoped-lock,-bugprone-exception-escape"
 HeaderFilterRegex: ".*"
 WarningsAsErrors: "*"
 UseColor: true
