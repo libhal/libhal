@@ -98,7 +98,7 @@ class libhal_conan(ConanFile):
 
     def requirements(self):
         self.requires("scatter_span/0.0.0")
-        self.requires("mp-units/2.6.0@libhal",
+        self.requires("mp-units/[~2.6]@libhal",
                       options={
                           "freestanding": True,
                           "cxx_modules": True,
