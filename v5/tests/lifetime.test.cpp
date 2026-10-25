@@ -321,6 +321,17 @@ static_assert(std::is_constructible_v<hal::owner<i2c>, hal::owner<fake_i2c>&&>);
 static_assert(std::is_trivially_destructible_v<hal::reusable<int>>);
 static_assert(not std::is_trivially_destructible_v<hal::reusable<fake_i2c>>);
 
+// A static no_destroy never needs an exit-time destructor, whatever T is.
+static_assert(std::is_trivially_destructible_v<hal::no_destroy<fake_i2c>>);
+static_assert(not std::is_copy_constructible_v<hal::no_destroy<fake_i2c>>);
+static_assert(not std::is_move_constructible_v<hal::no_destroy<fake_i2c>>);
+
+hal::static_ref<i2c> static_no_destroy_bus()
+{
+  static hal::no_destroy<fake_i2c> bus(4);
+  return bus;
+}
+
 static_assert(sizeof(hal::ref<i2c>) == sizeof(void*));
 static_assert(sizeof(hal::static_ref<i2c>) == sizeof(void*));
 static_assert(std::is_trivially_copyable_v<hal::ref<i2c>>);
@@ -726,6 +737,53 @@ void lifetime_test()
     expect(that % 2 == resource.deallocations);
     expect(that % dtor_before == g_dtor_seen_by_imu);
     expect(that % 1 == g_dtor - dtor_before);
+  };
+
+  "no_destroy builds its object once and never destroys it"_test = []() {
+    // Setup
+    int const ctor_before = g_ctor;
+    int const dtor_before = g_dtor;
+    int read = 0;
+
+    // Exercise
+    {
+      hal::no_destroy<fake_i2c> bus(5);
+      read = bus->read();
+    }
+
+    // Verify
+    expect(that % 5 == read);
+    expect(that % (ctor_before + 1) == g_ctor);
+    expect(that % dtor_before == g_dtor);
+  };
+
+  "no_destroy builds a type that can't be moved from a factory"_test = []() {
+    // Setup
+    pin_manager manager;
+    int const dtor_before = g_dtor;
+    int read = 0;
+
+    // Exercise
+    {
+      hal::no_destroy held([&manager] { return manager.acquire(); });
+      static_assert(
+        std::is_same_v<decltype(held), hal::no_destroy<pinned_i2c>>);
+      read = (*held).read();
+    }
+
+    // Verify
+    expect(that % 9 == read);
+    expect(that % dtor_before == g_dtor);
+  };
+
+  "static_ref refers to the object a static no_destroy holds"_test = []() {
+    // Exercise
+    hal::static_ref<i2c> const first = static_no_destroy_bus();
+    hal::static_ref<i2c> const second = static_no_destroy_bus();
+
+    // Verify
+    expect(that % 4 == first->read());
+    expect(&first.get() == &second.get());
   };
 
   "std::optional<owner> ends an owner early"_test = []() {
