@@ -89,6 +89,25 @@ void lock_test()
     expect(that % 1 == lock.unlock_count);
   };
 
+  "lock_guard locks and unlocks through the interface"_test = []() {
+    // Setup
+    fake_lock lock;
+    hal::basic_lock& basic = lock;
+    bool locked_inside = false;
+
+    // Exercise
+    {
+      std::lock_guard guard(basic);
+      locked_inside = lock.locked;
+    }
+
+    // Verify
+    expect(locked_inside);
+    expect(not lock.locked);
+    expect(that % 1 == lock.lock_count);
+    expect(that % 1 == lock.unlock_count);
+  };
+
   "try_lock reports whether the lock was taken"_test = []() {
     // Setup
     fake_lock lock;
