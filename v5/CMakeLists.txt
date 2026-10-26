@@ -44,6 +44,7 @@ libhal_add_library(libhal
         modules/spi.cppm
         modules/serial.cppm
         modules/memory.cppm
+        modules/memory_copier.cppm
         modules/containers.cppm
         modules/lifetime.cppm
         modules/subscription.cppm
@@ -72,6 +73,7 @@ libhal_add_tests(libhal
         waiter
         lock
         lifetime
+        memory_copier
         subscription
         error
 )
