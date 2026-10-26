@@ -26,7 +26,6 @@ namespace {
 class test_i2c : public hal::i2c
 {
 public:
-  hal::i2c::settings configured_settings{};
   hal::byte last_address{};
   std::array<hal::byte, 256> last_data_out{};
   std::array<hal::byte, 256> last_data_in{};
@@ -34,11 +33,6 @@ public:
   hal::usize last_data_in_size{};
 
 private:
-  void driver_configure(hal::i2c::settings const& p_settings) override
-  {
-    configured_settings = p_settings;
-  }
-
   void driver_transaction(hal::byte p_address,
                           mem::scatter_span<hal::byte const> p_data_out,
                           mem::scatter_span<hal::byte> p_data_in) override
@@ -63,34 +57,16 @@ private:
   }
 };
 
-void i2c_configure_test() noexcept
+void i2c_settings_test() noexcept
 {
   using namespace boost::ut;
 
-  "configure() passes settings to driver"_test = [&]() {
+  "i2c_settings defaults to standard mode"_test = [&]() {
     // Setup
-    test_i2c test;
-    hal::i2c::settings expected_settings{
-      .clock_rate = 400 * kHz,
-    };
-
-    // Exercise
-    test.configure(expected_settings);
+    hal::i2c_settings const settings{};
 
     // Verify
-    expect(expected_settings == test.configured_settings);
-  };
-
-  "configure() with default settings"_test = [&]() {
-    // Setup
-    test_i2c test;
-    hal::i2c::settings default_settings{};
-
-    // Exercise
-    test.configure(default_settings);
-
-    // Verify
-    expect((100 * kHz) == test.configured_settings.clock_rate);
+    expect((100 * kHz) == settings.clock_rate);
   };
 };
 
@@ -163,6 +139,6 @@ void i2c_transaction_test() noexcept
 
 int main()
 {
-  i2c_configure_test();
+  i2c_settings_test();
   i2c_transaction_test();
 }
