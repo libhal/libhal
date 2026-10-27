@@ -20,6 +20,32 @@ import :units;
 
 namespace hal::inline v5 {
 /**
+ * @brief Settings for an I2C bus
+ *
+ * A platform's I2C driver takes these from the application when it is
+ * constructed. They aren't part of `hal::i2c`, since every device on a bus
+ * sees its clock: see `hal::i2c` for why only the application sets the rate.
+ */
+export struct i2c_settings
+{
+  /**
+   * @brief The serial clock rate in hertz.
+   *
+   * Every device on the bus sees this rate, so it must be at or below the
+   * slowest device's limit. A standard-mode (100 kHz) device can misread
+   * faster traffic, even traffic addressed to another device, and corrupt
+   * the bus. The default, 100 kHz, is the rate every I2C device supports.
+   */
+  hertz clock_rate = 100 * si::unit_symbols::kHz;
+
+  /**
+   * @brief Enables default comparison
+   *
+   */
+  bool operator<=>(i2c_settings const&) const = default;
+};
+
+/**
  * @brief Inter-integrated Circuit (I2C) hardware abstract interface.
  *
  * Also known as Two Wire Interface (TWI) communication protocol. This is a very
@@ -32,41 +58,21 @@ namespace hal::inline v5 {
  * i2c are deterministic and reliably it is advised to NEVER use a clock
  * stretching device in your application.
  *
+ * # Clock rate
+ *
+ * There is no way to change the clock rate through this interface. Every
+ * device on a bus sees its clock, so the bus must run no faster than its
+ * slowest device, and only the application, which knows every device wired
+ * to the bus, can choose that rate. It must be chosen before the first
+ * transaction: device drivers talk to their devices as soon as they are
+ * created, for example to check an ID, and a device that hasn't been set up
+ * yet still sees that traffic. Platform drivers take `hal::i2c_settings` when
+ * they are constructed. A device driver that needs a slower bus documents its
+ * limit for the application instead of changing the rate itself.
  */
 export class i2c
 {
 public:
-  /**
-   * @brief Generic settings for a standard I2C device
-   *
-   */
-  struct settings
-  {
-    /**
-     * @brief The serial clock rate in hertz.
-     *
-     */
-    hertz clock_rate = 100 * si::unit_symbols::kHz;
-
-    /**
-     * @brief Enables default comparison
-     *
-     */
-    bool operator<=>(settings const&) const = default;
-  };
-
-  /**
-   * @brief Configure i2c to match the settings supplied
-   *
-   * @param p_settings - settings to apply to i2c driver
-   * @throws hal::operation_not_supported - if the settings could not be
-   * achieved.
-   */
-  void configure(settings const& p_settings)
-  {
-    driver_configure(p_settings);
-  }
-
   /**
    * @brief perform an i2c transaction with another device on the bus. The type
    * of transaction depends on values of input parameters. This function will
@@ -94,13 +100,21 @@ public:
    * This call blocks the calling context until the transaction is finished.
    * Implementations that wait on interrupts or DMA should block through a
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
-   * other contexts in the meantime. This interface is a shared resource:
-   * implementations shared between contexts must serialize transactions.
+   * other contexts in the meantime.
    *
    * Implementations must bound how long they wait on the bus, for example when
    * a device stretches the clock or holds SDA low indefinitely. That bound is a
    * property of the implementation, typically set at construction, and is not
    * a parameter of this API.
+   *
+   * # Using a bus from more than one thread
+   *
+   * An implementation may run only one transaction at a time. If a
+   * transaction starts while another on the same bus is still running, for
+   * example from a second thread, the implementation may throw
+   * `hal::device_or_resource_busy`. To use one bus from several threads or
+   * contexts, wrap it in libhal-util's `hal::thread_safe_i2c`, which holds a
+   * lock for the whole transaction so that callers wait instead.
    *
    * # How Arbitration loss is handled
    *
@@ -131,6 +145,9 @@ public:
    * @throws hal::timed_out - indicates that the bus did not complete the
    * transaction within the implementation's bound, for example because a
    * device stretched the clock for too long.
+   * @throws hal::device_or_resource_busy - if another transaction on this bus
+   * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
+   * wait instead.
    */
   void transaction(hal::byte p_address,
                    mem::scatter_span<hal::byte const> p_data_out,
@@ -143,8 +160,6 @@ protected:
   ~i2c() = default;
 
 private:
-  virtual void driver_configure(settings const& p_settings) = 0;
-
   virtual void driver_transaction(hal::byte p_address,
                                   mem::scatter_span<hal::byte const> p_data_out,
                                   mem::scatter_span<hal::byte> p_data_in) = 0;
