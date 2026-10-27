@@ -102,15 +102,19 @@ public:
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
    * other contexts in the meantime.
    *
-   * Implementations don't have to make contexts take turns. One may instead
-   * throw `hal::device_or_resource_busy` when a transaction starts while
-   * another is in progress. To share a bus between contexts, wrap it in a
-   * lock, such as libhal-util's `hal::locked_i2c`.
-   *
    * Implementations must bound how long they wait on the bus, for example when
    * a device stretches the clock or holds SDA low indefinitely. That bound is a
    * property of the implementation, typically set at construction, and is not
    * a parameter of this API.
+   *
+   * # Using a bus from more than one thread
+   *
+   * An implementation may run only one transaction at a time. If a
+   * transaction starts while another on the same bus is still running, for
+   * example from a second thread, the implementation may throw
+   * `hal::device_or_resource_busy`. To use one bus from several threads or
+   * contexts, wrap it in libhal-util's `hal::thread_safe_i2c`, which holds a
+   * lock for the whole transaction so that callers wait instead.
    *
    * # How Arbitration loss is handled
    *
@@ -141,8 +145,9 @@ public:
    * @throws hal::timed_out - indicates that the bus did not complete the
    * transaction within the implementation's bound, for example because a
    * device stretched the clock for too long.
-   * @throws hal::device_or_resource_busy - if the implementation doesn't make
-   * contexts take turns and another transaction is in progress.
+   * @throws hal::device_or_resource_busy - if another transaction on this bus
+   * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
+   * wait instead.
    */
   void transaction(hal::byte p_address,
                    mem::scatter_span<hal::byte const> p_data_out,
