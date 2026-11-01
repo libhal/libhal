@@ -102,10 +102,18 @@ public:
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
    * other contexts in the meantime.
    *
-   * Implementations must bound how long they wait on the bus, for example when
-   * a device stretches the clock or holds SDA low indefinitely. That bound is a
-   * property of the implementation, typically set at construction, and is not
-   * a parameter of this API.
+   * Implementations must bound how long they wait for the bus to make
+   * progress, so that a stuck bus, for example a device holding SCL or SDA
+   * low, can't block forever. The bound counts time without progress, never
+   * the length of the whole transaction, so a long transfer at a slow clock
+   * rate never times out on its length alone. It must be at least 25 ms, the
+   * SMBus clock-low timeout, so that devices that briefly stretch the clock
+   * still work. Each implementation documents its bound.
+   *
+   * The bound is up to the implementation, and isn't a parameter of this API,
+   * so that an implementation can detect a stall with whatever its hardware
+   * offers, such as a peripheral's own SCL-low timeout or a count of polls,
+   * without needing a clock, a timer interrupt or any other time source.
    *
    * # Using a bus from more than one thread
    *
@@ -116,14 +124,14 @@ public:
    * contexts, wrap it in libhal-util's `hal::thread_safe_i2c`, which holds a
    * lock for the whole transaction so that callers wait instead.
    *
-   * # How Arbitration loss is handled
+   * # How arbitration loss is handled
    *
-   * In the event of arbitration loss, this function will wait for the bus to
-   * become free and try again. Arbitration loss means that during the address
-   * phase of a transaction 1 or more i2c bus controllers attempted to perform
-   * an transaction and one of the i2c bus controllers, that isn't this one won
-   * out. In this situation this call continues to block until the transaction
-   * is complete.
+   * Arbitration loss means that another controller on the bus started a
+   * transaction at the same time as this one and won the bus. When that
+   * happens, this call waits for the bus to become free and tries again,
+   * until it wins the bus. Losing arbitration isn't progress, so if this call
+   * hasn't won the bus within the implementation's bound, it throws
+   * `hal::timed_out`.
    *
    * @param p_address 7-bit address of the device you want to communicate with.
    * To perform a transaction with a 10-bit address, this parameter must be the
@@ -142,9 +150,12 @@ public:
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
-   * @throws hal::timed_out - indicates that the bus did not complete the
-   * transaction within the implementation's bound, for example because a
-   * device stretched the clock for too long.
+   * @throws hal::timed_out - the bus made no progress for longer than the
+   * implementation's bound, for example because a device held SCL or SDA low.
+   * The exception's `progress` is how many bytes are known to have been
+   * transferred, counting `p_data_out` first and then `p_data_in`. More may
+   * have been, so `progress` is a lower bound. Its `bound` is the
+   * implementation's bound, or zero if the implementation doesn't report it.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
    * wait instead.

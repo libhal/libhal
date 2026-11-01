@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <chrono>
 #include <exception>
 #include <string_view>
 #include <system_error>
@@ -65,6 +66,38 @@ void error_test()
     // Verify
     expect(std::errc::timed_out == code);
     expect(&driver == instance);
+  };
+
+  "hal::timed_out keeps its bound and progress"_test = []() {
+    // Setup
+    using namespace std::chrono_literals;
+    int const driver = 0;
+    hal::time_duration bound{};
+    hal::u32 progress = 0;
+
+    // Exercise
+    try {
+      throw hal::timed_out(&driver, 25ms, 7);
+    } catch (hal::timed_out const& p_error) {
+      bound = p_error.bound;
+      progress = p_error.progress;
+    }
+
+    // Verify
+    expect(bound == 25ms);
+    expect(that % 7 == progress);
+  };
+
+  "hal::timed_out reports no bound or progress unless given them"_test = []() {
+    // Setup
+    int const driver = 0;
+
+    // Exercise
+    hal::timed_out const error(&driver);
+
+    // Verify
+    expect(error.bound == hal::time_duration{});
+    expect(that % 0 == error.progress);
   };
 
   "busy exceptions are hal::exceptions with their own names"_test = []() {
