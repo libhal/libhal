@@ -41,14 +41,12 @@ private:
   void driver_write(mem::scatter_span<hal::byte const> p_data) override
   {
     last_data_out_size = 0;
-    for (auto const& span : p_data) {
-      for (auto byte : span) {
-        if (last_data_out_size >= last_data_out.size()) {
-          break;
-        }
-        last_data_out[last_data_out_size] = byte;
-        last_data_out_size++;
+    for (auto const byte : p_data) {
+      if (last_data_out_size >= last_data_out.size()) {
+        break;
       }
+      last_data_out[last_data_out_size] = byte;
+      last_data_out_size++;
     }
   }
 
