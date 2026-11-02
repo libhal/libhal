@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <chrono>
 #include <exception>
 #include <string_view>
 #include <system_error>
@@ -68,27 +67,23 @@ void error_test()
     expect(&driver == instance);
   };
 
-  "hal::timed_out keeps its bound and progress"_test = []() {
+  "hal::timed_out keeps its progress"_test = []() {
     // Setup
-    using namespace std::chrono_literals;
     int const driver = 0;
-    hal::time_duration bound{};
     hal::u32 progress = 0;
 
     // Exercise
     try {
-      throw hal::timed_out(&driver, 25ms, 7);
+      throw hal::timed_out(&driver, 7);
     } catch (hal::timed_out const& p_error) {
-      bound = p_error.bound;
       progress = p_error.progress;
     }
 
     // Verify
-    expect(bound == 25ms);
     expect(that % 7 == progress);
   };
 
-  "hal::timed_out reports no bound or progress unless given them"_test = []() {
+  "hal::timed_out reports no progress unless given it"_test = []() {
     // Setup
     int const driver = 0;
 
@@ -96,7 +91,6 @@ void error_test()
     hal::timed_out const error(&driver);
 
     // Verify
-    expect(error.bound == hal::time_duration{});
     expect(that % 0 == error.progress);
   };
 

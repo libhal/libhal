@@ -69,6 +69,35 @@ export struct i2c_settings
  * yet still sees that traffic. Platform drivers take `hal::i2c_settings` when
  * they are constructed. A device driver that needs a slower bus documents its
  * limit for the application instead of changing the rate itself.
+ *
+ * # Stall timeout
+ *
+ * Implementations should throw `hal::timed_out` when the bus makes no
+ * progress for longer than a stall timeout, so that a stuck bus, for example
+ * a device holding SCL or SDA low, can't block a transaction forever. The
+ * timeout counts time without progress, never the length of the whole
+ * transaction, so a long transfer at a slow clock rate never times out on its
+ * length alone. An implementation never gives up sooner than its timeout, but
+ * may round it up to what its hardware can measure.
+ *
+ * Like the clock rate, the timeout can't be set through this interface. It
+ * must be longer than any device on the bus stretches the clock, and every
+ * device on the bus shares it, so only the application can choose it.
+ * Platform drivers take it when they are constructed, and document their
+ * default. A default of 100 ms is suggested: it is longer than the SMBus
+ * clock-low timeout of 25 to 35 ms, and long enough for devices that stretch
+ * the clock for tens of milliseconds, such as some humidity sensors while
+ * they measure.
+ *
+ * Some hardware can't detect a stall, or can't measure the timeout the
+ * application asks for. Such an implementation documents what it does
+ * instead, which may be to wait until the bus recovers. It is up to the
+ * application to tolerate that, for example with a watchdog.
+ *
+ * A device driver shouldn't rely on its device stretching the clock for more
+ * than 25 ms, the SMBus limit. If the device has a mode that doesn't stretch
+ * the clock, such as starting a measurement and reading the result later, the
+ * driver uses it. Otherwise, it documents the stall timeout it needs.
  */
 export class i2c
 {
@@ -102,18 +131,9 @@ public:
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
    * other contexts in the meantime.
    *
-   * Implementations must bound how long they wait for the bus to make
-   * progress, so that a stuck bus, for example a device holding SCL or SDA
-   * low, can't block forever. The bound counts time without progress, never
-   * the length of the whole transaction, so a long transfer at a slow clock
-   * rate never times out on its length alone. It must be at least 25 ms, the
-   * SMBus clock-low timeout, so that devices that briefly stretch the clock
-   * still work. Each implementation documents its bound.
-   *
-   * The bound is up to the implementation, and isn't a parameter of this API,
-   * so that an implementation can detect a stall with whatever its hardware
-   * offers, such as a peripheral's own SCL-low timeout or a count of polls,
-   * without needing a clock, a timer interrupt or any other time source.
+   * If the bus makes no progress for longer than the implementation's stall
+   * timeout, this call throws `hal::timed_out`. See "Stall timeout" in the
+   * class description.
    *
    * # Using a bus from more than one thread
    *
@@ -130,7 +150,7 @@ public:
    * transaction at the same time as this one and won the bus. When that
    * happens, this call waits for the bus to become free and tries again,
    * until it wins the bus. Losing arbitration isn't progress, so if this call
-   * hasn't won the bus within the implementation's bound, it throws
+   * hasn't won the bus within the implementation's stall timeout, it throws
    * `hal::timed_out`.
    *
    * @param p_address 7-bit address of the device you want to communicate with.
@@ -151,11 +171,10 @@ public:
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
    * @throws hal::timed_out - the bus made no progress for longer than the
-   * implementation's bound, for example because a device held SCL or SDA low.
-   * The exception's `progress` is how many bytes are known to have been
-   * transferred, counting `p_data_out` first and then `p_data_in`. More may
-   * have been, so `progress` is a lower bound. Its `bound` is the
-   * implementation's bound, or zero if the implementation doesn't report it.
+   * implementation's stall timeout, for example because a device held SCL or
+   * SDA low. The exception's `progress` is how many bytes are known to have
+   * been transferred, counting `p_data_out` first and then `p_data_in`. More
+   * may have been, so `progress` is a lower bound.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
    * wait instead.
