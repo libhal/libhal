@@ -100,18 +100,15 @@ export class timed_lock : public pollable_lock
 {
 public:
   /**
-   * @brief Attempt to acquire a lock and block for a duration of time.
+   * @brief Attempt to acquire a lock, waiting up to a duration of time.
    *
-   * This call will block for the supplied amount of time and then return a
-   * status on whether or not the lock was acquired.
+   * Blocks the current context until the lock is acquired or `p_duration`
+   * has passed, whichever comes first.
    *
-   * @param p_duration - the amount of time to block the current context
-   * waiting for the lock to be acquired. Note that the precision of the lock's
-   * timing mechanism may not be as precise as the time duration. Expect the
-   * time duration that the context blocks for to be the rounded down to the
-   * nearest precision unit of time. For example, if the precision of the
-   * system that manages the lock is 1ms, then providing 2.5ms will result in
-   * 2ms waited.
+   * @param p_duration - how long to wait for the lock. The wait is never
+   * shorter than requested: an implementation whose timing is coarser than
+   * the duration rounds it up to its next unit. For example, a lock timed in
+   * whole milliseconds waits 3 ms when given 2.5 ms.
    * @return true - if the lock was acquired in the time provided.
    * @return false - if the lock was not acquired in the time provided.
    */
