@@ -81,6 +81,12 @@ private:
  * provider. A provider that can only wait in whole milliseconds waits in whole
  * milliseconds. That is the granularity the system provides.
  *
+ * A provider rounds a duration up to its granularity, never down, so a
+ * timeout never ends early and a sleep is never shorter than requested. A
+ * provider that waits in whole milliseconds waits 3 ms when given 2.5 ms.
+ * Drivers rely on this: a timeout that ends early can fail an operation that
+ * would have finished.
+ *
  * # Interrupt context
  *
  * None of the blocking APIs may be called from an interrupt service routine.
@@ -110,7 +116,9 @@ public:
    * Same semantics as `block()`, including the requirement to re-check
    * hardware state after returning, but gives up after `p_timeout`.
    *
-   * @param p_timeout - the maximum amount of time to block for
+   * @param p_timeout - how long to wait for a notification before giving up.
+   * The wait is never shorter, but may be longer: see "Timing granularity" in
+   * the class description.
    * @return true - a notification was received (or was already latched)
    * @return false - the timeout elapsed without a notification
    */
@@ -125,7 +133,9 @@ public:
    * Notifications do not wake the context early. Under a provider with other
    * contexts to run, the time is yielded to them.
    *
-   * @param p_duration - the amount of time to sleep for
+   * @param p_duration - the amount of time to sleep for. The sleep is never
+   * shorter, but may be longer: see "Timing granularity" in the class
+   * description.
    */
   void sleep_for(time_duration p_duration)
   {
