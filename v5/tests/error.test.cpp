@@ -67,6 +67,33 @@ void error_test()
     expect(&driver == instance);
   };
 
+  "hal::timed_out keeps its progress"_test = []() {
+    // Setup
+    int const driver = 0;
+    hal::u32 progress = 0;
+
+    // Exercise
+    try {
+      throw hal::timed_out(&driver, 7);
+    } catch (hal::timed_out const& p_error) {
+      progress = p_error.progress;
+    }
+
+    // Verify
+    expect(that % 7 == progress);
+  };
+
+  "hal::timed_out reports no progress unless given it"_test = []() {
+    // Setup
+    int const driver = 0;
+
+    // Exercise
+    hal::timed_out const error(&driver);
+
+    // Verify
+    expect(that % 0 == error.progress);
+  };
+
   "busy exceptions are hal::exceptions with their own names"_test = []() {
     // Setup
     int const source = 0;

@@ -449,9 +449,12 @@ export struct timed_out : public exception
    *
    * @param p_instance - must point to the instance of the driver timed out. If
    * the timeout occurred from a free function, pass nullptr.
+   * @param p_progress - how far the operation got before it stalled, in the
+   * units its interface defines, at least. Zero if the thrower doesn't say.
    */
-  timed_out(void const* p_instance)
+  timed_out(void const* p_instance, u32 p_progress = 0)
     : exception(std::errc::timed_out, p_instance)
+    , progress(p_progress)
   {
   }
 
@@ -460,6 +463,11 @@ export struct timed_out : public exception
   {
     return "hal::timed_out";
   }
+
+  /// How far the operation got before it stalled, in the units its interface
+  /// defines, such as bytes transferred: at least this far. The next unit may
+  /// or may not have completed. Zero if the thrower doesn't say.
+  u32 progress;
 };
 
 /**
