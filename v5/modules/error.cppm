@@ -342,12 +342,10 @@ export struct io_error : public exception
 /**
  * @ingroup Error
  * @brief Raised when a resource is unavailable but another attempt may work
- * @deprecated I2c no longer uses this exception when another controller on the
- * bus is currently performing a transaction. The new behavior is to wait for
- * the bus to become available. `hal::io_waiter` can be used to get out of the
- * i2c if a deadline has been exceeded. There are no other interfaces for which
- * this exception makes sense and thus an example describing when to use this
- * and how to recover from it does not exist. Until such an example is found,
+ * @deprecated I2C throws `hal::arbitration_lost` instead when another
+ * controller wins the bus. There are no other interfaces for which this
+ * exception makes sense and thus an example describing when to use this and
+ * how to recover from it does not exist. Until such an example is found,
  * this error type should not be thrown and should be considered deprecated. If
  * such a use case becomes known, then this comment will be updated, deprecation
  * notice will be removed, and this type can be used in those situations.
@@ -370,6 +368,53 @@ export struct resource_unavailable_try_again : public exception
   [[nodiscard]] char const* what() const noexcept final
   {
     return "hal::resource_unavailable_try_again";
+  }
+};
+
+/**
+ * @ingroup Error
+ * @brief Raised when another controller won a shared bus
+ *
+ * # When to raise this
+ *
+ * A bus that more than one controller can drive, such as I2C, raises this when
+ * its hardware reports that another controller won arbitration: both started
+ * at the same time, and the other one took the bus. The operation stops, and
+ * nothing more of it is sent. A bus that stays busy, or stops making progress,
+ * raises `hal::io_error` or `hal::timed_out` instead.
+ *
+ * # How to recover from this?
+ *
+ * ## 1. More than one controller: try again
+ *
+ * Losing arbitration is normal on a bus with several controllers. Wait for the
+ * other controller to finish, for example by sleeping, then try again. If
+ * arbitration keeps being lost for longer than the application can wait, treat
+ * it as a fault on the bus.
+ *
+ * ## 2. One controller: a fault on the bus
+ *
+ * Nothing can win arbitration from the only controller on a bus, so there this
+ * means a fault, such as a device driving a line out of turn. Handle it as
+ * `hal::io_error`, for example by resetting the bus.
+ */
+export struct arbitration_lost : public exception
+{
+  /**
+   * @brief Construct a new arbitration_lost exception
+   *
+   * @param p_instance - must point to the instance of the driver that threw
+   * this exception.
+   */
+  arbitration_lost(void const* p_instance)
+    : exception(std::errc::resource_unavailable_try_again, p_instance)
+  {
+  }
+
+  /// @return char const* - "hal::arbitration_lost"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::arbitration_lost";
   }
 };
 

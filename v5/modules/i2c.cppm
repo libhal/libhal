@@ -69,6 +69,55 @@ export struct i2c_settings
  * yet still sees that traffic. Platform drivers take `hal::i2c_settings` when
  * they are constructed. A device driver that needs a slower bus documents its
  * limit for the application instead of changing the rate itself.
+ *
+ * # Stall timeout
+ *
+ * Every wait a transaction makes on the bus is limited by a stall timeout, so
+ * that a stuck bus, for example a device holding SCL or SDA low, can't block
+ * a transaction forever. The timeout limits each wait, never the whole
+ * transaction, so a long transfer at a slow clock rate never times out on its
+ * length alone. An implementation never gives up sooner than its timeout, but
+ * may round it up to what its hardware can measure.
+ *
+ * Like the clock rate, the timeout can't be set through this interface, since
+ * every device on the bus shares it. Platform drivers take it when they are
+ * constructed, and document their default. The application chooses a timeout
+ * longer than:
+ *
+ * - the longest any device on the bus stretches the clock;
+ * - on a bus with more than one controller, the longest transaction any other
+ *   controller makes, since a transaction waits for the bus to be free before
+ *   it starts.
+ *
+ * A default of 100 ms is suggested. It is longer than the SMBus clock-low
+ * timeout of 25 to 35 ms, and long enough for devices that stretch the clock
+ * for tens of milliseconds, such as some humidity sensors while they measure.
+ *
+ * Some hardware can't detect a stall, or can't measure the timeout the
+ * application asks for. Such an implementation documents what it does
+ * instead, which may be to wait until the bus recovers. It is up to the
+ * application to tolerate that, for example with a watchdog.
+ *
+ * A device driver shouldn't rely on its device stretching the clock for more
+ * than 25 ms, the SMBus limit. If the device has a mode that doesn't stretch
+ * the clock, such as starting a measurement and reading the result later, the
+ * driver uses it. Otherwise, it documents the stall timeout it needs.
+ *
+ * # Arbitration loss
+ *
+ * On a bus with more than one controller, another controller can start a
+ * transaction at the same time as this one. Both send their address and data
+ * bit by bit until one sends a 1 while the other sends a 0, and the one
+ * sending the 0 wins the bus. When the hardware reports that this controller
+ * lost, `transaction()` throws `hal::arbitration_lost` at once. It doesn't
+ * retry, so the application decides whether, when and how often to try again.
+ *
+ * On a bus with only one controller, nothing can win arbitration from it, so
+ * a lost arbitration means a fault on the bus, such as a device driving SDA
+ * out of turn after a reset. Handle it there as `hal::io_error`.
+ *
+ * Implementations whose hardware can't share a bus with another controller
+ * never throw `hal::arbitration_lost`.
  */
 export class i2c
 {
@@ -102,10 +151,8 @@ public:
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
    * other contexts in the meantime.
    *
-   * Implementations must bound how long they wait on the bus, for example when
-   * a device stretches the clock or holds SDA low indefinitely. That bound is a
-   * property of the implementation, typically set at construction, and is not
-   * a parameter of this API.
+   * Every wait on the bus is limited by the implementation's stall timeout.
+   * See "Stall timeout" in the class description.
    *
    * # Using a bus from more than one thread
    *
@@ -115,15 +162,6 @@ public:
    * `hal::device_or_resource_busy`. To use one bus from several threads or
    * contexts, wrap it in libhal-util's `hal::thread_safe_i2c`, which holds a
    * lock for the whole transaction so that callers wait instead.
-   *
-   * # How Arbitration loss is handled
-   *
-   * In the event of arbitration loss, this function will wait for the bus to
-   * become free and try again. Arbitration loss means that during the address
-   * phase of a transaction 1 or more i2c bus controllers attempted to perform
-   * an transaction and one of the i2c bus controllers, that isn't this one won
-   * out. In this situation this call continues to block until the transaction
-   * is complete.
    *
    * @param p_address 7-bit address of the device you want to communicate with.
    * To perform a transaction with a 10-bit address, this parameter must be the
@@ -142,9 +180,18 @@ public:
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
-   * @throws hal::timed_out - indicates that the bus did not complete the
-   * transaction within the implementation's bound, for example because a
-   * device stretched the clock for too long.
+   * Also thrown when the bus stays busy for longer than the stall timeout
+   * before this call can send its start condition, for example because a
+   * device or another controller holds SCL or SDA low.
+   * @throws hal::timed_out - the bus made no progress for longer than the
+   * stall timeout after this call sent its start condition, for example
+   * because the device stretched the clock. The exception's `progress` is how
+   * many bytes are known to have been transferred, counting `p_data_out`
+   * first and then `p_data_in`. More may have been, so `progress` is a lower
+   * bound. An implementation that can't tell when its start condition was
+   * sent reports a stall at any point as `hal::timed_out`.
+   * @throws hal::arbitration_lost - another controller won the bus during
+   * this transaction. See "Arbitration loss" in the class description.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
    * wait instead.
