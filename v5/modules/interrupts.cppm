@@ -248,11 +248,11 @@ public:
    * mode. The timer is armed even if no callback is registered; in that case
    * nothing is called when it expires.
    *
-   * If the delay time result in a tick period of 0, then the timer will
-   * execute after 1 tick period. For example, if the tick period is 1ms and
-   * the requested time delay is 500us, then the event will be scheduled for
-   * 1ms. If the tick period is 1ms and the requested time is 2.5ms then the
-   * event will be scheduled after 2 tick periods or in 2ms.
+   * The delay is rounded up to a whole number of tick periods, and is at
+   * least one, so the timer never expires sooner than requested. For example,
+   * if the tick period is 1ms, a delay of 500us expires after 1ms, and a delay
+   * of 2.5ms after 3ms. Waiters that time out with this timer rely on it: a
+   * timeout that ends early can fail an operation that would have finished.
    *
    * Safe to call from interrupt context, including from inside the callback,
    * as long as the delay is one the timer can achieve. An unachievable delay
