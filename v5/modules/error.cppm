@@ -342,19 +342,38 @@ export struct io_error : public exception
 /**
  * @ingroup Error
  * @brief Raised when a resource is unavailable but another attempt may work
- * @deprecated I2C throws `hal::arbitration_lost` instead when its bus is busy
- * or another controller wins it. There are no other interfaces for which this
- * exception makes sense and thus an example describing when to use this and
- * how to recover from it does not exist. Until such an example is found,
- * this error type should not be thrown and should be considered deprecated. If
- * such a use case becomes known, then this comment will be updated, deprecation
- * notice will be removed, and this type can be used in those situations.
  *
+ * # When to raise this
+ *
+ * Raise this when an operation can't have a resource right now, and may if it
+ * is tried again later. Raise it at once, without waiting for the resource or
+ * trying again, so that the caller decides how long to wait and how often to
+ * try. A resource held by another driver object in this program raises
+ * `hal::device_or_resource_busy` instead. Don't raise this when trying again
+ * can't succeed, such as when every resource of a kind has been claimed.
+ *
+ * For example, a bus that more than one controller can drive, such as I2C,
+ * raises this when it can't have the bus: the bus was busy when the operation
+ * started, or the hardware reports that another controller won arbitration,
+ * because both started at the same time and the other one took the bus.
+ * Nothing more of the operation is sent. A bus error the hardware reports
+ * raises `hal::io_error` instead.
+ *
+ * # How to recover from this?
+ *
+ * This isn't an error by itself. Wait, for example by sleeping, then try
+ * again. A resource that stays unavailable for longer than the application
+ * expects is a fault, since the driver can't always tell why it is
+ * unavailable. For example, hardware can't tell another I2C controller using
+ * the bus apart from a device holding a line low. Handle such a fault as
+ * `hal::io_error`, for example by resetting the bus. On an I2C bus with only
+ * one controller, nothing else should hold the bus, so that can be soon, even
+ * the first time.
  */
 export struct resource_unavailable_try_again : public exception
 {
   /**
-   * @brief Construct a new timed_out exception
+   * @brief Construct a new resource_unavailable_try_again exception
    *
    * @param p_instance - must point to the instance of the driver that threw
    * this exception.
@@ -368,49 +387,6 @@ export struct resource_unavailable_try_again : public exception
   [[nodiscard]] char const* what() const noexcept final
   {
     return "hal::resource_unavailable_try_again";
-  }
-};
-
-/**
- * @ingroup Error
- * @brief Raised when a shared bus was busy, or another controller won it
- *
- * # When to raise this
- *
- * A bus that more than one controller can drive, such as I2C, raises this when
- * it can't have the bus: the bus was busy when the operation started, or the
- * hardware reports that another controller won arbitration, because both
- * started at the same time and the other one took the bus. Raise it at once,
- * without waiting for the bus or trying again. Nothing more of the operation
- * is sent. A bus error the hardware reports raises `hal::io_error` instead.
- *
- * # How to recover from this?
- *
- * This isn't an error by itself. The bus is usually busy because another
- * controller is using it, so wait, for example by sleeping, then try again.
- * Hardware can't tell another controller apart from a device holding a line
- * low, so a bus that stays taken for longer than the application expects is a
- * fault: handle it as `hal::io_error`, for example by resetting the bus. On a
- * bus with only one controller, nothing else should hold the bus, so that can
- * be soon, even the first time.
- */
-export struct arbitration_lost : public exception
-{
-  /**
-   * @brief Construct a new arbitration_lost exception
-   *
-   * @param p_instance - must point to the instance of the driver that threw
-   * this exception.
-   */
-  arbitration_lost(void const* p_instance)
-    : exception(std::errc::resource_unavailable_try_again, p_instance)
-  {
-  }
-
-  /// @return char const* - "hal::arbitration_lost"
-  [[nodiscard]] char const* what() const noexcept final
-  {
-    return "hal::arbitration_lost";
   }
 };
 

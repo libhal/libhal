@@ -27,7 +27,8 @@ static_assert(std::is_base_of_v<std::exception, hal::exception>);
 static_assert(std::is_base_of_v<std::exception, hal::io_error>);
 static_assert(std::is_base_of_v<hal::exception, hal::subscription_busy>);
 static_assert(std::is_base_of_v<hal::exception, hal::reusable_busy>);
-static_assert(std::is_base_of_v<hal::exception, hal::arbitration_lost>);
+static_assert(
+  std::is_base_of_v<hal::exception, hal::resource_unavailable_try_again>);
 
 void error_test()
 {
@@ -95,17 +96,18 @@ void error_test()
     expect(that % 0 == error.progress);
   };
 
-  "hal::arbitration_lost says the operation may be tried again"_test = []() {
+  "hal::resource_unavailable_try_again says to try again"_test = []() {
     // Setup
     int const driver = 0;
 
     // Exercise
-    hal::arbitration_lost const error(&driver);
+    hal::resource_unavailable_try_again const error(&driver);
 
     // Verify
     expect(std::errc::resource_unavailable_try_again == error.error_code());
     expect(&driver == error.instance());
-    expect(std::string_view(error.what()) == "hal::arbitration_lost");
+    expect(std::string_view(error.what()) ==
+           "hal::resource_unavailable_try_again");
   };
 
   "busy exceptions are hal::exceptions with their own names"_test = []() {

@@ -84,7 +84,7 @@ export struct i2c_settings
  * constructed, and document their default. The application chooses a timeout
  * longer than the longest any device on the bus stretches the clock. Other
  * controllers don't count, since a transaction never waits for one: see
- * "Arbitration loss".
+ * "A busy bus or lost arbitration".
  *
  * A default of 100 ms is suggested. It is longer than the SMBus clock-low
  * timeout of 25 to 35 ms, and long enough for devices that stretch the clock
@@ -100,9 +100,10 @@ export struct i2c_settings
  * the clock, such as starting a measurement and reading the result later, the
  * driver uses it. Otherwise, it documents the stall timeout it needs.
  *
- * # Arbitration loss
+ * # A busy bus or lost arbitration
  *
- * `transaction()` throws `hal::arbitration_lost` when it can't have the bus:
+ * `transaction()` throws `hal::resource_unavailable_try_again` when it can't
+ * have the bus:
  *
  * - The bus is busy when the transaction starts. If the hardware shows that,
  *   the implementation throws at once, without waiting for the bus to be
@@ -193,9 +194,9 @@ public:
    * first and then `p_data_in`. More may have been, so `progress` is a lower
    * bound. An implementation that can't tell when its start condition was
    * sent reports a stall at any point as `hal::timed_out`.
-   * @throws hal::arbitration_lost - the bus was busy when this call started,
-   * or another controller won the bus during it. See "Arbitration loss" in
-   * the class description.
+   * @throws hal::resource_unavailable_try_again - the bus was busy when this
+   * call started, or another controller won the bus during it. See "A busy bus
+   * or lost arbitration" in the class description.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
    * wait instead.
