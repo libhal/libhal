@@ -34,26 +34,12 @@ private:
                    mem::scatter_span<hal::byte> p_destination) override
   {
     copy_count++;
-    auto source_chunk = p_source.begin();
-    auto destination_chunk = p_destination.begin();
-    std::size_t source_offset = 0;
-    std::size_t destination_offset = 0;
-
-    while (source_chunk != p_source.end() &&
-           destination_chunk != p_destination.end()) {
-      auto const from = *source_chunk;
-      auto const to = *destination_chunk;
-      if (source_offset == from.size()) {
-        ++source_chunk;
-        source_offset = 0;
-        continue;
-      }
-      if (destination_offset == to.size()) {
-        ++destination_chunk;
-        destination_offset = 0;
-        continue;
-      }
-      to[destination_offset++] = from[source_offset++];
+    auto from = p_source.begin();
+    auto to = p_destination.begin();
+    while ((from != p_source.end()) and (to != p_destination.end())) {
+      *to = *from;
+      ++from;
+      ++to;
     }
   }
 
@@ -61,9 +47,7 @@ private:
                    hal::byte p_value) override
   {
     fill_count++;
-    for (auto const chunk : p_destination) {
-      std::ranges::fill(chunk, p_value);
-    }
+    std::ranges::fill(p_destination, p_value);
   }
 };
 

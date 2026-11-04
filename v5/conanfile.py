@@ -97,9 +97,10 @@ class libhal_conan(ConanFile):
         self.tool_requires("libhal-cmake-util/[^5.0.15]")
 
     def requirements(self):
-        # A 0.x caret only spans one minor (^0.1.0 is <0.2.0), so the range
+        # A 0.x caret only spans one minor (^0.2.0 is <0.3.0), so the range
         # goes up to 1.0.0 to pick up scatter_span's 0.x feature releases.
-        self.requires("scatter_span/[>=0.1.0 <1]")
+        # 0.2.0 is the first to iterate a scatter_span by element.
+        self.requires("scatter_span/[>=0.2.0 <1]")
         self.requires("mp-units/[>=2.6.0+libhal.1 <2.7]@libhal",
                       options={
                           "freestanding": True,

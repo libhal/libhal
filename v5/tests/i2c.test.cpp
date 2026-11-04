@@ -40,20 +40,15 @@ private:
     last_address = p_address;
 
     last_data_out_size = 0;
-    for (auto const& span : p_data_out) {
-      for (auto byte : span) {
-        if (last_data_out_size >= last_data_out.size()) {
-          break;
-        }
-        last_data_out[last_data_out_size] = byte;
-        last_data_out_size++;
+    for (auto const byte : p_data_out) {
+      if (last_data_out_size >= last_data_out.size()) {
+        break;
       }
+      last_data_out[last_data_out_size] = byte;
+      last_data_out_size++;
     }
 
-    last_data_in_size = 0;
-    for (auto const& span : p_data_in) {
-      last_data_in_size += span.size();
-    }
+    last_data_in_size = p_data_in.length();
   }
 };
 
