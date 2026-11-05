@@ -54,9 +54,9 @@ export struct i2c_settings
  * signal). This is possible because the protocol for I2C is addressable.
  *
  * Some devices can utilize clock stretching as a means to pause the i2c
- * controller until the device is ready to respond. To ensure operations with
- * i2c are deterministic and reliably it is advised to NEVER use a clock
- * stretching device in your application.
+ * controller until the device is ready to respond. This makes the length of a
+ * transaction depend on the device, so prefer devices and modes that don't
+ * stretch the clock. See "Stall timeout" for how a stretch is limited.
  *
  * # Clock rate
  *
@@ -73,18 +73,19 @@ export struct i2c_settings
  * # Stall timeout
  *
  * Every wait a transaction makes on the bus is limited by a stall timeout, so
- * that a stuck bus, for example a device holding SCL or SDA low, can't block
- * a transaction forever. The timeout limits each wait, never the whole
- * transaction, so a long transfer at a slow clock rate never times out on its
- * length alone. An implementation never gives up sooner than its timeout, but
- * may round it up to what its hardware can measure.
+ * that a stuck bus, for example a device holding SCL low during the
+ * transaction, can't block it forever. The timeout limits each wait, never the
+ * whole transaction, so a long transfer at a slow clock rate never times out on
+ * its length alone. An implementation never gives up sooner than its timeout,
+ * but may round it up to what its hardware can measure.
  *
  * Like the clock rate, the timeout can't be set through this interface, since
  * every device on the bus shares it. Platform drivers take it when they are
  * constructed, and document their default. The application chooses a timeout
  * longer than the longest any device on the bus stretches the clock. Other
- * controllers don't count, since a transaction never waits for one: see
- * "A busy bus or lost arbitration".
+ * controllers don't count: if one holds the bus for longer, the transaction
+ * throws an exception that says to try again. See "A busy bus or lost
+ * arbitration".
  *
  * A default of 100 ms is suggested. It is longer than the SMBus clock-low
  * timeout of 25 to 35 ms, and long enough for devices that stretch the clock
@@ -117,10 +118,10 @@ export struct i2c_settings
  *
  * Neither is an error by itself. A busy bus usually means another controller
  * is using it, but hardware can't tell that apart from a device holding a
- * line low, so only how long the bus stays taken shows a fault. The
- * implementation never retries, so the application, or a wrapper around the
- * bus, decides whether and how often to try again, and how long a bus can stay
- * taken before it reports a fault as `hal::io_error`. On a bus with only one
+ * line low, so only how long the bus stays taken shows a fault. A platform
+ * driver never retries, so the application, or a wrapper around the bus,
+ * decides whether and how often to try again, and how long a bus can stay taken
+ * before it reports a fault as `hal::io_error`. On a bus with only one
  * controller, nothing else should hold the bus, so that can be soon, even the
  * first time.
  */
@@ -192,8 +193,9 @@ public:
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and is usually not recoverable.
-   * Implementations throw it only when their hardware reports a bus error,
-   * such as a misplaced start or stop condition.
+   * Platform drivers throw it only when their hardware reports a bus error,
+   * such as a misplaced start or stop condition. A wrapper around the bus may
+   * also throw it for a bus that stays taken for too long.
    * @throws hal::timed_out - the bus made no progress for longer than the
    * stall timeout after this call sent its start condition, for example
    * because the device stretched the clock. The exception's `progress` is how

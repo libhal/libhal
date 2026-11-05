@@ -348,7 +348,8 @@ export struct io_error : public exception
  * Raise this when an operation can't have a resource right now, and may if it
  * is tried again later. Raise it at once, without waiting for the resource or
  * trying again, so that the caller decides how long to wait and how often to
- * try. A resource held by another driver object in this program raises
+ * try. Contention inside this program, such as a resource held by another
+ * driver object or a driver already in use by another thread, raises
  * `hal::device_or_resource_busy` instead. Don't raise this when trying again
  * can't succeed, such as when every resource of a kind has been claimed.
  *
@@ -365,10 +366,9 @@ export struct io_error : public exception
  * again. A resource that stays unavailable for longer than the application
  * expects is a fault, since the driver can't always tell why it is
  * unavailable. For example, hardware can't tell another I2C controller using
- * the bus apart from a device holding a line low. Handle such a fault as
- * `hal::io_error`, for example by resetting the bus. On an I2C bus with only
- * one controller, nothing else should hold the bus, so that can be soon, even
- * the first time.
+ * the bus apart from a device holding a line low. Handle such a fault as you
+ * would `hal::io_error`. On an I2C bus with only one controller, nothing else
+ * should hold the bus, so that can be soon, even the first time.
  */
 export struct resource_unavailable_try_again : public exception
 {
@@ -398,7 +398,8 @@ export struct resource_unavailable_try_again : public exception
  *
  * This exception should be raised when application code attempts to construct
  * or acquire a hardware resource that is already in use by another driver
- * object.
+ * object, or starts an operation on a driver while another is still running,
+ * for example from a second thread.
  *
  * # How to recover from this?
  *
@@ -435,7 +436,8 @@ export struct device_or_resource_busy : public exception
 
 /**
  * @ingroup Error
- * @brief Raised when an operation reaches a deadline before completing
+ * @brief Raised when an operation doesn't finish, or stops making progress,
+ * within a time limit
  *
  * Time outs can be generated from time sources such as a hal::steady_clock or
  * hal::timer as well as external sources such as an interrupt or input pin.
