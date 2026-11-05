@@ -489,6 +489,61 @@ export struct timed_out : public exception
 
 /**
  * @ingroup Error
+ * @brief Raised when a receiver that had answered stops accepting an operation
+ *
+ * The name comes from POSIX's `EPIPE`: a write to something that no longer
+ * reads what is written to it.
+ *
+ * # When to raise this
+ *
+ * Raise this when a receiver answered and then refused what came next. The
+ * operation stops, and nothing more of it is sent. A receiver that never
+ * answered raises `hal::no_such_device` instead.
+ *
+ * For example, an I2C device that acknowledged its address raises this when it
+ * doesn't acknowledge a byte written to it.
+ *
+ * # How to recover from this?
+ *
+ * Only the code that knows the receiver can tell why it refused, so the driver
+ * for that device handles this, using the receiver's documentation:
+ *
+ * - The receiver is busy. Despite the name, this can be temporary: wait, then
+ *   try again.
+ * - The receiver can't accept any more. `progress` says how much it took, so
+ *   the rest can be sent later, in smaller pieces.
+ * - The receiver doesn't understand what it was sent. This is usually a bug, or
+ *   a sign that the receiver isn't the device it was expected to be.
+ */
+export struct broken_pipe : public exception
+{
+  /**
+   * @brief Construct a new broken_pipe exception
+   *
+   * @param p_instance - must point to the instance of the driver that threw
+   * this exception.
+   * @param p_progress - how far the operation got before the receiver refused
+   * it, in the units its interface defines.
+   */
+  broken_pipe(void const* p_instance, u32 p_progress)
+    : exception(std::errc::broken_pipe, p_instance)
+    , progress(p_progress)
+  {
+  }
+
+  /// @return char const* - "hal::broken_pipe"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::broken_pipe";
+  }
+
+  /// How far the operation got before the receiver refused it, in the units
+  /// its interface defines, such as bytes accepted.
+  u32 progress;
+};
+
+/**
+ * @ingroup Error
  * @brief Raised exclusively when a driver cannot configure itself based on the
  * settings passed to it.
  *

@@ -180,7 +180,14 @@ public:
    * @throws hal::no_such_device - indicates that no devices on
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
-   * respond, broken or many other possible outcomes.
+   * respond, broken or many other possible outcomes. With a 10-bit address,
+   * this includes the address's low byte, the first byte of `p_data_out`.
+   * @throws hal::broken_pipe - the device answered, then stopped: it
+   * acknowledged its address, then didn't acknowledge a byte of `p_data_out`,
+   * or the read address of a write-then-read. The device may be busy, may not
+   * understand what it was sent, or may not be able to take any more. The
+   * transaction stops, and nothing more is sent. The exception's `progress` is
+   * how many bytes of `p_data_out` the device acknowledged.
    * @throws hal::io_error - indicates that the i2c lines were put into an
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
