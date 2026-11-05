@@ -26,10 +26,10 @@ export struct pin_settings
   bool open_drain = false;
 
   /**
-   * @brief Enables default comparison
+   * @brief Enables default equality comparison
    *
    */
-  bool operator<=>(pin_settings const&) const = default;
+  bool operator==(pin_settings const&) const = default;
 };
 
 /**
