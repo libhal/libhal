@@ -39,10 +39,10 @@ export struct i2c_settings
   hertz clock_rate = 100 * si::unit_symbols::kHz;
 
   /**
-   * @brief Enables default comparison
+   * @brief Enables default equality comparison
    *
    */
-  bool operator<=>(i2c_settings const&) const = default;
+  bool operator==(i2c_settings const&) const = default;
 };
 
 /**

@@ -106,10 +106,10 @@ export struct spi_settings
   spi_mode bus_mode = spi_mode::m0;
 
   /**
-   * @brief Enables default comparison
+   * @brief Enables default equality comparison
    *
    */
-  bool operator<=>(spi_settings const&) const = default;
+  bool operator==(spi_settings const&) const = default;
 };
 
 /**

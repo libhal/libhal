@@ -90,10 +90,10 @@ public:
     edge_trigger trigger = edge_trigger::rising;
 
     /**
-     * @brief Enables default comparison
+     * @brief Enables default equality comparison
      *
      */
-    bool operator<=>(settings const&) const = default;
+    bool operator==(settings const&) const = default;
   };
 
   /**

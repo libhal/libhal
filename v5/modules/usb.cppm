@@ -475,7 +475,7 @@ export struct lpm_support
     }
   }
 
-  constexpr bool operator<=>(lpm_support const& rhs) const = default;
+  constexpr bool operator==(lpm_support const& rhs) const = default;
 
   /// @brief Raw bitmask of supported LPM states; zero means none supported.
   hal::u8 bits = 0;
@@ -1459,7 +1459,7 @@ public:
 
     /// Number of string descriptors provided by this interface
     u8 string;
-    constexpr bool operator<=>(descriptor_count const& rhs) const = default;
+    constexpr bool operator==(descriptor_count const& rhs) const = default;
   };
 
   /**
@@ -1482,7 +1482,7 @@ public:
     /// string 2 would be `value + 1` and string 3 would be `value + 2`.
     std::optional<u8> string;
 
-    constexpr bool operator<=>(descriptor_start const& rhs) const = default;
+    constexpr bool operator==(descriptor_start const& rhs) const = default;
   };
 
   /**
