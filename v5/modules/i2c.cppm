@@ -87,9 +87,11 @@ export struct i2c_settings
  * throws an exception that says to try again. See "A busy bus or lost
  * arbitration".
  *
- * A default of 100 ms is suggested. It is longer than the SMBus clock-low
- * timeout of 25 to 35 ms, and long enough for devices that stretch the clock
- * for tens of milliseconds, such as some humidity sensors while they measure.
+ * A default of 25 ms is suggested, to match the SMBus clock-low timeout of 25
+ * to 35 ms. A device that stretches the clock for longer needs a longer
+ * timeout. The Sensirion SHT21 in hold-master mode, for example, holds SCL low
+ * while it measures. At its default resolutions, a measurement takes up to
+ * 29 ms for humidity and 85 ms for temperature.
  *
  * Some hardware can't detect a stall, or can't measure the timeout the
  * application asks for. Such an implementation documents what it does
@@ -106,24 +108,20 @@ export struct i2c_settings
  * `transaction()` throws `hal::resource_unavailable_try_again` when it can't
  * have the bus:
  *
- * - The bus is busy when the transaction starts. If the hardware shows that,
- *   the implementation throws at once, without waiting for the bus to be
- *   free. Otherwise, for example when the bus became busy just after it was
- *   checked, it throws if its start condition hasn't gone out within the
- *   stall timeout.
+ * - The bus is busy when the transaction starts.
+ * - The start condition hasn't gone out within the stall timeout.
  * - The hardware reports that another controller won arbitration. Two
  *   controllers that start at the same time both send their address and data
  *   bit by bit, until one sends a 1 while the other sends a 0, and the one
  *   sending the 0 wins the bus.
  *
- * Neither is an error by itself. A busy bus usually means another controller
- * is using it, but hardware can't tell that apart from a device holding a
- * line low, so only how long the bus stays taken shows a fault. A platform
- * driver never retries, so the application, or a wrapper around the bus,
- * decides whether and how often to try again, and how long a bus can stay taken
- * before it reports a fault as `hal::io_error`. On a bus with only one
- * controller, nothing else should hold the bus, so that can be soon, even the
- * first time.
+ * None of these is an error by itself. A busy bus usually means another
+ * controller is using it, but hardware can't tell that apart from a device
+ * holding a line low, so only how long the bus stays taken shows a fault. An
+ * implementation never retries, so the application, or a wrapper around the
+ * bus, decides whether and how often to try again, and how long a bus can stay
+ * taken before it reports a fault as `hal::io_error`. On a bus with only one
+ * controller, nothing else should hold the bus, so that can be the first time.
  */
 export class i2c
 {
@@ -170,10 +168,9 @@ public:
    * lock for the whole transaction so that callers wait instead.
    *
    * @param p_address 7-bit address of the device you want to communicate with.
-   * To perform a transaction with a 10-bit address, this parameter must be the
-   * address upper byte of the 10-bit address OR'd with 0b1111'0000 (the 10-bit
-   * address indicator). The lower byte of the address must be contained in the
-   * first byte of the p_data_out span.
+   * There is no 10-bit mode. A device driver may send a 10-bit address by
+   * passing `0b111'1000 | (address >> 8)` here, with the address's low byte as
+   * the first byte of `p_data_out`. Not all hardware allows this.
    * @param p_data_out data to be written to the addressed device. Set to
    * nullptr with length zero in order to skip writing.
    * @param p_data_in buffer to store read data from the addressed device. Set
@@ -181,14 +178,15 @@ public:
    * @throws hal::no_such_device - indicates that no devices on
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
-   * respond, broken or many other possible outcomes. With a 10-bit address,
-   * this includes the address's low byte, the first byte of `p_data_out`.
+   * respond, broken or many other possible outcomes.
    * @throws hal::broken_pipe - the device answered, then stopped: it
    * acknowledged its address, then didn't acknowledge a byte of `p_data_out`,
    * or the read address of a write-then-read. The device may be busy, may not
    * understand what it was sent, or may not be able to take any more. The
-   * transaction stops, and nothing more is sent. The exception's `progress` is
-   * how many bytes of `p_data_out` the device acknowledged.
+   * transaction stops, and nothing more is sent. The exception's `progress`
+   * field is how many bytes of `p_data_out` the device acknowledged. With a
+   * 10-bit address, a `progress` of 0 means the device didn't acknowledge the
+   * address's low byte.
    * @throws hal::io_error - indicates that the i2c lines were put into an
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
@@ -198,14 +196,15 @@ public:
    * also throw it for a bus that stays taken for too long.
    * @throws hal::timed_out - the bus made no progress for longer than the
    * stall timeout after this call sent its start condition, for example
-   * because the device stretched the clock. The exception's `progress` is how
-   * many bytes are known to have been transferred, counting `p_data_out`
+   * because the device stretched the clock. The exception's `progress` field
+   * is how many bytes are known to have been transferred, counting `p_data_out`
    * first and then `p_data_in`. More may have been, so `progress` is a lower
    * bound. An implementation that can't tell when its start condition was
    * sent reports a stall at any point as `hal::timed_out`.
    * @throws hal::resource_unavailable_try_again - the bus was busy when this
-   * call started, or another controller won the bus during it. See "A busy bus
-   * or lost arbitration" in the class description.
+   * call started, its start condition didn't go out within the stall timeout,
+   * or another controller won the bus during it. See "A busy bus or lost
+   * arbitration" in the class description.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
    * wait instead.
