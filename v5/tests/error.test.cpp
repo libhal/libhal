@@ -27,6 +27,9 @@ static_assert(std::is_base_of_v<std::exception, hal::exception>);
 static_assert(std::is_base_of_v<std::exception, hal::io_error>);
 static_assert(std::is_base_of_v<hal::exception, hal::subscription_busy>);
 static_assert(std::is_base_of_v<hal::exception, hal::reusable_busy>);
+static_assert(
+  std::is_base_of_v<hal::exception, hal::resource_unavailable_try_again>);
+static_assert(std::is_base_of_v<hal::exception, hal::broken_pipe>);
 
 void error_test()
 {
@@ -92,6 +95,34 @@ void error_test()
 
     // Verify
     expect(that % 0 == error.progress);
+  };
+
+  "hal::resource_unavailable_try_again says to try again"_test = []() {
+    // Setup
+    int const driver = 0;
+
+    // Exercise
+    hal::resource_unavailable_try_again const error(&driver);
+
+    // Verify
+    expect(std::errc::resource_unavailable_try_again == error.error_code());
+    expect(&driver == error.instance());
+    expect(std::string_view(error.what()) ==
+           "hal::resource_unavailable_try_again");
+  };
+
+  "hal::broken_pipe says how far the operation got"_test = []() {
+    // Setup
+    int const driver = 0;
+
+    // Exercise
+    hal::broken_pipe const error(&driver, 3);
+
+    // Verify
+    expect(std::errc::broken_pipe == error.error_code());
+    expect(&driver == error.instance());
+    expect(std::string_view(error.what()) == "hal::broken_pipe");
+    expect(that % 3 == error.progress);
   };
 
   "busy exceptions are hal::exceptions with their own names"_test = []() {

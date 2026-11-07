@@ -342,21 +342,38 @@ export struct io_error : public exception
 /**
  * @ingroup Error
  * @brief Raised when a resource is unavailable but another attempt may work
- * @deprecated I2c no longer uses this exception when another controller on the
- * bus is currently performing a transaction. The new behavior is to wait for
- * the bus to become available. `hal::io_waiter` can be used to get out of the
- * i2c if a deadline has been exceeded. There are no other interfaces for which
- * this exception makes sense and thus an example describing when to use this
- * and how to recover from it does not exist. Until such an example is found,
- * this error type should not be thrown and should be considered deprecated. If
- * such a use case becomes known, then this comment will be updated, deprecation
- * notice will be removed, and this type can be used in those situations.
  *
+ * # When to raise this
+ *
+ * Raise this when an operation can't have a resource right now, and may if it
+ * is tried again later. Raise it at once, without waiting for the resource or
+ * trying again, so that the caller decides how long to wait and how often to
+ * try. Contention inside this program, such as a resource held by another
+ * driver object or a driver already in use by another thread, raises
+ * `hal::device_or_resource_busy` instead. Don't raise this when trying again
+ * can't succeed, such as when every resource of a kind has been claimed.
+ *
+ * For example, a bus that more than one controller can drive, such as I2C,
+ * raises this when it can't have the bus: the bus was busy when the operation
+ * started, or the hardware reports that another controller won arbitration,
+ * because both started at the same time and the other one took the bus.
+ * Nothing more of the operation is sent. A bus error the hardware reports
+ * raises `hal::io_error` instead.
+ *
+ * # How to recover from this?
+ *
+ * This isn't an error by itself. Wait, for example by sleeping, then try
+ * again. A resource that stays unavailable for longer than the application
+ * expects is a fault, since the driver can't always tell why it is
+ * unavailable. For example, hardware can't tell another I2C controller using
+ * the bus apart from a device holding a line low. Handle such a fault as you
+ * would `hal::io_error`. On an I2C bus with only one controller, nothing else
+ * should hold the bus, so that can be soon, even the first time.
  */
 export struct resource_unavailable_try_again : public exception
 {
   /**
-   * @brief Construct a new timed_out exception
+   * @brief Construct a new resource_unavailable_try_again exception
    *
    * @param p_instance - must point to the instance of the driver that threw
    * this exception.
@@ -381,7 +398,8 @@ export struct resource_unavailable_try_again : public exception
  *
  * This exception should be raised when application code attempts to construct
  * or acquire a hardware resource that is already in use by another driver
- * object.
+ * object, or starts an operation on a driver while another is still running,
+ * for example from a second thread.
  *
  * # How to recover from this?
  *
@@ -418,7 +436,8 @@ export struct device_or_resource_busy : public exception
 
 /**
  * @ingroup Error
- * @brief Raised when an operation reaches a deadline before completing
+ * @brief Raised when an operation doesn't finish, or stops making progress,
+ * within a time limit
  *
  * Time outs can be generated from time sources such as a hal::steady_clock or
  * hal::timer as well as external sources such as an interrupt or input pin.
@@ -467,6 +486,61 @@ export struct timed_out : public exception
   /// How far the operation got before it stalled, in the units its interface
   /// defines, such as bytes transferred: at least this far. The next unit may
   /// or may not have completed. Zero if the thrower doesn't say.
+  u32 progress;
+};
+
+/**
+ * @ingroup Error
+ * @brief Raised when a receiver that had answered stops accepting an operation
+ *
+ * The name comes from POSIX's `EPIPE`: a write to something that no longer
+ * reads what is written to it.
+ *
+ * # When to raise this
+ *
+ * Raise this when a receiver answered and then refused what came next. The
+ * operation stops, and nothing more of it is sent. A receiver that never
+ * answered raises `hal::no_such_device` instead.
+ *
+ * For example, an I2C device that acknowledged its address raises this when it
+ * doesn't acknowledge a byte written to it.
+ *
+ * # How to recover from this?
+ *
+ * Only the code that knows the receiver can tell why it refused, so the driver
+ * for that device handles this, using the receiver's documentation:
+ *
+ * - The receiver is busy. Despite the name, this can be temporary: wait, then
+ *   try again.
+ * - The receiver can't accept any more. `progress` says how much it took, so
+ *   the rest can be sent later, in smaller pieces.
+ * - The receiver doesn't understand what it was sent. This is usually a bug, or
+ *   a sign that the receiver isn't the device it was expected to be.
+ */
+export struct broken_pipe : public exception
+{
+  /**
+   * @brief Construct a new broken_pipe exception
+   *
+   * @param p_instance - must point to the instance of the driver that threw
+   * this exception.
+   * @param p_progress - how far the operation got before the receiver refused
+   * it, in the units its interface defines.
+   */
+  broken_pipe(void const* p_instance, u32 p_progress)
+    : exception(std::errc::broken_pipe, p_instance)
+    , progress(p_progress)
+  {
+  }
+
+  /// @return char const* - "hal::broken_pipe"
+  [[nodiscard]] char const* what() const noexcept final
+  {
+    return "hal::broken_pipe";
+  }
+
+  /// How far the operation got before the receiver refused it, in the units
+  /// its interface defines, such as bytes accepted.
   u32 progress;
 };
 
