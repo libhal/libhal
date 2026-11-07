@@ -22,7 +22,7 @@ namespace hal::inline v5 {
 /**
  * @brief Settings for an I2C bus
  *
- * A platform's I2C driver takes these from the application when it is
+ * A `hal::i2c` implementation takes these from the application when it is
  * constructed. They aren't part of `hal::i2c`, since every device on a bus
  * sees its clock: see `hal::i2c` for why only the application sets the rate.
  */
@@ -48,39 +48,41 @@ export struct i2c_settings
 /**
  * @brief Inter-integrated Circuit (I2C) hardware abstract interface.
  *
- * Also known as Two Wire Interface (TWI) communication protocol. This is a very
- * commonly used protocol for communication with sensors and peripheral devices
- * because it only requires two connections SDA (data signal) and SCL (clock
- * signal). This is possible because the protocol for I2C is addressable.
+ * Also known as Two Wire Interface (TWI). It is widely used for sensors and
+ * other peripherals, since many devices can share one bus of two wires, SDA
+ * (data) and SCL (clock), each at its own address.
  *
- * Some devices can utilize clock stretching as a means to pause the i2c
- * controller until the device is ready to respond. This makes the length of a
- * transaction depend on the device, so prefer devices and modes that don't
- * stretch the clock. See "Stall timeout" for how a stretch is limited.
+ * A device can stretch the clock, holding SCL low to pause the transaction
+ * until it is ready to respond. Each stretch is limited by the stall timeout,
+ * described below. While a device stretches the clock, it has the bus to
+ * itself, and no other device can be serviced. Prefer devices and modes that
+ * don't stretch the clock, such as polling a status flag, which leaves the bus
+ * free for other devices between polls.
  *
  * # Clock rate
  *
- * There is no way to change the clock rate through this interface. Every
- * device on a bus sees its clock, so the bus must run no faster than its
- * slowest device, and only the application, which knows every device wired
- * to the bus, can choose that rate. It must be chosen before the first
- * transaction: device drivers talk to their devices as soon as they are
- * created, for example to check an ID, and a device that hasn't been set up
- * yet still sees that traffic. Platform drivers take `hal::i2c_settings` when
- * they are constructed. A device driver that needs a slower bus documents its
- * limit for the application instead of changing the rate itself.
+ * An implementation takes the clock rate in `hal::i2c_settings` when it is
+ * constructed, and may offer its own function to change it later. There is no
+ * way to change it through this interface. Every device on a bus sees its
+ * clock, so the bus must run no faster than its slowest device. Only the
+ * application knows every device wired to the bus, so only it can choose that
+ * rate. It must be set before the first transaction. Device drivers talk to
+ * their devices as soon as they are created, for example to check a device ID.
+ * Every device on the bus sees that traffic, even one whose driver hasn't been
+ * created yet. A device driver that needs a slower bus documents its limit for
+ * the application instead of changing the rate itself.
  *
  * # Stall timeout
  *
  * Every wait a transaction makes on the bus is limited by a stall timeout, so
  * that a stuck bus, for example a device holding SCL low during the
  * transaction, can't block it forever. The timeout limits each wait, never the
- * whole transaction, so a long transfer at a slow clock rate never times out on
+ * whole transaction, thus long transfer at a slow clock rate never times out on
  * its length alone. An implementation never gives up sooner than its timeout,
  * but may round it up to what its hardware can measure.
  *
  * Like the clock rate, the timeout can't be set through this interface, since
- * every device on the bus shares it. Platform drivers take it when they are
+ * every device on the bus shares it. Implementations take it when they are
  * constructed, and document their default. The application chooses a timeout
  * longer than the longest any device on the bus stretches the clock. Other
  * controllers don't count: if one holds the bus for longer, the transaction
@@ -89,9 +91,9 @@ export struct i2c_settings
  *
  * A default of 25 ms is suggested, to match the SMBus clock-low timeout of 25
  * to 35 ms. A device that stretches the clock for longer needs a longer
- * timeout. The Sensirion SHT21 in hold-master mode, for example, holds SCL low
- * while it measures. At its default resolutions, a measurement takes up to
- * 29 ms for humidity and 85 ms for temperature.
+ * timeout. For example, the Sensirion SHT21 in hold-master mode, for example,
+ * holds SCL low while it measures. At its default resolutions, a measurement
+ * takes up to 29 ms for humidity and 85 ms for temperature.
  *
  * Some hardware can't detect a stall, or can't measure the timeout the
  * application asks for. Such an implementation documents what it does
@@ -105,23 +107,21 @@ export struct i2c_settings
  *
  * # A busy bus or lost arbitration
  *
- * `transaction()` throws `hal::resource_unavailable_try_again` when it can't
- * have the bus:
+ * `transaction()` throws `hal::resource_unavailable_try_again` in the following
+ * circumstances:
  *
  * - The bus is busy when the transaction starts.
  * - The start condition hasn't gone out within the stall timeout.
- * - The hardware reports that another controller won arbitration. Two
- *   controllers that start at the same time both send their address and data
- *   bit by bit, until one sends a 1 while the other sends a 0, and the one
- *   sending the 0 wins the bus.
+ * - Another controller wins arbitration. When two controllers start at the
+ *   same time, the first to send a 1 while the other sends a 0 loses the bus.
  *
- * None of these is an error by itself. A busy bus usually means another
- * controller is using it, but hardware can't tell that apart from a device
- * holding a line low, so only how long the bus stays taken shows a fault. An
- * implementation never retries, so the application, or a wrapper around the
- * bus, decides whether and how often to try again, and how long a bus can stay
- * taken before it reports a fault as `hal::io_error`. On a bus with only one
- * controller, nothing else should hold the bus, so that can be the first time.
+ * None of these is an error by itself. Usually another controller has the bus,
+ * but a device holding a line low looks the same, and only time tells them
+ * apart. Retrying is left to the application, driver using the i2c interface,
+ * or a wrapper around the bus, which decides how often to try again and how
+ * long the bus can stay taken before reporting a fault as `hal::io_error`. On a
+ * bus with only one controller, nothing else should take the bus, so the
+ * application can treat the exception as a fault at once.
  */
 export class i2c
 {
@@ -137,16 +137,12 @@ public:
    * span for data_out and data_in are set to null.
    *
    * - For write-only transactions, pass the content to be written to the
-   * `p_data_out` parameter and provide an empty `p_data_in` parameters.
-   *
+   *   `p_data_out` parameter and provide an empty `p_data_in` parameters.
    * - For read-only transactions, pass an empty `p_data_out` and pass a buffer
-   * to p_data_in.
-   *
+   *   to p_data_in.
    * - For write-then-read transactions, pass a buffer for both p_data_in
    *   p_data_out.
-   *
-   * - If both p_data_in and p_data_out are empty, simply do nothing and return
-   *   success.
+   * - If both p_data_in and p_data_out are empty, simply do nothing and return.
    *
    * # Blocking behavior
    *
@@ -179,21 +175,21 @@ public:
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
    * respond, broken or many other possible outcomes.
-   * @throws hal::broken_pipe - the device answered, then stopped: it
-   * acknowledged its address, then didn't acknowledge a byte of `p_data_out`,
-   * or the read address of a write-then-read. The device may be busy, may not
-   * understand what it was sent, or may not be able to take any more. The
-   * transaction stops, and nothing more is sent. The exception's `progress`
-   * field is how many bytes of `p_data_out` the device acknowledged. With a
-   * 10-bit address, a `progress` of 0 means the device didn't acknowledge the
-   * address's low byte.
+   * @throws hal::broken_pipe - device acknowledged its address and the
+   * controller began writing data to the device and at some point before the
+   * end of the transfer, the device stops acknowledging each byte. This can
+   * occur if the device is busy, does not understand what it was sent, or may
+   * not be able to take any more data. The transaction stops, and nothing more
+   * is sent. The exception's `progress` field is how many bytes of `p_data_out`
+   * the device acknowledged. With a 10-bit address, a `progress` of 0 means the
+   * device didn't acknowledge the address's low byte.
    * @throws hal::io_error - indicates that the i2c lines were put into an
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
-   * This tends to present a hardware issue and is usually not recoverable.
-   * Platform drivers throw it only when their hardware reports a bus error,
-   * such as a misplaced start or stop condition. A wrapper around the bus may
-   * also throw it for a bus that stays taken for too long.
+   * This tends to present a hardware issue and may not be recoverable.
+   * Implementations throw it only when their hardware detect a bus error, such
+   * as a misplaced start or stop condition. A wrapper around the bus may also
+   * throw it for a bus that stays taken for too long.
    * @throws hal::timed_out - the bus made no progress for longer than the
    * stall timeout after this call sent its start condition, for example
    * because the device stretched the clock. The exception's `progress` field
