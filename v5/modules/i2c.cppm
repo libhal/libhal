@@ -77,9 +77,9 @@ export struct i2c_settings
  * Every wait a transaction makes on the bus is limited by a stall timeout, so
  * that a stuck bus, for example a device holding SCL low during the
  * transaction, can't block it forever. The timeout limits each wait, never the
- * whole transaction, thus long transfer at a slow clock rate never times out on
- * its length alone. An implementation never gives up sooner than its timeout,
- * but may round it up to what its hardware can measure.
+ * whole transaction, thus a long transfer at a slow clock rate never times out
+ * on its length alone. An implementation never gives up sooner than its
+ * timeout, but may round it up to what its hardware can measure.
  *
  * Like the clock rate, the timeout can't be set through this interface, since
  * every device on the bus shares it. Implementations take it when they are
@@ -91,9 +91,9 @@ export struct i2c_settings
  *
  * A default of 25 ms is suggested, to match the SMBus clock-low timeout of 25
  * to 35 ms. A device that stretches the clock for longer needs a longer
- * timeout. For example, the Sensirion SHT21 in hold-master mode, for example,
- * holds SCL low while it measures. At its default resolutions, a measurement
- * takes up to 29 ms for humidity and 85 ms for temperature.
+ * timeout. For example, the Sensirion SHT21 in hold-master mode holds SCL low
+ * while it measures. At its default resolutions, a measurement takes up to
+ * 29 ms for humidity and 85 ms for temperature.
  *
  * Some hardware can't detect a stall, or can't measure the timeout the
  * application asks for. Such an implementation documents what it does
@@ -117,11 +117,11 @@ export struct i2c_settings
  *
  * None of these is an error by itself. Usually another controller has the bus,
  * but a device holding a line low looks the same, and only time tells them
- * apart. Retrying is left to the application, driver using the i2c interface,
- * or a wrapper around the bus, which decides how often to try again and how
- * long the bus can stay taken before reporting a fault as `hal::io_error`. On a
- * bus with only one controller, nothing else should take the bus, so the
- * application can treat the exception as a fault at once.
+ * apart. Retrying is left to the application, a device driver using the i2c
+ * interface, or a wrapper around the bus, which decides how often to try again
+ * and how long the bus can stay taken before reporting a fault as
+ * `hal::io_error`. On a bus with only one controller, nothing else should take
+ * the bus, so the application can treat the exception as a fault at once.
  */
 export class i2c
 {
@@ -175,21 +175,21 @@ public:
    * the bus acknowledge the address in this transaction, which could mean that
    * the device is not connected to the bus, is not powered, not available to
    * respond, broken or many other possible outcomes.
-   * @throws hal::broken_pipe - device acknowledged its address and the
-   * controller began writing data to the device and at some point before the
-   * end of the transfer, the device stops acknowledging each byte. This can
-   * occur if the device is busy, does not understand what it was sent, or may
-   * not be able to take any more data. The transaction stops, and nothing more
-   * is sent. The exception's `progress` field is how many bytes of `p_data_out`
-   * the device acknowledged. With a 10-bit address, a `progress` of 0 means the
-   * device didn't acknowledge the address's low byte.
+   * @throws hal::broken_pipe - the device acknowledged its address, then didn't
+   * acknowledge a byte of `p_data_out`, or the read address of a
+   * write-then-read. This can occur if the device is busy, does not understand
+   * what it was sent, or may not be able to take any more data. The transaction
+   * stops, and nothing more is sent. The exception's `progress` field is how
+   * many bytes of `p_data_out` the device acknowledged. With a 10-bit address,
+   * a `progress` of 0 means the device didn't acknowledge the address's low
+   * byte.
    * @throws hal::io_error - indicates that the i2c lines were put into an
    * invalid state during the transaction due to interference, misconfiguration,
    * hardware fault, malfunctioning i2c peripheral or possibly something else.
    * This tends to present a hardware issue and may not be recoverable.
-   * Implementations throw it only when their hardware detect a bus error, such
-   * as a misplaced start or stop condition. A wrapper around the bus may also
-   * throw it for a bus that stays taken for too long.
+   * Implementations throw it only when they detect a bus error, such as a
+   * misplaced start or stop condition. A wrapper around the bus may also throw
+   * it for a bus that stays taken for too long.
    * @throws hal::timed_out - the bus made no progress for longer than the
    * stall timeout after this call sent its start condition, for example
    * because the device stretched the clock. The exception's `progress` field
