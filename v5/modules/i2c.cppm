@@ -93,7 +93,7 @@ export struct i2c_settings
  * slack in `hal::i2c_settings`. If it hasn't finished by then, counting from
  * when `transaction()` was called, it throws `hal::timed_out`. This keeps a
  * stuck bus, for example a device holding SCL low, from blocking the caller
- * forever.
+ * and the bus forever.
  *
  * Its own length is 9 clock cycles for every byte, address bytes included,
  * plus one for each start and stop condition. A write-then-read sends the
@@ -109,6 +109,8 @@ export struct i2c_settings
  * - Clock stretching: how long a device holds SCL low during a transaction,
  *   beyond a little on each byte. For example, the Sensirion SHT21 in
  *   hold-master mode holds SCL low while it measures, which takes up to 85 ms.
+ *   Thus the slack should be set to at least 86 ms on a bus with an SHT21 in
+ *   that mode: the measurement's 85 ms, plus the default 1 ms.
  * - Waiting on the calling context: if an interrupt or another thread runs in
  *   the middle of a transaction, the bus waits for it. On a bus used from a
  *   thread that can be preempted, the slack must be longer than the longest
@@ -116,21 +118,21 @@ export struct i2c_settings
  *
  * The default slack, 1 ms, suits devices that stretch the clock briefly or not
  * at all. A device driver whose device stretches the clock for longer declares
- * how long, so the application can add it to the slack. libhal-util's
- * `hal::i2c_bus_slack()` does this for every device on a bus.
+ * how long, for the application to add to the slack. libhal-util's
+ * `hal::i2c_bus_slack()` computes the slack from the device drivers the
+ * application lists, so it covers only the devices it is given: list every
+ * device on the bus.
  *
  * An implementation never gives up sooner than this limit, but may round it up
  * to what it can measure. Like the clock rate, the slack can't be changed
  * through this interface, since every device on the bus shares it.
  * Implementations take it in `hal::i2c_settings` when they are constructed.
  *
- * Some hardware can't measure time. Such an implementation documents what it
- * does instead, which may be to wait until the bus recovers. It is up to the
- * application to tolerate that, for example with a watchdog.
- *
  * A device driver should avoid stretching the clock for long. If the device
- * has a mode that doesn't stretch the clock, such as starting a measurement
- * and reading the result later, the driver uses it.
+ * has a mode that doesn't stretch the clock, the driver uses it: it starts a
+ * measurement, then either sleeps for as long as the datasheet says the
+ * measurement takes, or waits for the device's interrupt saying the result is
+ * ready, and only then reads the result.
  *
  * # A busy bus or lost arbitration
  *
@@ -217,17 +219,15 @@ public:
    * Implementations throw it only when they detect a bus error, such as a
    * misplaced start or stop condition. A wrapper around the bus may also throw
    * it for a bus that stays taken for too long.
-   * @throws hal::timed_out - this call sent its start condition, then didn't
-   * finish within its time limit, for example because the device stretched
-   * the clock for longer than the slack. See "Timeout" in the class
-   * description. The exception's `progress` field is how many bytes are known
-   * to have been transferred, counting `p_data_out` first and then
-   * `p_data_in`. More may have been, so `progress` is a lower bound. An
-   * implementation that can't tell when its start condition was sent reports
-   * running out of time at any point as `hal::timed_out`.
+   * @throws hal::timed_out - a start condition for this call was sent, but the
+   * transaction did not finish within its time limit, for example because the
+   * device stretched the clock for longer than the slack. See "Timeout" in the
+   * class description. The exception's `progress` field is how many bytes are
+   * known to have been transferred, counting `p_data_out` first and then
+   * `p_data_in`. More may have been, so `progress` is a lower bound.
    * @throws hal::resource_unavailable_try_again - the bus was busy when this
-   * call started, its start condition didn't go out within the time limit, or
-   * another controller won the bus during it. See "A busy bus or lost
+   * call started, a start condition for this call was not sent within its time
+   * limit, or another controller won arbitration. See "A busy bus or lost
    * arbitration" in the class description.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
