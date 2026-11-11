@@ -63,6 +63,25 @@ void i2c_settings_test() noexcept
     // Verify
     expect((100 * kHz) == settings.clock_rate);
   };
+
+  "i2c_settings defaults to 1 ms of slack"_test = [&]() {
+    // Setup
+    hal::i2c_settings const settings{};
+
+    // Verify
+    expect(std::chrono::milliseconds(1) == settings.slack);
+  };
+
+  "i2c_settings compares its slack"_test = [&]() {
+    // Setup
+    hal::i2c_settings const settings{};
+    hal::i2c_settings const more_slack{ .slack =
+                                          std::chrono::milliseconds(85) };
+
+    // Verify
+    expect(settings == hal::i2c_settings{});
+    expect(settings != more_slack);
+  };
 };
 
 void i2c_transaction_test() noexcept

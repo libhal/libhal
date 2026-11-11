@@ -12,6 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+module;
+
+#include <chrono>
+
 export module hal:i2c;
 
 export import scatter_span;
@@ -39,6 +43,17 @@ export struct i2c_settings
   hertz clock_rate = 100 * si::unit_symbols::kHz;
 
   /**
+   * @brief How much longer than twice its own length a transaction may take
+   *
+   * It covers the time devices hold SCL low to stretch the clock, and the time
+   * the transaction waits on the calling context, for example while an
+   * interrupt runs. See "Timeout" in `hal::i2c`. The default, 1 ms, suits
+   * devices that stretch the clock briefly or not at all, on a bus used from a
+   * context that isn't interrupted for long.
+   */
+  time_duration slack = std::chrono::milliseconds(1);
+
+  /**
    * @brief Enables default equality comparison
    *
    */
@@ -53,11 +68,11 @@ export struct i2c_settings
  * (data) and SCL (clock), each at its own address.
  *
  * A device can stretch the clock, holding SCL low to pause the transaction
- * until it is ready to respond. Each stretch is limited by the stall timeout,
- * described below. While a device stretches the clock, it has the bus to
- * itself, and no other device can be serviced. Prefer devices and modes that
- * don't stretch the clock, such as polling a status flag, which leaves the bus
- * free for other devices between polls.
+ * until it is ready to respond. Stretching counts toward the transaction's
+ * time limit, described below. While a device stretches the clock, it has the
+ * bus to itself, and no other device can be serviced. Prefer devices and modes
+ * that don't stretch the clock, such as polling a status flag, which leaves
+ * the bus free for other devices between polls.
  *
  * # Clock rate
  *
@@ -72,38 +87,52 @@ export struct i2c_settings
  * created yet. A device driver that needs a slower bus documents its limit for
  * the application instead of changing the rate itself.
  *
- * # Stall timeout
+ * # Timeout
  *
- * Every wait a transaction makes on the bus is limited by a stall timeout, so
- * that a stuck bus, for example a device holding SCL low during the
- * transaction, can't block it forever. The timeout limits each wait, never the
- * whole transaction, thus a long transfer at a slow clock rate never times out
- * on its length alone. An implementation never gives up sooner than its
- * timeout, but may round it up to what its hardware can measure.
+ * A transaction may take twice its own length at the clock rate, plus the
+ * slack in `hal::i2c_settings`. If it hasn't finished by then, counting from
+ * when `transaction()` was called, it throws `hal::timed_out`. This keeps a
+ * stuck bus, for example a device holding SCL low, from blocking the caller
+ * and the bus forever.
  *
- * Like the clock rate, the timeout can't be set through this interface, since
- * every device on the bus shares it. Implementations take it when they are
- * constructed, and document their default. The application chooses a timeout
- * longer than the longest any device on the bus stretches the clock. Other
- * controllers don't count: if one holds the bus for longer, the transaction
- * throws an exception that says to try again. See "A busy bus or lost
- * arbitration".
+ * Its own length is 9 clock cycles for every byte, address bytes included,
+ * plus one for each start and stop condition. A write-then-read sends the
+ * address twice and has a repeated start. Writing 2 bytes, for example, is 3
+ * bytes of 9 cycles plus a start and a stop: 29 cycles, or 0.29 ms at 100 kHz.
+ * Doubling the length allows for a bus that runs slower than its clock rate,
+ * for example because a device stretches the clock a little on every byte. The
+ * limit grows with the transaction, so a long transfer at a slow clock rate
+ * never times out on its length alone.
  *
- * A default of 25 ms is suggested, to match the SMBus clock-low timeout of 25
- * to 35 ms. A device that stretches the clock for longer needs a longer
- * timeout. For example, the Sensirion SHT21 in hold-master mode holds SCL low
- * while it measures. At its default resolutions, a measurement takes up to
- * 29 ms for humidity and 85 ms for temperature.
+ * The slack covers the rest:
  *
- * Some hardware can't detect a stall, or can't measure the timeout the
- * application asks for. Such an implementation documents what it does
- * instead, which may be to wait until the bus recovers. It is up to the
- * application to tolerate that, for example with a watchdog.
+ * - Clock stretching: how long a device holds SCL low during a transaction,
+ *   beyond a little on each byte. For example, the Sensirion SHT21 in
+ *   hold-master mode holds SCL low while it measures, which takes up to 85 ms.
+ *   Thus the slack should be set to at least 86 ms on a bus with an SHT21 in
+ *   that mode: the measurement's 85 ms, plus the default 1 ms.
+ * - Waiting on the calling context: if an interrupt or another thread runs in
+ *   the middle of a transaction, the bus waits for it. On a bus used from a
+ *   thread that can be preempted, the slack must be longer than the longest
+ *   preemption.
  *
- * A device driver shouldn't rely on its device stretching the clock for more
- * than 25 ms, the SMBus limit. If the device has a mode that doesn't stretch
- * the clock, such as starting a measurement and reading the result later, the
- * driver uses it. Otherwise, it documents the stall timeout it needs.
+ * The default slack, 1 ms, suits devices that stretch the clock briefly or not
+ * at all. A device driver whose device stretches the clock for longer declares
+ * how long, for the application to add to the slack. libhal-util's
+ * `hal::i2c_bus_slack()` computes the slack from the device drivers the
+ * application lists, so it covers only the devices it is given: list every
+ * device on the bus.
+ *
+ * An implementation never gives up sooner than this limit, but may round it up
+ * to what it can measure. Like the clock rate, the slack can't be changed
+ * through this interface, since every device on the bus shares it.
+ * Implementations take it in `hal::i2c_settings` when they are constructed.
+ *
+ * A device driver should avoid stretching the clock for long. If the device
+ * has a mode that doesn't stretch the clock, the driver uses it: it starts a
+ * measurement, then either sleeps for as long as the datasheet says the
+ * measurement takes, or waits for the device's interrupt saying the result is
+ * ready, and only then reads the result.
  *
  * # A busy bus or lost arbitration
  *
@@ -111,7 +140,7 @@ export struct i2c_settings
  * circumstances:
  *
  * - The bus is busy when the transaction starts.
- * - The start condition hasn't gone out within the stall timeout.
+ * - The start condition hasn't gone out within the transaction's time limit.
  * - Another controller wins arbitration. When two controllers start at the
  *   same time, the first to send a 1 while the other sends a 0 loses the bus.
  *
@@ -151,8 +180,8 @@ public:
    * `hal::notifier`, so the installed waiter provider can idle the CPU or run
    * other contexts in the meantime.
    *
-   * Every wait on the bus is limited by the implementation's stall timeout.
-   * See "Stall timeout" in the class description.
+   * The transaction is limited in time. See "Timeout" in the class
+   * description.
    *
    * # Using a bus from more than one thread
    *
@@ -190,16 +219,15 @@ public:
    * Implementations throw it only when they detect a bus error, such as a
    * misplaced start or stop condition. A wrapper around the bus may also throw
    * it for a bus that stays taken for too long.
-   * @throws hal::timed_out - the bus made no progress for longer than the
-   * stall timeout after this call sent its start condition, for example
-   * because the device stretched the clock. The exception's `progress` field
-   * is how many bytes are known to have been transferred, counting `p_data_out`
-   * first and then `p_data_in`. More may have been, so `progress` is a lower
-   * bound. An implementation that can't tell when its start condition was
-   * sent reports a stall at any point as `hal::timed_out`.
+   * @throws hal::timed_out - a start condition for this call was sent, but the
+   * transaction did not finish within its time limit, for example because the
+   * device stretched the clock for longer than the slack. See "Timeout" in the
+   * class description. The exception's `progress` field is how many bytes are
+   * known to have been transferred, counting `p_data_out` first and then
+   * `p_data_in`. More may have been, so `progress` is a lower bound.
    * @throws hal::resource_unavailable_try_again - the bus was busy when this
-   * call started, its start condition didn't go out within the stall timeout,
-   * or another controller won the bus during it. See "A busy bus or lost
+   * call started, a start condition for this call was not sent within its time
+   * limit, or another controller won arbitration. See "A busy bus or lost
    * arbitration" in the class description.
    * @throws hal::device_or_resource_busy - if another transaction on this bus
    * is still running. Wrap the bus in `hal::thread_safe_i2c` to make callers
