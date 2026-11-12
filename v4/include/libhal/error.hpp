@@ -27,8 +27,11 @@
 namespace hal {
 [[noreturn]] inline void halt()
 {
+  // The body stays empty. The compiler may assume that a loop without side
+  // effects ends, so Clang deletes `while (true) { continue; }`, and halt()
+  // would fall through into whatever code follows it. An empty body with a
+  // constant condition is exempt (P2809).
   while (true) {
-    continue;
   }
 }
 
