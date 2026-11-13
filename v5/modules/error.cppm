@@ -30,7 +30,10 @@ namespace hal::inline v5 {
 export [[noreturn]] inline void halt()
 {
   while (true) {
-    continue;
+    // Halt here forever. Keep this body empty: Clang deletes an infinite loop
+    // whose body has statements but no side effects, even `continue;`, and
+    // halt() would fall through into whatever code follows it. An empty body
+    // with a constant condition is exempt (P2809).
   }
 }
 
