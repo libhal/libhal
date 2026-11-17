@@ -122,7 +122,7 @@ public:
   std::array<hal::byte, 256> last_data_out{};
   hal::usize last_data_out_size{};
   std::array<hal::byte, 256> rx_buffer{};
-  hal::usize rx_cursor{ 0 };
+  hal::usize rx_count{ 0 };
 
 private:
   void driver_configure(hal::serial::settings const& p_settings) override
@@ -147,9 +147,9 @@ private:
     return rx_buffer;
   }
 
-  hal::usize driver_receive_cursor() override
+  hal::usize driver_receive_count() override
   {
-    return rx_cursor;
+    return rx_count;
   }
 };
 

@@ -175,9 +175,8 @@ public:
   /**
    * @brief Returns this CAN driver's message receive buffer
    *
-   * Use this along with the receive_cursor() in order to determine if new data
-   * has been read into the receive buffer. See the docs for `receive_cursor()`
-   * for more details.
+   * Use this with `receive_count()` to find out how many new messages have
+   * arrived and where they are. See the docs for `receive_count()`.
    *
    * This API will work even if the CAN peripheral is "bus-off".
    *
@@ -192,44 +191,51 @@ public:
   }
 
   /**
-   * @brief Returns the current write position of the circular receive buffer
+   * @brief Returns the total number of messages received
    *
-   * Receive head represents the position where the next message will be written
-   * in the receive buffer. This position advances as new messages arrives. To
-   * determine how much new data has arrived, store the previous head position
-   * and compare it with the current head position, accounting for buffer
-   * wraparound.
+   * The count starts at 0 when the driver is created and increases by one for
+   * every message written into the receive buffer. It never goes back, except
+   * that it wraps from the maximum value of `usize` to 0.
    *
-   * The cursor value will ALWAYS follow this equation:
+   * Subtract an earlier count to find how many messages arrived since then.
+   * The subtraction is unsigned, so it stays correct across the wrap:
    *
-   *          0 <= cursor && cursor < receive_buffer().size()
+   * @code
    *
-   * Thus this expression is always a valid memory access but may not return
-   * useful information:
+   * auto const before = can.receive_count();
+   * // ... wait for new messages ...
+   * auto const received = can.receive_count() - before;
    *
-   *         can.receive_buffer()[ can.cursor() ];
+   * @endcode
    *
-   * Example:
+   * If `received` is larger than `receive_buffer().size()`, the oldest of
+   * those messages were overwritten before they could be read.
    *
-   *   auto old_head = port.receive_cursor();
-   *   // ... wait for new data ...
-   *   auto new_head = port.receive_cursor();
-   *   // Account for circular wraparound when calculating messages received
-   *   auto buffer_size = port.receive_buffer().size();
-   *   auto messages_received =
-   *          (new_head + buffer_size - old_head) % buffer_size;
+   * `receive_buffer()` returns a `circular_span`, which wraps any index to its
+   * size, so a count can index it directly. The next message will be written at
+   * `buffer[can.receive_count()]`, and the messages that arrived since `before`
+   * are, oldest first:
    *
-   * The data between your last saved position and the current head position
-   * represents the newly received messages. When reading the data, remember
-   * that it may wrap around from the end of the buffer back to the beginning.
+   * @code
    *
-   * This function will not change if the state of the system is "bus-off".
+   * auto const buffer = can.receive_buffer();
+   * for (hal::usize i = 0; i < received; i++) {
+   *   auto const& message = buffer[before + i];
+   * }
    *
-   * @return usize - position of the write cursor for the circular buffer.
+   * @endcode
+   *
+   * When the count wraps to 0, indexes taken from it jump to 0 too, unless the
+   * buffer's size is a power of two.
+   *
+   * The count does not change while the device is "bus-off".
+   *
+   * @return usize - the number of messages received since the driver was
+   * created, modulo the range of `usize`
    */
-  usize receive_cursor()
+  [[nodiscard]] usize receive_count()
   {
-    return driver_receive_cursor();
+    return driver_receive_count();
   }
 
 protected:
@@ -239,7 +245,7 @@ private:
   virtual hertz driver_baud_rate() = 0;
   virtual void driver_send(can_message const& p_message) = 0;
   virtual circular_span<can_message const> driver_receive_buffer() = 0;
-  virtual usize driver_receive_cursor() = 0;
+  virtual usize driver_receive_count() = 0;
 };
 
 /**
@@ -318,8 +324,8 @@ protected:
  * `can_interrupt` does not need to know its IDs. Messages must also be
  * accepted by the CAN controller's hardware filters to arrive at all. Drivers
  * that cannot natively signal RX events should not implement this interface;
- * use the cursor-based polling API via `receive_buffer()` and
- * `receive_cursor()` on `can_transceiver` instead.
+ * poll `receive_count()` and `receive_buffer()` on `can_transceiver`
+ * instead.
  *
  * Contract: at most ONE subscriber at a time. Subscribing while one is active
  * throws hal::subscription_busy.
@@ -494,7 +500,7 @@ public:
    * On construction of the can driver, the device starts in the "bus-on" state
    * with no bus-off callback installed. After this callback has been invoked,
    * the `send()` API will throw the `hal::operation_not_permitted` exception
-   * and the `receive_cursor()` API will not update until `bus_on()` is called.
+   * and `receive_count()` will not change until `bus_on()` is called.
    *
    * Use the static_ref overload to register for the rest of the program.
    *
