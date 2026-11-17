@@ -30,7 +30,7 @@ public:
   std::array<hal::byte, 256> last_data_out{};
   hal::usize last_data_out_size{};
   std::array<hal::byte, 256> rx_buffer{};
-  hal::usize rx_cursor{ 0 };
+  hal::usize rx_count{ 0 };
 
 private:
   void driver_configure(hal::serial::settings const& p_settings) override
@@ -55,9 +55,9 @@ private:
     return rx_buffer;
   }
 
-  hal::usize driver_receive_cursor() override
+  hal::usize driver_receive_count() override
   {
-    return rx_cursor;
+    return rx_count;
   }
 };
 
@@ -271,45 +271,47 @@ void serial_receive_buffer_test() noexcept
   };
 }
 
-void serial_receive_cursor_test() noexcept
+void serial_receive_count_test() noexcept
 {
   using namespace boost::ut;
 
-  "receive_cursor() returns initial cursor of zero"_test = [&]() {
+  "receive_count() starts at zero"_test = [&]() {
     // Setup
     test_serial test;
 
     // Exercise
-    auto cursor = test.receive_cursor();
+    auto const count = test.receive_count();
 
     // Verify
-    expect(that % 0 == cursor);
+    expect(that % 0 == count);
   };
 
-  "receive_cursor() returns updated cursor value"_test = [&]() {
-    // Setup
-    test_serial test;
-    test.rx_cursor = 5;
+  "receive_count() returns the running total, past the buffer size"_test =
+    [&]() {
+      // Setup
+      test_serial test;
+      test.rx_count = 515;
 
-    // Exercise
-    auto cursor = test.receive_cursor();
+      // Exercise
+      auto const count = test.receive_count();
 
-    // Verify
-    expect(that % 5 == cursor);
-  };
+      // Verify
+      expect(that % 515 == count);
+    };
 
-  "receive_cursor() is within bounds of receive_buffer()"_test = [&]() {
-    // Setup
-    test_serial test;
-    test.rx_cursor = 100;
+  "receive_buffer() indexed by receive_count() wraps to the buffer"_test =
+    [&]() {
+      // Setup
+      test_serial test;
+      test.rx_count = 515;
 
-    // Exercise
-    auto cursor = test.receive_cursor();
-    auto buf = test.receive_buffer();
+      // Exercise
+      auto const buffer = test.receive_buffer();
+      auto const* const next_slot = &buffer[test.receive_count()];
 
-    // Verify
-    expect(cursor < buf.size());
-  };
+      // Verify
+      expect(next_slot == &test.rx_buffer[3]);
+    };
 }
 
 void serial_interrupt_test() noexcept
@@ -450,6 +452,6 @@ int main()
   serial_configure_test();
   serial_write_test();
   serial_receive_buffer_test();
-  serial_receive_cursor_test();
+  serial_receive_count_test();
   serial_interrupt_test();
 }
