@@ -129,9 +129,8 @@ public:
   /**
    * @brief Returns this serial driver's receive buffer
    *
-   * Use this along with the receive_cursor() in order to determine if new data
-   * has been read into the receive buffer. See the docs for `receive_cursor()`
-   * for more details.
+   * Use this with `receive_count()` to find out how many new bytes have
+   * arrived and where they are. See the docs for `receive_count()`.
    *
    * @return circular_span<hal::byte const> - a const span to the
    * receive buffer used by the serial port. Calling `size()` on the span will
@@ -143,52 +142,49 @@ public:
   }
 
   /**
-   * @brief Returns the current write position of the circular receive buffer
+   * @brief Returns the total number of bytes received
    *
-   * Receive cursor represents the position where the next byte of data will be
-   * written in to the receive buffer. This position advances as new data
-   * arrives. To determine how much new data has arrived, store the previous
-   * cursor position and compare it with the current cursor position.
+   * The count starts at 0 when the driver is created and increases by one for
+   * every byte written into the receive buffer. It never goes back, except
+   * that it wraps from the maximum value of `usize` to 0.
    *
-   * The cursor value will ALWAYS monotonically increase and will not wrap
-   * around until the cursor reaches the max of `usize`. Using this fact along
-   * with the size of the receive_buffer can tell you how many bytes have been
-   * written to the receive buffer since this object has been created.
-   *
-   * Because `receive_buffer()` returns a `circular_span`, you can pass the raw
-   * cursor value directly as an index — the modulo wrapping is handled for you:
+   * Subtract an earlier count to find how many bytes arrived since then. The
+   * subtraction is unsigned, so it stays correct across the wrap:
    *
    * @code
    *
-   * auto buffer = serial.receive_buffer();
-   * auto byte = buffer[serial.receive_cursor()];
+   * auto const before = port.receive_count();
+   * // ... wait for new data ...
+   * auto const received = port.receive_count() - before;
    *
    * @endcode
    *
-   * Just note that a valid index does not imply the byte at that position
-   * contains useful data; it may be uninitialized or stale if no new data has
-   * arrived.
+   * If `received` is larger than `receive_buffer().size()`, the oldest of
+   * those bytes were overwritten before they could be read.
    *
-   * Example:
+   * `receive_buffer()` returns a `circular_span`, which wraps any index to its
+   * size, so a count can index it directly. The next byte will be written at
+   * `buffer[port.receive_count()]`, and the bytes that arrived since `before`
+   * are, oldest first:
    *
-   *   auto old_head = port.receive_cursor();
-   *   // ... wait for new data ...
-   *   auto new_head = port.receive_cursor();
-   *   // Account for circular wraparound when calculating bytes received
-   *   auto buffer_size = port.receive_buffer().size();
-   *   auto bytes_received = (new_head + buffer_size - old_head) % buffer_size;
+   * @code
    *
-   * Use this along with receive_buffer() to access newly received data. The
-   * data between your last saved position and the current cursor position
-   * represents the newly received bytes. When reading the data, remember that
-   * it may wrap around from the end of the buffer back to the beginning.
+   * auto const buffer = port.receive_buffer();
+   * for (hal::usize i = 0; i < received; i++) {
+   *   auto const& byte = buffer[before + i];
+   * }
    *
-   * @return usize - position of the write cursor for the
-   * circular buffer
+   * @endcode
+   *
+   * When the count wraps to 0, indexes taken from it jump to 0 too, unless the
+   * buffer's size is a power of two.
+   *
+   * @return usize - the number of bytes received since the driver was created,
+   * modulo the range of `usize`
    */
-  [[nodiscard]] usize receive_cursor()
+  [[nodiscard]] usize receive_count()
   {
-    return driver_receive_cursor();
+    return driver_receive_count();
   }
 
 protected:
@@ -198,7 +194,7 @@ private:
   virtual void driver_configure(settings const& p_settings) = 0;
   virtual void driver_write(mem::scatter_span<hal::byte const> p_data) = 0;
   virtual circular_span<hal::byte const> driver_receive_buffer() = 0;
-  virtual usize driver_receive_cursor() = 0;
+  virtual usize driver_receive_count() = 0;
 };
 
 /**
@@ -209,7 +205,7 @@ private:
  * hal::serial_event::idle)`, never by comparing for equality, so that flags
  * added later do not break existing callbacks.
  *
- * An event means "check `receive_cursor()`", not "N bytes arrived". Events can
+ * An event means "check `receive_count()`", not "N bytes arrived". Events can
  * arrive close together, for example `high_water` and `idle` when a burst ends
  * right at the middle of the receive buffer, so callbacks must not count
  * events to track data.

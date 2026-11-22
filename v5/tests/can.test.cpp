@@ -29,7 +29,7 @@ class test_can_transceiver : public hal::can_transceiver
 public:
   hal::can_message last_sent_message{};
   std::array<hal::can_message, 8> rx_buffer{};
-  hal::usize rx_cursor{ 0 };
+  hal::usize rx_count{ 0 };
   hal::hertz baud_rate_hz{ 500'000 * Hz };
 
 private:
@@ -48,9 +48,9 @@ private:
     return rx_buffer;
   }
 
-  hal::usize driver_receive_cursor() override
+  hal::usize driver_receive_count() override
   {
-    return rx_cursor;
+    return rx_count;
   }
 };
 
@@ -347,36 +347,38 @@ void can_transceiver_receive_buffer_test() noexcept
   };
 }
 
-void can_transceiver_receive_cursor_test() noexcept
+void can_transceiver_receive_count_test() noexcept
 {
   using namespace boost::ut;
 
-  "receive_cursor() returns initial cursor of zero"_test = [&]() {
+  "receive_count() starts at zero"_test = [&]() {
     test_can_transceiver test;
 
-    auto cursor = test.receive_cursor();
+    auto const count = test.receive_count();
 
-    expect(that % 0 == cursor);
+    expect(that % 0 == count);
   };
 
-  "receive_cursor() returns updated cursor value"_test = [&]() {
-    test_can_transceiver test;
-    test.rx_cursor = 3;
+  "receive_count() returns the running total, past the buffer size"_test =
+    [&]() {
+      test_can_transceiver test;
+      test.rx_count = 19;
 
-    auto cursor = test.receive_cursor();
+      auto const count = test.receive_count();
 
-    expect(that % 3 == cursor);
-  };
+      expect(that % 19 == count);
+    };
 
-  "receive_cursor() is within bounds of receive_buffer()"_test = [&]() {
-    test_can_transceiver test;
-    test.rx_cursor = 7;
+  "receive_buffer() indexed by receive_count() wraps to the buffer"_test =
+    [&]() {
+      test_can_transceiver test;
+      test.rx_count = 19;
 
-    auto cursor = test.receive_cursor();
-    auto buf = test.receive_buffer();
+      auto const buffer = test.receive_buffer();
+      auto const* const next_slot = &buffer[test.receive_count()];
 
-    expect(cursor < buf.size());
-  };
+      expect(next_slot == &test.rx_buffer[3]);
+    };
 }
 
 void can_bus_manager_test() noexcept
@@ -693,7 +695,7 @@ int main()
   can_transceiver_baud_rate_test();
   can_transceiver_send_test();
   can_transceiver_receive_buffer_test();
-  can_transceiver_receive_cursor_test();
+  can_transceiver_receive_count_test();
   can_bus_manager_test();
   can_interrupt_test();
   can_receive_filter_test();
