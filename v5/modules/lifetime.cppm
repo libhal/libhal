@@ -28,6 +28,7 @@ module;
 export module hal:lifetime;
 
 import :error;
+import :functional;
 
 /**
  * References with compile-time lifetime checks, and one owner type for
@@ -116,8 +117,7 @@ protected:
  * @tparam T - the type it must return
  */
 template<class Factory, class T>
-concept factory_of =
-  std::invocable<Factory&> && std::same_as<std::invoke_result_t<Factory&>, T>;
+concept factory_of = callable<Factory, T()>;
 
 /**
  * @brief Holds a static object that is never destroyed
