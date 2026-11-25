@@ -46,6 +46,7 @@ libhal_add_library(libhal
         modules/memory.cppm
         modules/memory_copier.cppm
         modules/containers.cppm
+        modules/functional.cppm
         modules/lifetime.cppm
         modules/subscription.cppm
 )
@@ -72,6 +73,7 @@ libhal_add_tests(libhal
         pimpl
         waiter
         lock
+        functional
         lifetime
         memory_copier
         subscription
