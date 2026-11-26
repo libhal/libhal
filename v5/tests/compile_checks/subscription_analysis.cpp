@@ -15,8 +15,6 @@
 // Single-subscriber callback misuse that Clang's lifetime safety analysis
 // reports, using edge_triggered_interrupt as the example source.
 
-#include <optional>
-
 #include "fixtures.hpp"
 
 hal::subscription subscription_outlives_callback(fake_pin& p_pin)

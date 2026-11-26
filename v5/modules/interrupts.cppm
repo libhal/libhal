@@ -14,6 +14,8 @@
 
 export module hal:interrupts;
 
+import std;
+
 import :units;
 import :lifetime;
 import :subscription;

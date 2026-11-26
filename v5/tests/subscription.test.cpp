@@ -16,12 +16,9 @@
 // edge_triggered_interrupt as the example source. Misuse that Clang's lifetime
 // safety analysis must catch is in tests/compile_checks/subscription_cases.cpp.
 
-#include <optional>
-#include <type_traits>
-#include <utility>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 namespace {

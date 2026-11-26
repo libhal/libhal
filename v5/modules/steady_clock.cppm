@@ -12,6 +12,8 @@
 
 export module hal:steady_clock;
 
+import std;
+
 import :units;
 
 namespace hal::inline v5 {

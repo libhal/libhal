@@ -16,17 +16,9 @@
 // dangling references Clang's lifetime safety analysis must catch, are in
 // tests/compile_checks/lifetime_cases.cpp.
 
-#include <array>
-#include <cstddef>
-#include <exception>
-#include <memory>
-#include <memory_resource>
-#include <optional>
-#include <type_traits>
-#include <utility>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 namespace {

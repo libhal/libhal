@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <chrono>
-#include <utility>
-#include <vector>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 using namespace std::chrono_literals;

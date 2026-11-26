@@ -14,9 +14,6 @@
 
 // hal:lifetime misuse that the type system rejects.
 
-#include <memory>
-#include <utility>
-
 #include "fixtures.hpp"
 
 int static_ref_to_local()

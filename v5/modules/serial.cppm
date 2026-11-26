@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <span>
-
 export module hal:serial;
+
+import std;
 
 export import scatter_span;
 

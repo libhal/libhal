@@ -91,10 +91,10 @@ class libhal_conan(ConanFile):
         self._validate_compiler_version()
 
     def build_requirements(self):
-        self.tool_requires("cmake/[^4.0.0]")
+        self.tool_requires("cmake/[^4.5.0]")
         self.tool_requires("ninja/[^1.3.0]")
         self.test_requires("boost-ext-ut/2.3.1")
-        self.tool_requires("libhal-cmake-util/[^5.0.15]")
+        self.tool_requires("libhal-cmake-util/[^5.0.16]")
 
     def requirements(self):
         # A 0.x caret only spans one minor (^0.2.0 is <0.3.0), so the range

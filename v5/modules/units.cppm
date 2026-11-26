@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <chrono>
-#include <cstdint>
-
 export module hal:units;
+
+import std;
 
 // Only SI, ISQ and angular units, not every mp-units system: every consumer
 // rebuilds the interfaces of the modules it imports, and the full

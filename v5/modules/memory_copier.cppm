@@ -14,6 +14,8 @@
 
 export module hal:memory_copier;
 
+import std;
+
 export import scatter_span;
 
 import :units;

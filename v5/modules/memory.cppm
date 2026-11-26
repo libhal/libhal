@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <memory_resource>
-#include <type_traits>
-
 export module hal:memory;
+
+import std;
 
 namespace hal::inline v5 {
 

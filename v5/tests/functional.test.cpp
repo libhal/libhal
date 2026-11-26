@@ -14,6 +14,7 @@
 
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 namespace {

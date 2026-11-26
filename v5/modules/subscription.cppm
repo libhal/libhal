@@ -12,15 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <exception>
-#include <functional>
-#include <system_error>
-#include <type_traits>
-#include <utility>
-
 export module hal:subscription;
+
+import std;
 
 import :error;
 

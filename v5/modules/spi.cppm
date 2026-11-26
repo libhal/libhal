@@ -14,12 +14,14 @@
 
 module;
 
-#include <concepts>
+// The lock types (std::unique_lock, std::lock_guard) come from <mutex>:
+// libc++ built without threads, as on bare-metal targets, leaves them out of
+// the std module.
 #include <mutex>
-#include <tuple>
-#include <type_traits>
 
 export module hal:spi;
+
+import std;
 
 export import scatter_span;
 

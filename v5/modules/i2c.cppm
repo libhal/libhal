@@ -12,11 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <chrono>
-
 export module hal:i2c;
+
+import std;
 
 export import scatter_span;
 
