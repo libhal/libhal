@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <exception>
-#include <system_error>
-#include <type_traits>
-
 export module hal:error;
+
+import std;
 
 import :units;
 
@@ -89,6 +85,8 @@ private:
   }
 
   void const* m_instance = nullptr;
+  // 0 means no std::errc applies
+  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   std::errc m_error_code{};
   u32 m_reserved0{};
   u32 m_reserved1{};
@@ -197,6 +195,8 @@ public:
 
 private:
   void const* m_instance = nullptr;
+  // 0 means no std::errc applies
+  // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
   std::errc m_error_code{};
   /// Reserved memory for future use without breaking the ABI
   /// To keep the layout the same with `exception_abi_origin_v0`, these MUST
@@ -764,6 +764,8 @@ export struct not_connected : public exception
 export struct unknown : public exception
 {
   unknown(void const* p_instance)
+    // 0 means no std::errc applies
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     : exception(std::errc{}, p_instance)
   {
   }

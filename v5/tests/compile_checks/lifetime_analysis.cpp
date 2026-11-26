@@ -14,10 +14,6 @@
 
 // hal:lifetime misuse that Clang's lifetime safety analysis reports.
 
-#include <memory_resource>
-#include <optional>
-#include <utility>
-
 #include "fixtures.hpp"
 
 sensor return_sensor_on_local_bus()

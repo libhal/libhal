@@ -1,10 +1,6 @@
-#include <algorithm>
-#include <memory_resource>
-#include <print>
-#include <vector>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 bool smart_motor_exists = false;

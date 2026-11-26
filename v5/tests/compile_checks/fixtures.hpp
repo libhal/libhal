@@ -17,8 +17,7 @@
 
 #pragma once
 
-#include <memory_resource>
-
+import std;
 import hal;
 
 // ---- hal:lifetime ----------------------------------------------------------

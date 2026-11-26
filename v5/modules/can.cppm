@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <array>
-#include <optional>
-
 export module hal:can;
+
+import std;
 
 export import scatter_span;
 import :units;

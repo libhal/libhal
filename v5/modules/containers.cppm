@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <concepts>
-#include <span>
-
 export module hal:containers;
+
+import std;
 
 import :units;
 

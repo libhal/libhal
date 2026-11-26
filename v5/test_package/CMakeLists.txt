@@ -17,7 +17,7 @@
 #         what is needed with normal CMake to use the libhal library.
 # ==============================================================================
 
-cmake_minimum_required(VERSION 3.28)
+cmake_minimum_required(VERSION 4.5)
 
 # Generate compile commands for anyone using our libraries.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)

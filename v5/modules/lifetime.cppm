@@ -12,20 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <array>
-#include <concepts>
-#include <cstddef>
-#include <exception>
-#include <memory>
-#include <memory_resource>
-#include <new>
-#include <system_error>
-#include <type_traits>
-#include <utility>
-
 export module hal:lifetime;
+
+import std;
 
 import :error;
 import :functional;

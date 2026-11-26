@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <exception>
-#include <string_view>
-#include <system_error>
-#include <type_traits>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 namespace {
@@ -54,6 +50,8 @@ void error_test()
   "hal::exception keeps its error code and instance"_test = []() {
     // Setup
     int const driver = 0;
+    // Overwritten by the catch below, so its first value doesn't matter
+    // NOLINTNEXTLINE(bugprone-invalid-enum-default-initialization)
     std::errc code{};
     void const* instance = nullptr;
 

@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <array>
-#include <chrono>
-#include <memory_resource>
-
 #include <boost/ut.hpp>
 
+import std;
 import hal;
 
 namespace {

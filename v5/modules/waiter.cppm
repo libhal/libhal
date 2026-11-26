@@ -12,14 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <chrono>
-#include <exception>
-#include <type_traits>
-#include <utility>
-
 export module hal:waiter;
+
+import std;
 
 import :units;
 import :steady_clock;

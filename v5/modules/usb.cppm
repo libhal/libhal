@@ -12,15 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <optional>
-#include <span>
-
 export module hal:usb;
+
+import std;
 
 export import scatter_span;
 

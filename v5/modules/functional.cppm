@@ -12,12 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-module;
-
-#include <concepts>
-#include <type_traits>
-
 export module hal:functional;
+
+import std;
 
 namespace hal::inline v5 {
 // `callable`'s check. It's a concept so that `and` stops at a call that isn't
